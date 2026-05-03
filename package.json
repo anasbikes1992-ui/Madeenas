@@ -12,6 +12,7 @@
     "@auth/prisma-adapter": "^2.11.2",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.22.0",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/uuid": "^10.0.0",
