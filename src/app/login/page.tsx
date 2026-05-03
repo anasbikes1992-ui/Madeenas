@@ -150,7 +150,7 @@ export default function LoginPage() {
               <p className="text-xs text-slate-500 mb-3">Demo accounts:</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  { role: 'Super Admin', email: 'madeenas.lk@gmail.com', pass: '123456' },
+                  { role: 'Super Admin', email: 'anasbikes1992@gmail.com', pass: '123456' },
                   { role: 'Manager', email: 'manager.wh@textilestock.com', pass: 'password123' },
                   { role: 'Store Keeper', email: 'storekeeper@textilestock.com', pass: 'password123' },
                   { role: 'Finance', email: 'finance@textilestock.com', pass: 'password123' },
