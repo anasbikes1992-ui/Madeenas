@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  password      String
+  role          String   @default("STORE_KEEPER")
+  locationId    String?
+  location      Location? @relation(fields: [locationId], references: [id])
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  stockIns        StockIn[]
+  stockOutRequests StockOutRequest[] @relation("RequestedBy")
+  approvedRequests StockOutRequest[] @relation("ApprovedBy")
+  customerOrders  CustomerOrder[]
+  financeReviews  FinanceReview[]
+  auditLogs       AuditLog[]
+  sales           Sale[]
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  color     String    @default("#6366f1")
+  icon      String?
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  design       String
+  color        String
+  colorHex     String   @default("#000000")
+  sku          String   @unique
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  unit         String   @default("meters")
+  description  String?
+  images       String   @default("[]")
+  barcodeType  String   @default("CODE128")
+  isActive     Boolean  @default(true)
+  lowStockAt   Float    @default(10)
+  costPrice    Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stocks          Stock[]
+  stockIns        StockIn[]
+  stockOutRequests StockOutRequest[]
+  customerOrders  CustomerOrder[]
+  saleItems       SaleItem[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  type      String
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users            User[]
+  stocks           Stock[]
+  stockInsReceived StockIn[]
+  stockOutFrom     StockOutRequest[] @relation("FromLocation")
+  stockOutTo       StockOutRequest[] @relation("ToLocation")
+  sales            Sale[]
+}
+
+model Stock {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+  quantity   Float    @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, locationId])
+}
+
+model StockIn {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  locationId  String
+  location    Location @relation(fields: [locationId], references: [id])
+  quantity    Float
+  batchNumber String?
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  costPrice   Float?
+  note        String?
+  receivedBy  String
+  user        User     @relation(fields: [receivedBy], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model StockOutRequest {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id])
+  fromLocationId     String
+  fromLocation       Location @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocationId       String?
+  toLocation         Location? @relation("ToLocation", fields: [toLocationId], references: [id])
+  requestedBy        String
+  requestedByUser    User     @relation("RequestedBy", fields: [requestedBy], references: [id])
+  quantityRequested  Float
+  quantityApproved   Float?
+  status             String   @default("PENDING")
+  referenceInvoice   String?
+  invoiceDate        DateTime?
+  approvedBy         String?
+  approvedByUser     User?    @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt         DateTime?
+  dispatchedAt       DateTime?
+  acknowledgedAt     DateTime?
+  rejectionReason    String?
+  note               String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  financeReviews FinanceReview[]
+}
+
+model CustomerOrder {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  customerId      String?
+  customer        User?    @relation(fields: [customerId], references: [id])
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  quantity        Float
+  colorPreference String?
+  note            String?
+  status          String   @default("NEW")
+  quotedPrice     Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  stockIns StockIn[]
+}
+
+model FinanceReview {
+  id              String          @id @default(cuid())
+  stockOutId      String
+  stockOut        StockOutRequest @relation(fields: [stockOutId], references: [id])
+  reviewedBy      String
+  reviewer        User            @relation(fields: [reviewedBy], references: [id])
+  externalInvoice String?
+  externalAmount  Float?
+  notes           String?
+  status          String          @default("PENDING")
+  createdAt       DateTime        @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  role      String?
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String?  @unique
+  email           String?
+  isCreditEligible Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sales           Sale[]
+}
+
+model Sale {
+  id          String     @id @default(cuid())
+  receiptNo   String     @unique
+  locationId  String
+  location    Location   @relation(fields: [locationId], references: [id])
+  soldById    String
+  soldBy      User       @relation(fields: [soldById], references: [id])
+  customerId  String?
+  customer    Customer?  @relation(fields: [customerId], references: [id])
+  customerName String?
+  customerPhone String?
+  totalAmount Float
+  paymentMode String     @default("CASH") // CASH, BANK_TRANSFER, CHEQUE, CREDIT
+  note        String?
+  createdAt   DateTime   @default(now())
+  
+  items       SaleItem[]
+}
+
+model SaleItem {
+  id        String   @id @default(cuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Float
+  unitPrice Float
+  subTotal  Float
+}

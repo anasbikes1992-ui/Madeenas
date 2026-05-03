@@ -1,0 +1,51 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import { auth } from '@/lib/auth'
+
+export async function POST(req: Request) {
+  try {
+    const session = await auth()
+    if (!session || !['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { products } = await req.json()
+
+    if (!Array.isArray(products)) {
+      return NextResponse.json({ error: 'Invalid products data' }, { status: 400 })
+    }
+
+    const results = await Promise.all(
+      products.map(async (p) => {
+        try {
+          // Check if category exists or use a default one if needed
+          // For now, assume categoryId is provided correctly or we skip
+          if (!p.categoryId) return { name: p.name, status: 'Error', message: 'Category ID missing' }
+
+          const created = await prisma.product.create({
+            data: {
+              name: p.name,
+              design: p.design || 'Default',
+              sku: p.sku,
+              color: p.color || 'White',
+              colorHex: p.colorHex || '#FFFFFF',
+              categoryId: p.categoryId,
+              unit: p.unit || 'meters',
+              lowStockAt: parseFloat(p.lowStockAt) || 10,
+              costPrice: p.costPrice ? parseFloat(p.costPrice) : null,
+              description: p.description || '',
+            }
+          })
+          return { name: p.name, status: 'Success' }
+        } catch (err: any) {
+          return { name: p.name, status: 'Error', message: err.message }
+        }
+      })
+    )
+
+    return NextResponse.json({ results })
+  } catch (error) {
+    console.error('Bulk import error:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+}

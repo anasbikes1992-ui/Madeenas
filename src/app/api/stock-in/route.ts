@@ -1,0 +1,90 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import { auth } from '@/lib/auth'
+import { logActivity, createNotification } from '@/lib/audit'
+
+export async function GET(request: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const locationId = searchParams.get('locationId')
+  const productId = searchParams.get('productId')
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '20')
+
+  const where: any = {}
+  if (locationId) where.locationId = locationId
+  if (productId) where.productId = productId
+
+  const [entries, total] = await Promise.all([
+    prisma.stockIn.findMany({
+      where,
+      include: {
+        product: { include: { category: true } },
+        location: true,
+        user: { select: { id: true, name: true, email: true } },
+        supplier: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.stockIn.count({ where }),
+  ])
+  return NextResponse.json({ entries, total })
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const role = session.user.role as string
+  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const body = await request.json()
+  const qty = parseFloat(body.quantity)
+
+  // Create stock-in record
+  const stockIn = await prisma.stockIn.create({
+    data: {
+      productId: body.productId,
+      locationId: body.locationId,
+      quantity: qty,
+      batchNumber: body.batchNumber,
+      supplierId: body.supplierId || null,
+      costPrice: body.costPrice ? parseFloat(body.costPrice) : null,
+      note: body.note,
+      receivedBy: session.user.id as string,
+    },
+    include: { product: true, location: true }
+  })
+
+  // Upsert stock level
+  await prisma.stock.upsert({
+    where: { productId_locationId: { productId: body.productId, locationId: body.locationId } },
+    update: { quantity: { increment: qty } },
+    create: { productId: body.productId, locationId: body.locationId, quantity: qty },
+  })
+
+  // Audit Log
+  await logActivity({
+    userId: session.user.id,
+    action: 'STOCK_IN',
+    entity: 'StockIn',
+    entityId: stockIn.id,
+    details: `Added ${qty} ${stockIn.product.unit} to ${stockIn.location.name}. Batch: ${body.batchNumber || 'N/A'}`
+  })
+
+  // Notify Admins about stock arrival
+  await createNotification({
+    role: 'ADMIN',
+    title: 'New Stock Received 📦',
+    message: `${qty} units of ${stockIn.product.name} received at ${stockIn.location.name}.`,
+    type: 'SUCCESS',
+    link: '/admin/inventory'
+  })
+
+  return NextResponse.json(stockIn, { status: 201 })
+}
