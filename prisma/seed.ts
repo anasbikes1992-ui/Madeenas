@@ -32,8 +32,21 @@ async function main() {
 
   // 2. Create Users
   const passwordHash = await bcrypt.hash('password123', 10)
+  const adminPasswordHash = await bcrypt.hash('123456', 10)
 
-  // Super Admin
+  // Primary Super Admin (Madeena production account)
+  await prisma.user.upsert({
+    where: { email: 'madeenas.lk@gmail.com' },
+    update: {},
+    create: {
+      name: 'Madeena Admin',
+      email: 'madeenas.lk@gmail.com',
+      password: adminPasswordHash,
+      role: 'SUPER_ADMIN'
+    }
+  })
+
+  // Secondary Super Admin (legacy)
   await prisma.user.upsert({
     where: { email: 'admin@textilestock.com' },
     update: {},

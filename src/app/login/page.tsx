@@ -1,14 +1,28 @@
 'use client'
-import { useState, FormEvent } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useState, FormEvent, useEffect } from 'react'
+import { signIn, getSession } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { getDashboardPath } from '@/lib/constants'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Handle NextAuth error codes passed via query string
+  useEffect(() => {
+    const authError = searchParams.get('error')
+    if (authError === 'Configuration') {
+      setError('Server configuration error. Please contact the administrator.')
+    } else if (authError === 'CredentialsSignin') {
+      setError('Invalid email or password.')
+    } else if (authError) {
+      setError(`Authentication error: ${authError}`)
+    }
+  }, [searchParams])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -21,10 +35,16 @@ export default function LoginPage() {
     })
     setLoading(false)
     if (result?.error) {
-      setError('Invalid email or password.')
-    } else {
-      // Redirect based on role happens server-side in middleware
-      router.push('/admin/dashboard')
+      if (result.error === 'Configuration') {
+        setError('Server configuration error. Please contact the administrator.')
+      } else {
+        setError('Invalid email or password.')
+      }
+    } else if (result?.ok) {
+      // Get session to determine role-based redirect
+      const session = await getSession()
+      const role = (session?.user as any)?.role || ''
+      router.push(getDashboardPath(role))
       router.refresh()
     }
   }
@@ -127,18 +147,18 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8 pt-6 border-t border-slate-100">
-              <p className="text-xs text-slate-500 mb-3">Demo accounts (password: password123):</p>
+              <p className="text-xs text-slate-500 mb-3">Demo accounts:</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  { role: 'Super Admin', email: 'admin@madeenatex.com' },
-                  { role: 'Finance', email: 'finance@madeenatex.com' },
-                  { role: 'Manager', email: 'manager.wh@madeenatex.com' },
-                  { role: 'Store Keeper', email: 'storekeeper@madeenatex.com' },
+                  { role: 'Super Admin', email: 'madeenas.lk@gmail.com', pass: '123456' },
+                  { role: 'Manager', email: 'manager.wh@textilestock.com', pass: 'password123' },
+                  { role: 'Store Keeper', email: 'storekeeper@textilestock.com', pass: 'password123' },
+                  { role: 'Finance', email: 'finance@textilestock.com', pass: 'password123' },
                 ].map(u => (
                   <button
                     key={u.email}
                     type="button"
-                    onClick={() => { setEmail(u.email); setPassword('password123') }}
+                    onClick={() => { setEmail(u.email); setPassword(u.pass) }}
                     className="text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg px-3 py-2 transition-colors"
                   >
                     <div className="font-medium text-slate-700">{u.role}</div>

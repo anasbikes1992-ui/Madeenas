@@ -71,12 +71,19 @@ const navItems = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [time, setTime] = useState(new Date())
   const [mounted, setMounted] = useState(false)
   const role = session?.user?.role || ''
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login')
+    }
+  }, [status, router])
 
   useEffect(() => {
     setMounted(true)
