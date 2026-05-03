@@ -7,6 +7,11 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    datasources: {
+      db: {
+        url: "postgresql://postgres:MadeenasShazan@db.klklufcegyfgezvjmanr.supabase.co:6543/postgres?pgbouncer=true&connection_limit=1",
+      },
+    },
     log: ['error'],
   })
 
