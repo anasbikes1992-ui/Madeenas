@@ -1,12 +1,12 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
-// Secret token to protect the seed endpoint — set SEED_SECRET in Vercel env vars
 const SEED_SECRET = process.env.SEED_SECRET || 'madeena-seed-2024'
 
-export async function POST(req: Request) {
-  // Security check — require secret token
+async function runSeed(req: Request) {
   const { searchParams } = new URL(req.url)
   const token = searchParams.get('token') || req.headers.get('x-seed-token')
   if (token !== SEED_SECRET) {
@@ -177,6 +177,14 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json({ info: 'POST to this endpoint with ?token=madeena-seed-2024 to seed the database' })
+export async function POST(req: Request) {
+  return runSeed(req)
+}
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  if (searchParams.get('token')) {
+    return runSeed(req)
+  }
+  return NextResponse.json({ info: 'POST to this endpoint or GET with ?token=madeena-seed-2024 to seed the database' })
 }
