@@ -41,7 +41,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         } catch (error) {
           console.error('[auth] Credentials authorize() failed:', error)
-          throw new Error('Authentication backend unavailable')
+          console.error('[auth] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
+          // Return null instead of throwing to avoid Configuration error
+          return null
         }
       },
     }),
