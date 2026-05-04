@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 
 export default function StockInPage() {
+  const emptyForm = { productId: '', locationId: '', quantity: '', batchNumber: '', supplierId: '', costPrice: '', note: '' }
   const [entries, setEntries] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<any>({ productId: '', locationId: '', quantity: '', note: '' })
+  const [form, setForm] = useState<any>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -27,6 +28,10 @@ export default function StockInPage() {
     load()
     fetch('/api/products?limit=200').then(r => r.json()).then(d => setProducts(d.products || []))
     fetch('/api/locations').then(r => r.json()).then(d => setLocations(d))
+    fetch('/api/suppliers')
+      .then(r => r.json())
+      .then(d => setSuppliers(d || []))
+      .catch(() => showToast('Warning: Could not load suppliers'))
   }, [])
 
   async function handleSave(e: React.FormEvent) {
@@ -40,7 +45,7 @@ export default function StockInPage() {
     setSaving(false)
     if (res.ok) {
       setShowForm(false)
-      setForm({ productId: '', locationId: '', quantity: '', note: '' })
+      setForm(emptyForm)
       load()
       showToast('Stock recorded successfully!')
     } else {
@@ -149,6 +154,15 @@ export default function StockInPage() {
               <div className="form-group">
                 <label className="label">Batch Number</label>
                 <input className="input font-mono" value={form.batchNumber || ''} onChange={e => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g. BATCH-2024-001" />
+              </div>
+              <div className="form-group">
+                <label className="label">Supplier</label>
+                <select className="input" value={form.supplierId || ''} onChange={e => setForm({ ...form, supplierId: e.target.value })}>
+                  <option value="">No supplier</option>
+                  {suppliers.map((supplier: any) => (
+                    <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="form-group">
                 <label className="label">Notes</label>
