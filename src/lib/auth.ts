@@ -2,14 +2,10 @@ import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
-
-const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
-if (!secret) {
-  throw new Error('[auth] Missing AUTH_SECRET (or NEXTAUTH_SECRET). Authentication cannot start.')
-}
+import { env } from '@/lib/env'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret,
+  secret: env.AUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: 'credentials',

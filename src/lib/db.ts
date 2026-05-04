@@ -1,12 +1,11 @@
 import { PrismaClient } from '@prisma/client'
+import { env } from '@/lib/env'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('[db] Missing DATABASE_URL environment variable.')
-}
+void env.DATABASE_URL
 
 export const prisma =
   globalForPrisma.prisma ??

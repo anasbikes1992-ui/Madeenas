@@ -3,14 +3,16 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { env } from '@/lib/env'
+import { fail, ok } from '@/lib/api-response'
 
-const SEED_SECRET = process.env.SEED_SECRET || 'madeena-seed-2024'
+const SEED_SECRET = env.SEED_SECRET
 
 async function runSeed(req: Request) {
   const { searchParams } = new URL(req.url)
   const token = searchParams.get('token') || req.headers.get('x-seed-token')
-  if (token !== SEED_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!SEED_SECRET || token !== SEED_SECRET) {
+    return fail('Unauthorized', 401, 'UNAUTHORIZED')
   }
 
   try {
@@ -158,22 +160,14 @@ async function runSeed(req: Request) {
     const locationCount = await prisma.location.count()
     const stockCount    = await prisma.stock.count()
 
-    return NextResponse.json({
-      success: true,
-      message: '✅ Database seeded successfully!',
+    return ok({
+      message: 'Database seeded successfully.',
       summary: { users: userCount, products: productCount, locations: locationCount, stockEntries: stockCount },
-      credentials: {
-        superAdmin: 'anasbikes1992@gmail.com / 123456',
-        madeenaAdmin: 'madeenas.lk@gmail.com / 123456',
-        finance: 'finance@textilestock.com / password123',
-        manager: 'manager.wh@textilestock.com / password123',
-        storekeeper: 'storekeeper@textilestock.com / password123',
-        shopStaff: 'shop.a@textilestock.com / password123',
-      }
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Seed failed:', error)
-    return NextResponse.json({ error: error.message || 'Seed failed' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Seed failed'
+    return fail(message, 500, 'SEED_FAILED')
   }
 }
 
@@ -182,9 +176,5 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  if (searchParams.get('token')) {
-    return runSeed(req)
-  }
-  return NextResponse.json({ info: 'POST to this endpoint or GET with ?token=madeena-seed-2024 to seed the database' })
+  return fail('Method not allowed. Use POST with x-seed-token header.', 405, 'METHOD_NOT_ALLOWED')
 }

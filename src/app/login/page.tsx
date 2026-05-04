@@ -100,27 +100,29 @@ function LoginForm() {
         </button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-slate-100">
-        <p className="text-xs text-slate-500 mb-3">Demo accounts:</p>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {[
-            { role: 'Super Admin', email: 'anasbikes1992@gmail.com', pass: '123456' },
-            { role: 'Manager', email: 'manager.wh@textilestock.com', pass: 'password123' },
-            { role: 'Store Keeper', email: 'storekeeper@textilestock.com', pass: 'password123' },
-            { role: 'Finance', email: 'finance@textilestock.com', pass: 'password123' },
-          ].map(u => (
-            <button
-              key={u.email}
-              type="button"
-              onClick={() => { setEmail(u.email); setPassword(u.pass) }}
-              className="text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg px-3 py-2 transition-colors"
-            >
-              <div className="font-medium text-slate-700">{u.role}</div>
-              <div className="text-slate-400 truncate">{u.email}</div>
-            </button>
-          ))}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="mt-8 pt-6 border-t border-slate-100">
+          <p className="text-xs text-slate-500 mb-3">Demo accounts:</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {[
+              { role: 'Super Admin', email: 'anasbikes1992@gmail.com', pass: '123456' },
+              { role: 'Manager', email: 'manager.wh@textilestock.com', pass: 'password123' },
+              { role: 'Store Keeper', email: 'storekeeper@textilestock.com', pass: 'password123' },
+              { role: 'Finance', email: 'finance@textilestock.com', pass: 'password123' },
+            ].map(u => (
+              <button
+                key={u.email}
+                type="button"
+                onClick={() => { setEmail(u.email); setPassword(u.pass) }}
+                className="text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg px-3 py-2 transition-colors"
+              >
+                <div className="font-medium text-slate-700">{u.role}</div>
+                <div className="text-slate-400 truncate">{u.email}</div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
