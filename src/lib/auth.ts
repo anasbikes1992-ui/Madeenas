@@ -3,9 +3,9 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
 
-const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '7qF9iM0zmkdDbtKYZekBKWtuaoXZcYxLIXaLsKYGzdk'
+const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
 if (!secret) {
-  console.error('[auth] CRITICAL: AUTH_SECRET env variable is not set! JWT signing will fail.')
+  throw new Error('[auth] Missing AUTH_SECRET (or NEXTAUTH_SECRET). Authentication cannot start.')
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -18,21 +18,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-          include: { location: true },
-        })
-        if (!user || !user.isActive) return null
-        const valid = await bcrypt.compare(credentials.password as string, user.password)
-        if (!valid) return null
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          locationId: user.locationId,
-          locationName: user.location?.name,
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+            include: { location: true },
+          })
+          if (!user || !user.isActive) return null
+
+          const valid = await bcrypt.compare(credentials.password as string, user.password)
+          if (!valid) return null
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            locationId: user.locationId,
+            locationName: user.location?.name,
+          }
+        } catch (error) {
+          console.error('[auth] Credentials authorize() failed:', error)
+          throw new Error('Authentication backend unavailable')
         }
       },
     }),
@@ -40,9 +50,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role
-        token.locationId = (user as any).locationId
-        token.locationName = (user as any).locationName
+        const sessionUser = user as {
+          role?: string
+          locationId?: string | null
+          locationName?: string | null
+        }
+
+        token.role = sessionUser.role
+        token.locationId = sessionUser.locationId
+        token.locationName = sessionUser.locationName
       }
       return token
     },

@@ -4,14 +4,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('[db] Missing DATABASE_URL environment variable.')
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.DIRECT_URL || "postgresql://postgres:MadeenasShazan2024@db.klklufcegyfgezvjmanr.supabase.co:5432/postgres",
-      },
-    },
     log: ['error'],
   })
 

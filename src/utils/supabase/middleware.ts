@@ -2,9 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export const createClient = (request: NextRequest) => {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("[supabase] Missing NEXT_PUBLIC_SUPABASE_URL or public anon key.");
+  }
+
   // Create an unmodified response
   let supabaseResponse = NextResponse.next({
     request: {
@@ -13,8 +17,8 @@ export const createClient = (request: NextRequest) => {
   });
 
   const supabase = createServerClient(
-    supabaseUrl!,
-    supabaseKey!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -32,6 +36,9 @@ export const createClient = (request: NextRequest) => {
       },
     }
   );
+
+  // Keep a reference so lint understands this client is intentionally initialized for cookie hooks.
+  void supabase;
 
   return supabaseResponse;
 };

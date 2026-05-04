@@ -6,7 +6,7 @@
  */
 
 const TOKEN  = process.argv[2]
-const PROJ   = 'prj_jWJbjxMZFsqbNA3r2WWMsTALJPGo'
+const PROJ   = process.env.VERCEL_PROJECT_ID
 
 if (!TOKEN) {
   console.error('Usage: node scratch/set-vercel-env.js <VERCEL_PERSONAL_ACCESS_TOKEN>')
@@ -14,26 +14,59 @@ if (!TOKEN) {
   process.exit(1)
 }
 
+if (!PROJ) {
+  console.error('Missing VERCEL_PROJECT_ID environment variable.')
+  process.exit(1)
+}
+
+function requireEnv(name) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+  return value
+}
+
+function optionalEnv(name) {
+  return process.env[name] || null
+}
+
+const authUrlProduction = requireEnv('AUTH_URL_PRODUCTION')
+const authUrlPreview = optionalEnv('AUTH_URL_PREVIEW') || authUrlProduction
+const appUrl = optionalEnv('NEXT_PUBLIC_APP_URL') || authUrlProduction
+const appName = optionalEnv('NEXT_PUBLIC_APP_NAME') || 'TextileStock'
+const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+
 const ENV_VARS = [
-  // Database — use direct URL for Vercel (Vercel can reach Supabase port 5432)
-  { key: 'DATABASE_URL',         value: 'postgresql://postgres:MadeenasShazan@db.klklufcegyfgezvjmanr.supabase.co:5432/postgres', target: ['production', 'preview'] },
-  { key: 'DIRECT_URL',           value: 'postgresql://postgres:MadeenasShazan@db.klklufcegyfgezvjmanr.supabase.co:5432/postgres', target: ['production', 'preview'] },
+  // Database
+  { key: 'DATABASE_URL', value: requireEnv('DATABASE_URL'), target: ['production', 'preview'] },
+  { key: 'DIRECT_URL', value: requireEnv('DIRECT_URL'), target: ['production', 'preview'] },
+
   // Auth
-  { key: 'AUTH_SECRET',          value: '7qF9iM0zmkdDbtKYZekBKWtuaoXZcYxLIXaLsKYGzdk', target: ['production', 'preview'] },
-  { key: 'AUTH_URL',             value: 'https://madeenas.vercel.app',                  target: ['production'] },
-  { key: 'AUTH_URL',             value: 'https://madeenas-dlsmpg9x3-anas-projects-7ceb7b61.vercel.app', target: ['preview'] },
-  { key: 'NEXTAUTH_SECRET',      value: '7qF9iM0zmkdDbtKYZekBKWtuaoXZcYxLIXaLsKYGzdk', target: ['production', 'preview'] },
-  { key: 'NEXTAUTH_URL',         value: 'https://madeenas.vercel.app',                  target: ['production'] },
-  { key: 'NEXTAUTH_URL',         value: 'https://madeenas-dlsmpg9x3-anas-projects-7ceb7b61.vercel.app', target: ['preview'] },
+  { key: 'AUTH_SECRET', value: requireEnv('AUTH_SECRET'), target: ['production', 'preview'] },
+  { key: 'AUTH_URL', value: authUrlProduction, target: ['production'] },
+  { key: 'AUTH_URL', value: authUrlPreview, target: ['preview'] },
+
+  // NextAuth aliases
+  { key: 'NEXTAUTH_SECRET', value: requireEnv('AUTH_SECRET'), target: ['production', 'preview'] },
+  { key: 'NEXTAUTH_URL', value: authUrlProduction, target: ['production'] },
+  { key: 'NEXTAUTH_URL', value: authUrlPreview, target: ['preview'] },
+
   // Supabase
-  { key: 'NEXT_PUBLIC_SUPABASE_URL',      value: 'https://klklufcegyfgezvjmanr.supabase.co', target: ['production', 'preview'] },
-  { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', value: 'sb_publishable_lBTUXxz_oVTUrhB24LHnPg_yxn1q2KN', target: ['production', 'preview'] },
+  { key: 'NEXT_PUBLIC_SUPABASE_URL', value: requireEnv('NEXT_PUBLIC_SUPABASE_URL'), target: ['production', 'preview'] },
+  { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', value: anonKey, target: ['production', 'preview'] },
+  { key: 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', value: anonKey, target: ['production', 'preview'] },
+  { key: 'SUPABASE_SERVICE_ROLE_KEY', value: requireEnv('SUPABASE_SERVICE_ROLE_KEY'), target: ['production', 'preview'] },
+
   // App
-  { key: 'NEXT_PUBLIC_APP_NAME', value: 'Madeena Tex', target: ['production', 'preview'] },
-  { key: 'NEXT_PUBLIC_APP_URL',  value: 'https://madeenas.vercel.app', target: ['production', 'preview'] },
-  // Seed secret
-  { key: 'SEED_SECRET',          value: 'madeena-seed-2024', target: ['production', 'preview'] },
+  { key: 'NEXT_PUBLIC_APP_NAME', value: appName, target: ['production', 'preview'] },
+  { key: 'NEXT_PUBLIC_APP_URL', value: appUrl, target: ['production', 'preview'] },
 ]
+
+const seedSecret = optionalEnv('SEED_SECRET')
+if (seedSecret) {
+  ENV_VARS.push({ key: 'SEED_SECRET', value: seedSecret, target: ['production', 'preview'] })
+}
 
 async function upsertEnvVar(envVar) {
   // First check if it exists
