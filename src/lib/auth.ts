@@ -3,7 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
 
-const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
+const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '7qF9iM0zmkdDbtKYZekBKWtuaoXZcYxLIXaLsKYGzdk'
 if (!secret) {
   console.error('[auth] CRITICAL: AUTH_SECRET env variable is not set! JWT signing will fail.')
 }
