@@ -2,10 +2,13 @@ import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
-import { env } from '@/lib/env'
+import { authConfig } from '@/lib/auth.config'
+
+const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: env.AUTH_SECRET,
+  ...authConfig,
+  secret,
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -43,35 +46,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        const sessionUser = user as {
-          role?: string
-          locationId?: string | null
-          locationName?: string | null
-        }
-
-        token.role = sessionUser.role
-        token.locationId = sessionUser.locationId
-        token.locationName = sessionUser.locationName
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub as string
-        session.user.role = token.role as string
-        session.user.locationId = token.locationId as string | null
-        session.user.locationName = token.locationName as string | null
-      }
-      return session
-    },
-  },
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
-  session: { strategy: 'jwt' },
-  trustHost: true,
 })
