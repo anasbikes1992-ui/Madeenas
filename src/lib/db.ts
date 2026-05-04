@@ -9,7 +9,7 @@ export const prisma =
   new PrismaClient({
     datasources: {
       db: {
-        url: "postgresql://postgres.klklufcegyfgezvjmanr:MadeenasShazan@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1",
+        url: process.env.DATABASE_URL || "postgresql://postgres.klklufcegyfgezvjmanr:MadeenasShazan2024@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1",
       },
     },
     log: ['error'],
