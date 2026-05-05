@@ -8,22 +8,33 @@ const STATUS_BADGE: Record<string, string> = {
 }
 
 export default function MyRequestsPage() {
-  const [requests, setRequests] = useState<any[]>([])
+  const [sentRequests, setSentRequests] = useState<any[]>([])
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('/api/stock-out?limit=50')
-      .then(r => r.json())
-      .then(data => { setRequests(data.requests || []); setLoading(false) })
-  }, [])
+  async function load() {
+    setLoading(true)
+    const [sentRes, incomingRes] = await Promise.all([
+      fetch('/api/stock-out?mine=1&limit=50').then(r => r.json()),
+      fetch('/api/stock-out?assignedToMe=1&status=DISPATCHED&limit=50').then(r => r.json()),
+    ])
+    setSentRequests(sentRes.requests || [])
+    setIncomingRequests(incomingRes.requests || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
 
   async function acknowledge(id: string) {
-    await fetch(`/api/stock-out/${id}`, {
+    const res = await fetch(`/api/stock-out/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'acknowledge' }),
     })
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'ACKNOWLEDGED', acknowledgedAt: new Date().toISOString() } : r))
+    if (!res.ok) return
+
+    setIncomingRequests(prev => prev.filter(r => r.id !== id))
+    setSentRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'ACKNOWLEDGED', acknowledgedAt: new Date().toISOString() } : r))
   }
 
   return (
@@ -31,16 +42,27 @@ export default function MyRequestsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">My Stock Requests</h1>
-          <p className="text-sm text-slate-500">Track all your stock-out requests</p>
+          <p className="text-sm text-slate-500">Track what you sent and quickly acknowledge what is arriving to your location</p>
         </div>
         <a href="/admin/new-request" className="btn-primary">+ New Request</a>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="card">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Sent By Me</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1">{sentRequests.length}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Needs Receiver Acknowledgment</p>
+          <p className="text-2xl font-bold text-indigo-700 mt-1">{incomingRequests.length}</p>
+        </div>
       </div>
 
       {loading ? (
         <div className="space-y-4">
           {[...Array(4)].map((_, i) => <div key={i} className="card h-20 animate-pulse bg-slate-100" />)}
         </div>
-      ) : requests.length === 0 ? (
+      ) : sentRequests.length === 0 && incomingRequests.length === 0 ? (
         <div className="card text-center py-16">
           <div className="text-5xl mb-4">📋</div>
           <h2 className="text-xl font-bold text-slate-700 mb-2">No Requests Yet</h2>
@@ -48,8 +70,33 @@ export default function MyRequestsPage() {
           <a href="/admin/new-request" className="btn-primary">Create Request</a>
         </div>
       ) : (
-        <div className="space-y-4">
-          {requests.map((r: any) => (
+        <div className="space-y-6">
+          {incomingRequests.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Incoming To Your Location</h2>
+              {incomingRequests.map((r: any) => (
+                <div key={r.id} className="card border-indigo-100 bg-indigo-50/40">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{r.product.name}</h3>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {r.fromLocation.name} → {r.toLocation?.name || 'Destination'}
+                      </p>
+                      <p className="text-sm text-slate-700 mt-1">Qty: {r.quantityApproved || r.quantityRequested} {r.product.unit}</p>
+                      <p className="text-xs text-slate-500 mt-2">Dispatched: {formatDate(r.dispatchedAt || r.updatedAt)}</p>
+                    </div>
+                    <button onClick={() => acknowledge(r.id)} className="btn-success btn-sm">
+                      ✅ Acknowledge Receipt
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">My Submitted Requests</h2>
+            {sentRequests.map((r: any) => (
             <div key={r.id} className="card">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -84,8 +131,8 @@ export default function MyRequestsPage() {
                   )}
                   <p className="text-xs text-slate-400 mt-2">Submitted: {formatDate(r.createdAt)}</p>
                 </div>
-                <div className="flex-shrink-0">
-                  {r.status === 'DISPATCHED' && (
+                <div className="shrink-0">
+                  {r.status === 'DISPATCHED' && incomingRequests.some(i => i.id === r.id) && (
                     <button onClick={() => acknowledge(r.id)} className="btn-success btn-sm">
                       ✅ Acknowledge Receipt
                     </button>
@@ -93,7 +140,8 @@ export default function MyRequestsPage() {
                 </div>
               </div>
             </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

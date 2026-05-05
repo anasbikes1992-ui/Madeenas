@@ -33,6 +33,13 @@ const rawEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
   SEED_SECRET: z.string().optional(),
+  WHATSAPP_ENABLED: z.coerce.boolean().optional().default(false),
+  WHATSAPP_API_URL: z.string().optional(),
+  WHATSAPP_API_TOKEN: z.string().optional(),
+  WHATSAPP_ADMIN_RECIPIENTS: z.string().optional(),
+  WHATSAPP_SHOP_RECIPIENTS: z.string().optional(),
+  WHATSAPP_SEND_CUSTOMER: z.coerce.boolean().optional().default(false),
+  WHATSAPP_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional().default(10000),
 })
 
 const parsed = rawEnvSchema.safeParse(process.env)

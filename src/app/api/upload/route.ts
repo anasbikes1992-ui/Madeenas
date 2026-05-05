@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 import { env } from '@/lib/env'
 import { fail, ok } from '@/lib/api-response'
+
+const hasSupabaseStorageCredentials =
+  !env.NEXT_PUBLIC_SUPABASE_URL.includes('[PROJECT-REF]') &&
+  !env.SUPABASE_SERVICE_ROLE_KEY.includes('[SUPABASE-')
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
   const base64 = `data:${file.type};base64,${buffer.toString('base64')}`
 
   // If Supabase configured, use it; else return base64
-  if (!env.NEXT_PUBLIC_SUPABASE_URL.includes('[PROJECT-REF]')) {
+  if (hasSupabaseStorageCredentials) {
     const { uploadProductImage } = await import('@/lib/supabase')
     const url = await uploadProductImage(buffer, file.name, file.type)
     if (url) return ok({ url })

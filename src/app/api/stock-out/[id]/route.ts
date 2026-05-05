@@ -17,6 +17,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  const userLocationId = session.user.locationId as string | null
+  const isRequester = existing.requestedBy === session.user.id
+  const isReceiverAtDestination = Boolean(
+    userLocationId && existing.toLocationId && existing.toLocationId === userLocationId
+  )
+  const isSourceOperator = Boolean(
+    userLocationId && existing.fromLocationId === userLocationId
+  )
   let updateData: any = {}
 
   if (action === 'approve') {
@@ -75,8 +83,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
   } else if (action === 'dispatch') {
-    if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER'].includes(role)) {
+    if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'].includes(role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (['STORE_KEEPER', 'SHOP_STAFF'].includes(role) && !isSourceOperator) {
+      return NextResponse.json({ error: 'You can only dispatch from your assigned source location' }, { status: 403 })
     }
     if (existing.status !== 'APPROVED') {
       return NextResponse.json({ error: 'Must be approved first' }, { status: 400 })
@@ -100,14 +111,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
     // 3. Create Finance Review automatically
-    await prisma.financeReview.create({
-      data: {
-        stockOutId: id,
-        reviewedBy: session.user.id, // Temporary until finance reviews it
-        status: 'PENDING',
-        notes: `Auto-generated on dispatch. Qty: ${qty}`
-      }
-    })
+    const financeReview = await prisma.financeReview.findFirst({ where: { stockOutId: id } })
+    if (!financeReview) {
+      await prisma.financeReview.create({
+        data: {
+          stockOutId: id,
+          reviewedBy: session.user.id, // Temporary until finance reviews it
+          status: 'PENDING',
+          notes: `Auto-generated on dispatch. Qty: ${qty}`
+        }
+      })
+    }
 
     updateData = { status: 'DISPATCHED', dispatchedAt: new Date() }
 
@@ -124,10 +138,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       title: 'New Finance Review 💰',
       message: `Stock dispatch for ${existing.product.name} requires financial reconciliation.`,
       type: 'WARNING',
-      link: '/finance/reviews'
+      link: '/finance/dashboard'
     })
 
   } else if (action === 'acknowledge') {
+    const isElevated = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)
+    if (!(isRequester || isElevated || isReceiverAtDestination)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     if (existing.status !== 'DISPATCHED') {
       return NextResponse.json({ error: 'Must be dispatched first' }, { status: 400 })
     }
@@ -154,6 +172,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
 
   } else if (action === 'cancel') {
+    if (!(isRequester || ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     if (existing.status !== 'PENDING') {
       return NextResponse.json({ error: 'Can only cancel pending requests' }, { status: 400 })
     }

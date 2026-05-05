@@ -1,9 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { ROLE_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 
 export default function UsersSettingsPage() {
+  const { data: session } = useSession()
+  const actorRole = session?.user?.role || ''
   const [users, setUsers] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +40,14 @@ export default function UsersSettingsPage() {
     setSaving(false)
     if (res.ok) { setShowForm(false); load(); showToast('User created!') }
   }
+
+  const availableRoles = Object.entries(ROLE_LABELS).filter(([value]) => {
+    if (actorRole === 'SUPER_ADMIN') return true
+    if (actorRole === 'ADMIN') return !['SUPER_ADMIN', 'ADMIN'].includes(value)
+    return false
+  })
+
+  const selectedRoleNeedsLocation = ['STORE_KEEPER', 'SHOP_STAFF'].includes(form.role)
 
   const roleColors: Record<string, string> = {
     SUPER_ADMIN: 'badge-red', ADMIN: 'badge-indigo', MANAGER: 'badge-blue',
@@ -102,17 +113,20 @@ export default function UsersSettingsPage() {
               <div className="form-group">
                 <label className="label">Role *</label>
                 <select required className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                  {Object.entries(ROLE_LABELS).map(([val, label]) => (
+                  {availableRoles.map(([val, label]) => (
                     <option key={val} value={val}>{label}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label className="label">Assigned Location</label>
-                <select className="input" value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
+                <label className="label">Assigned Location {selectedRoleNeedsLocation ? '*' : ''}</label>
+                <select className="input" required={selectedRoleNeedsLocation} value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
                   <option value="">No specific location</option>
                   {locations.map((l: any) => <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>)}
                 </select>
+                {selectedRoleNeedsLocation && (
+                  <p className="text-xs text-slate-500 mt-1">Store and shop users must be linked to one location.</p>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">

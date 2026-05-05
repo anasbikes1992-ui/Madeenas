@@ -43,11 +43,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role as string)) {
+  const actorRole = session.user.role as string
+  if (!['SUPER_ADMIN', 'ADMIN'].includes(actorRole)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const body = await request.json()
+  const targetRole = String(body.role || '')
+
+  if (!body.name || !body.email || !targetRole) {
+    return NextResponse.json({ error: 'Name, email, and role are required' }, { status: 400 })
+  }
+
+  if (actorRole === 'ADMIN' && ['SUPER_ADMIN', 'ADMIN'].includes(targetRole)) {
+    return NextResponse.json({ error: 'Admins can only create operational users' }, { status: 403 })
+  }
+
+  if (['STORE_KEEPER', 'SHOP_STAFF'].includes(targetRole) && !body.locationId) {
+    return NextResponse.json({ error: 'Location is required for shop and warehouse users' }, { status: 400 })
+  }
+
   const bcrypt = await import('bcryptjs')
   const passwordHash = await bcrypt.hash(body.password || 'password123', 10)
 

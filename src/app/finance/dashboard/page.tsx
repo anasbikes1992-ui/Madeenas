@@ -10,10 +10,10 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function FinanceDashboardPage() {
   const [reviews, setReviews] = useState<any[]>([])
-  const [pendingOutRequests, setPendingOutRequests] = useState<any[]>([])
+  const [pendingReviews, setPendingReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
-  const [selectedRequest, setSelectedRequest] = useState<any>(null)
+  const [selectedReview, setSelectedReview] = useState<any>(null)
   const [reviewForm, setReviewForm] = useState<any>({ externalInvoice: '', externalAmount: '', notes: '', status: 'MATCHED' })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -22,13 +22,11 @@ export default function FinanceDashboardPage() {
 
   async function load() {
     setLoading(true)
-    const [revRes, outRes] = await Promise.all([
-      fetch('/api/finance/reviews'),
-      fetch('/api/stock-out?status=ACKNOWLEDGED&limit=50'),
-    ])
-    const [revData, outData] = await Promise.all([revRes.json(), outRes.json()])
-    setReviews(revData.reviews || [])
-    setPendingOutRequests(outData.requests || [])
+    const revRes = await fetch('/api/finance/reviews?limit=100')
+    const revData = await revRes.json()
+    const allReviews = revData.reviews || []
+    setReviews(allReviews)
+    setPendingReviews(allReviews.filter((review: any) => review.status === 'PENDING'))
     setLoading(false)
   }
 
@@ -36,16 +34,29 @@ export default function FinanceDashboardPage() {
 
   async function submitReview(e: React.FormEvent) {
     e.preventDefault()
+    if (!selectedReview) return
+
     setSaving(true)
-    await fetch('/api/finance/reviews', {
-      method: 'POST',
+    const res = await fetch('/api/finance/reviews', {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...reviewForm, stockOutId: selectedRequest.id }),
+      body: JSON.stringify({
+        id: selectedReview.id,
+        ...reviewForm,
+      }),
     })
     setSaving(false)
-    setShowReviewForm(false)
-    load()
-    showToast('Finance review submitted!')
+
+    if (res.ok) {
+      setShowReviewForm(false)
+      setSelectedReview(null)
+      load()
+      showToast('Finance review submitted!')
+      return
+    }
+
+    const data = await res.json().catch(() => null)
+    showToast(data?.error || 'Failed to submit finance review')
   }
 
   const matched = reviews.filter(r => r.status === 'MATCHED').length
@@ -59,7 +70,7 @@ export default function FinanceDashboardPage() {
         <p className="text-teal-100 text-sm">Tally stock movements with your external invoicing system</p>
         <div className="grid grid-cols-3 gap-4 mt-5">
           {[
-            { label: 'To Review', value: pendingOutRequests.length, icon: '🧾' },
+            { label: 'To Review', value: pendingReviews.length, icon: '🧾' },
             { label: 'Matched', value: matched, icon: '✅' },
             { label: 'Discrepancies', value: discrepancies, icon: '⚠️' },
           ].map(s => (
@@ -77,31 +88,43 @@ export default function FinanceDashboardPage() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-900">📋 Needs Finance Review</h2>
-            <span className="badge badge-amber">{pendingOutRequests.length} pending</span>
+            <span className="badge badge-amber">{pendingReviews.length} pending</span>
           </div>
           {loading ? (
             <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}</div>
-          ) : pendingOutRequests.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">✅ All acknowledged requests reviewed</p>
+          ) : pendingReviews.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-8">✅ All pending finance reviews are complete</p>
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {pendingOutRequests.map((r: any) => (
-                <div key={r.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+              {pendingReviews.map((review: any) => {
+                const stockOut = review.stockOut
+
+                return (
+                <div key={review.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{r.product.name}</p>
+                    <p className="text-sm font-medium text-slate-900 truncate">{stockOut.product.name}</p>
                     <p className="text-xs text-slate-500">
-                      {r.fromLocation.name} | Qty: {r.quantityApproved || r.quantityRequested} {r.product.unit}
+                      {stockOut.fromLocation.name} | Qty: {stockOut.quantityApproved || stockOut.quantityRequested} {stockOut.product.unit}
                     </p>
-                    <p className="text-xs text-slate-400">Invoice: {r.referenceInvoice || '—'}</p>
+                    <p className="text-xs text-slate-400">Invoice: {stockOut.referenceInvoice || '—'}</p>
                   </div>
                   <button
-                    onClick={() => { setSelectedRequest(r); setReviewForm({ externalInvoice: r.referenceInvoice || '', externalAmount: '', notes: '', status: 'MATCHED' }); setShowReviewForm(true) }}
-                    className="btn-primary btn-sm flex-shrink-0 ml-3"
+                    onClick={() => {
+                      setSelectedReview(review)
+                      setReviewForm({
+                        externalInvoice: review.externalInvoice || stockOut.referenceInvoice || '',
+                        externalAmount: review.externalAmount?.toString() || '',
+                        notes: review.notes || '',
+                        status: review.status || 'MATCHED',
+                      })
+                      setShowReviewForm(true)
+                    }}
+                    className="btn-primary btn-sm shrink-0 ml-3"
                   >
                     Review
                   </button>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -138,21 +161,26 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* Review modal */}
-      {showReviewForm && selectedRequest && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowReviewForm(false) }}>
+      {showReviewForm && selectedReview && (
+        <div className="modal-overlay" onClick={e => {
+          if (e.target === e.currentTarget) {
+            setShowReviewForm(false)
+            setSelectedReview(null)
+          }
+        }}>
           <div className="modal">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-bold">Finance Review</h2>
-              <button onClick={() => setShowReviewForm(false)} className="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
+              <button onClick={() => { setShowReviewForm(false); setSelectedReview(null) }} className="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
             </div>
 
             <div className="bg-slate-50 rounded-xl p-4 mb-5 text-sm">
-              <p className="font-medium text-slate-900">{selectedRequest.product.name}</p>
+              <p className="font-medium text-slate-900">{selectedReview.stockOut.product.name}</p>
               <div className="grid grid-cols-2 gap-2 mt-2 text-slate-600">
-                <span>From: {selectedRequest.fromLocation.name}</span>
-                <span>Qty: {selectedRequest.quantityApproved || selectedRequest.quantityRequested} {selectedRequest.product.unit}</span>
-                <span>Stock Invoice: <strong>{selectedRequest.referenceInvoice || '—'}</strong></span>
-                <span>Dispatched: {formatDate(selectedRequest.dispatchedAt)}</span>
+                <span>From: {selectedReview.stockOut.fromLocation.name}</span>
+                <span>Qty: {selectedReview.stockOut.quantityApproved || selectedReview.stockOut.quantityRequested} {selectedReview.stockOut.product.unit}</span>
+                <span>Stock Invoice: <strong>{selectedReview.stockOut.referenceInvoice || '—'}</strong></span>
+                <span>Dispatched: {formatDate(selectedReview.stockOut.dispatchedAt)}</span>
               </div>
             </div>
 

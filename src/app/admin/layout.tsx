@@ -24,9 +24,15 @@ const navItems = [
   {
     group: 'Stock Requests',
     items: [
-      { href: '/admin/stock-out', label: 'All Requests', icon: '📋', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/stock-out', label: 'All Requests', icon: '📋', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
       { href: '/admin/my-requests', label: 'My Requests', icon: '📤', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
       { href: '/admin/new-request', label: 'New Request', icon: '➕', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+    ]
+  },
+  {
+    group: 'Activity',
+    items: [
+      { href: '/admin/notifications', label: 'Notifications', icon: '🔔', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
     ]
   },
   {
@@ -97,10 +103,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   })).filter(g => g.items.length > 0)
 
   const Sidebar = (
-    <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 bg-gradient-to-b from-indigo-900 to-indigo-950 flex flex-col h-full`}>
+    <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 bg-linear-to-b from-indigo-900 to-indigo-950 flex flex-col h-full`}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
-        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
@@ -131,7 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   title={!sidebarOpen ? item.label : undefined}
                   className={`sidebar-item ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
                 >
-                  <span className="text-base flex-shrink-0">{item.icon}</span>
+                  <span className="text-base shrink-0">{item.icon}</span>
                   {sidebarOpen && <span className="truncate">{item.label}</span>}
                 </a>
               )
@@ -143,7 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* User */}
       <div className="p-3 border-t border-white/10">
         <div className={`flex ${sidebarOpen ? 'items-center gap-3' : 'justify-center'}`}>
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
             {getInitials(session?.user?.name || 'U')}
           </div>
           {sidebarOpen && (
@@ -189,7 +195,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => { setSidebarOpen(o => !o); setMobileOpen(o => !o) }}

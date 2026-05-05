@@ -10,7 +10,7 @@ export default function FinanceReviewsPage() {
 
   async function load() {
     setLoading(true)
-    const res = await fetch('/api/finance/reviews')
+    const res = await fetch('/api/finance/reviews?limit=100')
     const data = await res.json()
     setReviews(data.reviews || [])
     setLoading(false)
@@ -66,7 +66,7 @@ export default function FinanceReviewsPage() {
               ))
             ) : reviews.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">No pending reviews found.</td>
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">No finance reviews found.</td>
               </tr>
             ) : (
               reviews.map((r) => (
@@ -104,8 +104,8 @@ export default function FinanceReviewsPage() {
                     )}
                     {r.status === 'MATCHED' && (
                       <div className="text-xs text-slate-400">
-                        Inv: {r.tallyInvoiceNumber}<br/>
-                        ₹{r.tallyAmount}
+                        Inv: {r.externalInvoice || '—'}<br/>
+                        ₹{r.externalAmount || '—'}
                       </div>
                     )}
                   </td>

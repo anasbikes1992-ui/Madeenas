@@ -7,7 +7,7 @@ const { auth } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 })
 
-const PUBLIC_PATHS = ['/login', '/api/auth']
+const PUBLIC_PATHS = ['/', '/gallery', '/login', '/signup', '/api/auth']
 
 export default auth((req) => {
   const { nextUrl } = req
@@ -15,7 +15,7 @@ export default auth((req) => {
   const session = req.auth
 
   // Allow public paths
-  const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
+  const isPublic = PUBLIC_PATHS.some((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p)))
   if (isPublic) return NextResponse.next()
 
   // Not authenticated → redirect to login
@@ -39,9 +39,8 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/finance/dashboard', nextUrl.origin))
   }
 
-  // Customer users can only access /gallery
-  if (role === 'CUSTOMER' && !pathname.startsWith('/gallery')) {
-    return NextResponse.redirect(new URL('/gallery', nextUrl.origin))
+  if (role === 'CUSTOMER' && pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/', nextUrl.origin))
   }
 
   return NextResponse.next()

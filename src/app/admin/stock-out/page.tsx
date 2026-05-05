@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 import { STATUS_COLORS } from '@/lib/constants'
+import { useSession } from 'next-auth/react'
 
 const STATUS_BADGE: Record<string, string> = {
   PENDING: 'badge-amber',
@@ -13,6 +14,7 @@ const STATUS_BADGE: Record<string, string> = {
 }
 
 export default function StockOutPage() {
+  const { data: session } = useSession()
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('PENDING')
@@ -138,21 +140,37 @@ export default function StockOutPage() {
                 <td><span className={STATUS_BADGE[r.status] || 'badge-gray'}>{r.status}</span></td>
                 <td>
                   <div className="flex gap-1">
-                    {r.status === 'PENDING' && (
-                      <>
-                        <button onClick={() => { setActionModal({ req: r, action: 'approve' }); setActionQty(String(r.quantityRequested)) }} className="btn-success btn-sm">✓</button>
-                        <button onClick={() => { setActionModal({ req: r, action: 'reject' }); setActionNote('') }} className="btn-danger btn-sm">✗</button>
-                      </>
-                    )}
-                    {r.status === 'APPROVED' && (
-                      <button onClick={() => setActionModal({ req: r, action: 'dispatch' })} className="btn-primary btn-sm">📤</button>
-                    )}
-                    {r.status === 'DISPATCHED' && (
-                      <button onClick={() => setActionModal({ req: r, action: 'acknowledge' })} className="btn-success btn-sm">✅</button>
-                    )}
-                    {r.status === 'PENDING' && (
-                      <button onClick={() => setActionModal({ req: r, action: 'cancel' })} className="btn-secondary btn-sm">✕</button>
-                    )}
+                    {(() => {
+                      const role = session?.user?.role || ''
+                      const userLocationId = session?.user?.locationId || null
+                      const canApprove = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)
+                      const canDispatch =
+                        ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role) ||
+                        ((role === 'STORE_KEEPER' || role === 'SHOP_STAFF') && r.fromLocationId === userLocationId)
+                      const canAcknowledge =
+                        ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role) ||
+                        (Boolean(userLocationId) && r.toLocationId === userLocationId)
+
+                      return (
+                        <>
+                          {r.status === 'PENDING' && canApprove && (
+                            <>
+                              <button onClick={() => { setActionModal({ req: r, action: 'approve' }); setActionQty(String(r.quantityRequested)) }} className="btn-success btn-sm">✓</button>
+                              <button onClick={() => { setActionModal({ req: r, action: 'reject' }); setActionNote('') }} className="btn-danger btn-sm">✗</button>
+                            </>
+                          )}
+                          {r.status === 'APPROVED' && canDispatch && (
+                            <button onClick={() => setActionModal({ req: r, action: 'dispatch' })} className="btn-primary btn-sm">📤</button>
+                          )}
+                          {r.status === 'DISPATCHED' && canAcknowledge && (
+                            <button onClick={() => setActionModal({ req: r, action: 'acknowledge' })} className="btn-success btn-sm">✅</button>
+                          )}
+                          {r.status === 'PENDING' && (r.requestedBy === session?.user?.id || ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) && (
+                            <button onClick={() => setActionModal({ req: r, action: 'cancel' })} className="btn-secondary btn-sm">✕</button>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 </td>
               </tr>

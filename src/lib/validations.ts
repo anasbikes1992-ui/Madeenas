@@ -12,6 +12,17 @@ const optionalEmail = z
   .optional()
   .transform((value) => value || null)
 
+const phoneNumberOrEmpty = z
+  .union([
+    z
+      .string()
+      .trim()
+      .regex(/^\+?[1-9]\d{6,14}$/, 'Phone number must be in international format'),
+    z.literal(''),
+  ])
+  .optional()
+  .transform((value) => value || null)
+
 export const productSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   design: z.string().min(2, 'Design is required'),
@@ -70,3 +81,27 @@ export const supplierSchema = z.object({
   address: optionalTrimmedString,
   isActive: z.boolean().optional().default(true),
 })
+
+export const customerOrderSchema = z.object({
+  productId: z.string().trim().min(1, 'Product is required'),
+  customerName: z.string().trim().min(2, 'Customer name is required').max(120, 'Customer name is too long'),
+  customerEmail: z.string().trim().email('Valid email is required'),
+  customerPhone: phoneNumberOrEmpty,
+  quantity: z.coerce.number().positive('Quantity must be greater than 0').max(100000, 'Quantity is too large'),
+  colorPreference: optionalTrimmedString,
+  note: z.string().trim().max(1000, 'Note is too long').optional().transform((value) => value || null),
+  language: z.enum(['en', 'si', 'ta']).optional().default('en'),
+})
+
+export const customerSignupSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Name is required').max(120, 'Name is too long'),
+    email: z.string().trim().email('Valid email is required'),
+    phone: phoneNumberOrEmpty,
+    password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password is too long'),
+    confirmPassword: z.string().min(8, 'Please confirm your password'),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })

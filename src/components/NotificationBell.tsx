@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 
 export default function NotificationBell() {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
@@ -45,6 +47,19 @@ export default function NotificationBell() {
     fetchNotifications()
   }
 
+  async function openNotification(notification: any) {
+    if (!notification.isRead) {
+      await markAsRead(notification.id)
+    }
+
+    setIsOpen(false)
+    if (notification.link) {
+      router.push(notification.link)
+      return
+    }
+    router.push('/admin/notifications')
+  }
+
   return (
     <div className="relative" ref={menuRef}>
       <button 
@@ -83,10 +98,10 @@ export default function NotificationBell() {
                 <div 
                   key={n.id} 
                   className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${!n.isRead ? 'bg-indigo-50/30' : ''}`}
-                  onClick={() => !n.isRead && markAsRead(n.id)}
+                  onClick={() => openNotification(n)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!n.isRead ? 'bg-indigo-600' : 'bg-transparent'}`} />
+                    <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-indigo-600' : 'bg-transparent'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{n.title}</p>
                       <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
@@ -99,7 +114,13 @@ export default function NotificationBell() {
           </div>
 
           <div className="p-3 bg-slate-50 text-center">
-            <button className="text-xs font-medium text-slate-500 hover:text-slate-900">
+            <button
+              onClick={() => {
+                setIsOpen(false)
+                router.push('/admin/notifications')
+              }}
+              className="text-xs font-medium text-slate-500 hover:text-slate-900"
+            >
               View all activity
             </button>
           </div>

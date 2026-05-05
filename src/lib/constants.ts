@@ -67,7 +67,7 @@ export const UNITS = [
 export function getDashboardPath(role: string): string {
   switch (role) {
     case 'FINANCE': return '/finance/dashboard'
-    case 'CUSTOMER': return '/gallery'
+    case 'CUSTOMER': return '/'
     default: return '/admin/dashboard'
   }
 }

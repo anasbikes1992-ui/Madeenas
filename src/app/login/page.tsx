@@ -185,6 +185,12 @@ export default function LoginPage() {
               Browse our product gallery →
             </a>
           </p>
+          <p className="text-center text-sm text-slate-500 mt-3">
+            New customer?{' '}
+            <a href="/signup" className="text-indigo-600 hover:underline font-medium">
+              Create an account →
+            </a>
+          </p>
         </div>
       </div>
     </div>

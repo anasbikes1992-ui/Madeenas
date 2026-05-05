@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
   const locationId = searchParams.get('locationId')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
+  const mine = searchParams.get('mine') === '1'
+  const assignedToMe = searchParams.get('assignedToMe') === '1'
   const role = session.user.role as string
   const userLocationId = session.user.locationId as string | null
 
@@ -24,8 +26,24 @@ export async function GET(request: NextRequest) {
     }
   }
   if (locationId) where.fromLocationId = locationId
-  // Shop staff only see their own location requests
-  if (role === 'SHOP_STAFF' || role === 'STORE_KEEPER') {
+
+  if (mine) {
+    where.requestedBy = session.user.id
+  } else if (assignedToMe && userLocationId) {
+    where.toLocationId = userLocationId
+  } else if (role === 'SHOP_STAFF' || role === 'STORE_KEEPER') {
+    // Shop and warehouse operational users only see requests they created
+    // or requests directly tied to their assigned location.
+    if (!userLocationId) {
+      where.requestedBy = session.user.id
+    } else {
+      where.OR = [
+        { requestedBy: session.user.id },
+        { fromLocationId: userLocationId },
+        { toLocationId: userLocationId },
+      ]
+    }
+  } else if (role === 'CUSTOMER') {
     where.requestedBy = session.user.id
   }
 
@@ -58,6 +76,13 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+
+  if ((role === 'SHOP_STAFF' || role === 'STORE_KEEPER') && session.user.locationId) {
+    const userLocationId = session.user.locationId as string
+    if (body.fromLocationId !== userLocationId) {
+      return NextResponse.json({ error: 'You can only request stock from your assigned location' }, { status: 403 })
+    }
+  }
 
   // Check available stock
   const stock = await prisma.stock.findUnique({

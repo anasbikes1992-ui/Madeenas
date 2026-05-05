@@ -52,18 +52,61 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { id, status, tallyInvoiceNumber, tallyAmount, notes } = body
+  const { id, status, tallyInvoiceNumber, tallyAmount, externalInvoice, externalAmount, notes } = body
+  const normalizedInvoice = externalInvoice ?? tallyInvoiceNumber ?? null
+  const normalizedAmount = externalAmount ?? tallyAmount ?? null
+
+  if (!id) {
+    return NextResponse.json({ error: 'Review id is required' }, { status: 400 })
+  }
+
+  const existing = await prisma.financeReview.findUnique({
+    where: { id },
+    include: {
+      stockOut: {
+        include: {
+          product: true,
+          fromLocation: true,
+          toLocation: true,
+          requestedByUser: { select: { name: true } },
+        },
+      },
+      reviewer: { select: { name: true } },
+    },
+  })
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Finance review not found' }, { status: 404 })
+  }
+
+  const parsedAmount = normalizedAmount == null || normalizedAmount === ''
+    ? null
+    : Number.parseFloat(String(normalizedAmount))
+
+  if (parsedAmount !== null && Number.isNaN(parsedAmount)) {
+    return NextResponse.json({ error: 'Invalid finance amount' }, { status: 400 })
+  }
 
   const review = await prisma.financeReview.update({
     where: { id },
     data: {
       status,
-      externalInvoice: tallyInvoiceNumber,
-      externalAmount: tallyAmount ? parseFloat(tallyAmount) : null,
+      externalInvoice: normalizedInvoice,
+      externalAmount: parsedAmount,
       notes,
       reviewedBy: session.user.id
     },
-    include: { stockOut: { include: { product: true } } }
+    include: {
+      stockOut: {
+        include: {
+          product: true,
+          fromLocation: true,
+          toLocation: true,
+          requestedByUser: { select: { name: true } },
+        },
+      },
+      reviewer: { select: { name: true } },
+    }
   })
 
   await logActivity({
@@ -71,7 +114,7 @@ export async function PATCH(request: NextRequest) {
     action: 'FINANCE_MATCH',
     entity: 'FinanceReview',
     entityId: id,
-    details: `Matched Stock-Out ${review.stockOutId} with Tally Inv: ${tallyInvoiceNumber}. Amount: ${tallyAmount}`
+    details: `Matched Stock-Out ${review.stockOutId} with Tally Inv: ${normalizedInvoice}. Amount: ${normalizedAmount}`
   })
 
   return NextResponse.json(review)
