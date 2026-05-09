@@ -50,7 +50,8 @@ export default function DashboardPage() {
       anchor.click()
       URL.revokeObjectURL(url)
       setCsvMessage('CSV export downloaded.')
-    } catch {
+    } catch (error) {
+      console.error('CSV export error:', error)
       setCsvMessage('CSV export failed.')
     } finally {
       setCsvBusy(false)
@@ -80,6 +81,7 @@ export default function DashboardPage() {
       setStats(data)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'CSV import failed.'
+      console.error('CSV import error:', error)
       setCsvMessage(message)
     } finally {
       setCsvBusy(false)
@@ -141,6 +143,9 @@ export default function DashboardPage() {
           <button type="button" className="btn-secondary btn-sm" disabled={csvBusy} onClick={() => fileInputRef.current?.click()}>
             {csvBusy ? 'Working…' : 'Import CSV'}
           </button>
+          <a href="/api/dashboard/import-template" download className="btn-secondary btn-sm">
+            Download Template
+          </a>
           <a href="/admin/stock-in" className="btn-secondary btn-sm">⬇️ Stock In</a>
           <a href="/admin/new-request" className="btn-primary btn-sm">+ New Request</a>
         </div>

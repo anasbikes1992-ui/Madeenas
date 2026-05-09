@@ -48,6 +48,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Order already closed' }, { status: 400 })
   }
 
+  // Idempotency check: Look for existing sale with this order reference
+  const existingSale = await prisma.sale.findFirst({
+    where: {
+      note: { contains: `customer order ${order.id}` },
+    },
+  })
+
+  if (existingSale) {
+    return NextResponse.json(
+      {
+        error: 'Order already fulfilled',
+        sale: existingSale,
+        order,
+      },
+      { status: 409 }
+    )
+  }
+
   const locationId = parsed.data.locationId || (session.user.locationId as string | null)
   if (!locationId) {
     return NextResponse.json({ error: 'Location is required for fulfillment' }, { status: 400 })

@@ -10,12 +10,14 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const locationId = searchParams.get('locationId')
+  const receiptNo = searchParams.get('receiptNo')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
   const role = session.user.role as string
 
   const where: any = {}
   if (locationId) where.locationId = locationId
+  if (receiptNo) where.receiptNo = receiptNo
   
   // Shop staff only see their own location's sales
   if (role === 'SHOP_STAFF' || role === 'STORE_KEEPER') {
