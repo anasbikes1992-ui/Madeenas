@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 
 interface DashboardStats {
@@ -25,12 +25,69 @@ const STATUS_CLASSES: Record<string, string> = {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [csvBusy, setCsvBusy] = useState(false)
+  const [csvMessage, setCsvMessage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard')
       .then(r => r.json())
       .then(data => { setStats(data); setLoading(false) })
   }, [])
+
+  async function exportCsv() {
+    setCsvBusy(true)
+    setCsvMessage(null)
+    try {
+      const response = await fetch('/api/dashboard/export')
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `dashboard-export-${new Date().toISOString().slice(0, 10)}.csv`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      setCsvMessage('CSV export downloaded.')
+    } catch {
+      setCsvMessage('CSV export failed.')
+    } finally {
+      setCsvBusy(false)
+    }
+  }
+
+  async function importCsv(file: File) {
+    setCsvBusy(true)
+    setCsvMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/dashboard/import', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result.error || 'CSV import failed')
+      }
+
+      setCsvMessage(`CSV import complete. Imported: ${result.imported}, Failed: ${result.failed}`)
+      const data = await fetch('/api/dashboard').then((r) => r.json())
+      setStats(data)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'CSV import failed.'
+      setCsvMessage(message)
+    } finally {
+      setCsvBusy(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -66,10 +123,29 @@ export default function DashboardPage() {
           <p className="text-slate-500 text-sm mt-0.5">Overview of your textile stock operations</p>
         </div>
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) {
+                void importCsv(file)
+              }
+            }}
+          />
+          <button type="button" className="btn-secondary btn-sm" disabled={csvBusy} onClick={() => void exportCsv()}>
+            {csvBusy ? 'Working…' : 'Export CSV'}
+          </button>
+          <button type="button" className="btn-secondary btn-sm" disabled={csvBusy} onClick={() => fileInputRef.current?.click()}>
+            {csvBusy ? 'Working…' : 'Import CSV'}
+          </button>
           <a href="/admin/stock-in" className="btn-secondary btn-sm">⬇️ Stock In</a>
           <a href="/admin/new-request" className="btn-primary btn-sm">+ New Request</a>
         </div>
       </div>
+      {csvMessage ? <p className="text-sm text-slate-600">{csvMessage}</p> : null}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

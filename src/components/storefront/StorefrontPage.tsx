@@ -39,6 +39,13 @@ type OrderFormState = {
   note: string
 }
 
+type CartItem = {
+  product: ProductItem
+  quantity: string
+  colorPreference: string
+  note: string
+}
+
 const ORDER_FORM_INITIAL: OrderFormState = {
   customerName: '',
   customerEmail: '',
@@ -57,6 +64,8 @@ export default function StorefrontPage() {
   const [selected, setSelected] = useState<ProductItem | null>(null)
   const [orderForm, setOrderForm] = useState<OrderFormState>(ORDER_FORM_INITIAL)
   const [ordered, setOrdered] = useState(false)
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [cartOpen, setCartOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [language, setLanguage] = useState<StorefrontLanguage>('en')
@@ -101,6 +110,31 @@ export default function StorefrontPage() {
     setOrderForm(ORDER_FORM_INITIAL)
   }
 
+  function addToCart(product: ProductItem, quantity = '1', colorPreference = '', note = '') {
+    setCart((current) => {
+      const existing = current.find((item) => item.product.id === product.id)
+      if (existing) {
+        return current.map((item) =>
+          item.product.id === product.id
+            ? {
+                ...item,
+                quantity: String(Math.max(0.01, Number(item.quantity || '0') + Number(quantity || '0'))),
+                colorPreference: colorPreference || item.colorPreference,
+                note: note || item.note,
+              }
+            : item
+        )
+      }
+
+      return [...current, { product, quantity, colorPreference, note }]
+    })
+    queueToast('success', 'Added to cart.')
+  }
+
+  function removeFromCart(productId: string) {
+    setCart((current) => current.filter((item) => item.product.id !== productId))
+  }
+
   async function submitOrder(event: React.FormEvent) {
     event.preventDefault()
 
@@ -139,6 +173,59 @@ export default function StorefrontPage() {
 
       setOrdered(true)
       queueToast('success', t.toastOrderPlaced)
+    } catch {
+      queueToast('error', t.toastOrderFailed)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function submitCartOrder(event: React.FormEvent) {
+    event.preventDefault()
+
+    if (cart.length === 0) {
+      queueToast('error', 'Cart is empty.')
+      return
+    }
+
+    if (!orderForm.customerName.trim()) {
+      queueToast('error', t.validationName)
+      return
+    }
+
+    if (!orderForm.customerEmail.includes('@')) {
+      queueToast('error', t.validationEmail)
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      const response = await fetch('/api/gallery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: orderForm.customerName,
+          customerEmail: orderForm.customerEmail,
+          customerPhone: orderForm.customerPhone,
+          language,
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            quantity: Number(item.quantity),
+            colorPreference: item.colorPreference || orderForm.colorPreference,
+            note: item.note || orderForm.note,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Order request failed')
+      }
+
+      setCart([])
+      setCartOpen(false)
+      setOrdered(true)
+      queueToast('success', 'Cart order requests sent successfully.')
     } catch {
       queueToast('error', t.toastOrderFailed)
     } finally {
@@ -347,6 +434,17 @@ export default function StorefrontPage() {
                         <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{product.unit}</p>
                         <span className="text-sm font-semibold text-indigo-600">{t.requestOrder} →</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          addToCart(product)
+                          setCartOpen(true)
+                        }}
+                        className="btn-secondary w-full justify-center text-sm"
+                      >
+                        Add to cart
+                      </button>
                     </div>
                   </button>
                 </article>
@@ -478,10 +576,117 @@ export default function StorefrontPage() {
                     <button type="submit" disabled={submitting} className="btn-primary w-full justify-center bg-slate-950 hover:bg-indigo-700">
                       {submitting ? t.submitting : t.submitOrder}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart(selected, orderForm.quantity, orderForm.colorPreference, orderForm.note)
+                        resetOrderFlow(null)
+                        setCartOpen(true)
+                      }}
+                      className="btn-secondary w-full justify-center"
+                    >
+                      Add this item to cart
+                    </button>
                   </form>
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {cart.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-6 right-6 z-40 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-900/30 hover:bg-indigo-700"
+        >
+          Cart ({cart.length})
+        </button>
+      )}
+
+      {cartOpen && (
+        <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) setCartOpen(false) }}>
+          <div className="modal max-w-3xl max-h-[92vh] overflow-y-auto">
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Your cart</h3>
+                <p className="text-sm text-slate-500">Review quantities and submit all order requests together.</p>
+              </div>
+              <button type="button" onClick={() => setCartOpen(false)} className="text-3xl text-slate-400 hover:text-slate-700">&times;</button>
+            </div>
+
+            <div className="space-y-3">
+              {cart.map((item) => (
+                <div key={item.product.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{item.product.name}</p>
+                      <p className="text-xs text-slate-500">{item.product.sku} · {item.product.unit}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(item.product.id)}
+                      className="text-sm text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      className="input"
+                      value={item.quantity}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setCart((current) => current.map((line) => line.product.id === item.product.id ? { ...line, quantity: value } : line))
+                      }}
+                    />
+                    <input
+                      className="input"
+                      placeholder="Color preference"
+                      value={item.colorPreference}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setCart((current) => current.map((line) => line.product.id === item.product.id ? { ...line, colorPreference: value } : line))
+                      }}
+                    />
+                    <input
+                      className="input"
+                      placeholder="Item note"
+                      value={item.note}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setCart((current) => current.map((line) => line.product.id === item.product.id ? { ...line, note: value } : line))
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={submitCartOrder} className="mt-6 space-y-4 border-t border-slate-200 pt-5">
+              <h4 className="text-lg font-bold text-slate-900">Customer details</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="form-group sm:col-span-2">
+                  <label className="label">{t.yourName} *</label>
+                  <input required className="input" value={orderForm.customerName} onChange={(event) => setOrderForm((current) => ({ ...current, customerName: event.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="label">{t.email} *</label>
+                  <input required type="email" className="input" value={orderForm.customerEmail} onChange={(event) => setOrderForm((current) => ({ ...current, customerEmail: event.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="label">{t.phone}</label>
+                  <input className="input" value={orderForm.customerPhone} onChange={(event) => setOrderForm((current) => ({ ...current, customerPhone: event.target.value }))} />
+                </div>
+              </div>
+              <button type="submit" disabled={submitting} className="btn-primary w-full justify-center bg-slate-950 hover:bg-indigo-700">
+                {submitting ? t.submitting : 'Submit cart orders'}
+              </button>
+            </form>
           </div>
         </div>
       )}

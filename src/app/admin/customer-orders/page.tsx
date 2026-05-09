@@ -22,6 +22,12 @@ type CustomerOrder = {
   }
 }
 
+type LocationItem = {
+  id: string
+  name: string
+  code: string
+}
+
 const STATUS_BADGE: Record<string, string> = {
   NEW: 'badge-purple',
   REVIEWED: 'badge-blue',
@@ -39,6 +45,10 @@ export default function CustomerOrdersPage() {
   const [editStatus, setEditStatus] = useState('')
   const [editQuote, setEditQuote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [locations, setLocations] = useState<LocationItem[]>([])
+  const [fulfillLocationId, setFulfillLocationId] = useState('')
+  const [fulfillPaymentMode, setFulfillPaymentMode] = useState('CASH')
+  const [fulfilling, setFulfilling] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -62,6 +72,18 @@ export default function CustomerOrdersPage() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    fetch('/api/locations')
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? data : []
+        setLocations(list)
+      })
+      .catch(() => {
+        setLocations([])
+      })
+  }, [])
+
   async function saveOrder() {
     if (!selected) return
     setSaving(true)
@@ -69,7 +91,13 @@ export default function CustomerOrdersPage() {
       const body: { status?: string; quotedPrice?: number | null } = {}
       if (editStatus && editStatus !== selected.status) body.status = editStatus
       if (editQuote.trim() !== '') {
-        body.quotedPrice = parseFloat(editQuote)
+        const parsedQuote = parseFloat(editQuote)
+        if (Number.isNaN(parsedQuote)) {
+          alert('Quoted price must be a valid number')
+          setSaving(false)
+          return
+        }
+        body.quotedPrice = parsedQuote
       } else if (selected.quotedPrice != null && editQuote === '') {
         body.quotedPrice = null
       }
@@ -92,6 +120,46 @@ export default function CustomerOrdersPage() {
       setSelected(updated)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function fulfillOrder() {
+    if (!selected) return
+    if (!fulfillLocationId) {
+      alert('Please select a location for fulfillment')
+      return
+    }
+
+    setFulfilling(true)
+    try {
+      const parsedUnitPrice = editQuote.trim() ? parseFloat(editQuote) : undefined
+      if (parsedUnitPrice !== undefined && Number.isNaN(parsedUnitPrice)) {
+        alert('Quoted price must be a valid number before fulfillment')
+        return
+      }
+
+      const res = await fetch(`/api/customer-orders/${selected.id}/fulfill`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: fulfillLocationId,
+          paymentMode: fulfillPaymentMode,
+          unitPrice: parsedUnitPrice,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data.error || 'Could not fulfill order')
+        return
+      }
+
+      const updated = data.order
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)))
+      setSelected((current) => (current ? { ...current, ...updated } : current))
+      alert(`Order fulfilled and sale posted (${data.sale?.receiptNo || 'receipt created'})`)
+    } finally {
+      setFulfilling(false)
     }
   }
 
@@ -176,6 +244,8 @@ export default function CustomerOrdersPage() {
                         setSelected(o)
                         setEditStatus(o.status)
                         setEditQuote(o.quotedPrice != null ? String(o.quotedPrice) : '')
+                        setFulfillLocationId('')
+                        setFulfillPaymentMode('CASH')
                       }}
                     >
                       Manage
@@ -236,10 +306,40 @@ export default function CustomerOrdersPage() {
               value={editQuote}
               onChange={(e) => setEditQuote(e.target.value)}
             />
+            <label className="block text-sm font-medium text-slate-700 mb-1">Fulfillment location</label>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 mb-4"
+              value={fulfillLocationId}
+              onChange={(e) => setFulfillLocationId(e.target.value)}
+            >
+              <option value="">Select location</option>
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name} ({location.code})
+                </option>
+              ))}
+            </select>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Payment mode for sale</label>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 mb-6"
+              value={fulfillPaymentMode}
+              onChange={(e) => setFulfillPaymentMode(e.target.value)}
+            >
+              {['CASH', 'BANK_TRANSFER', 'CHEQUE', 'CREDIT'].map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode}
+                </option>
+              ))}
+            </select>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setSelected(null)}>
                 Close
               </button>
+              {selected.status !== 'CLOSED' && (
+                <button type="button" className="btn-secondary" disabled={fulfilling || saving} onClick={() => void fulfillOrder()}>
+                  {fulfilling ? 'Fulfilling…' : 'Fulfill & Post Sale'}
+                </button>
+              )}
               <button type="button" className="btn-primary" disabled={saving} onClick={() => void saveOrder()}>
                 {saving ? 'Saving…' : 'Save'}
               </button>
