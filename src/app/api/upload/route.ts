@@ -15,6 +15,16 @@ export async function POST(request: NextRequest) {
   const file = formData.get('file') as File
   if (!file) return fail('No file provided', 400, 'VALIDATION_ERROR')
 
+  const maxBytes = 5 * 1024 * 1024
+  if (file.size > maxBytes) {
+    return fail('File too large (max 5MB)', 400, 'FILE_TOO_LARGE')
+  }
+
+  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+  if (file.type && !allowed.has(file.type)) {
+    return fail('Only JPEG, PNG, WebP, or GIF images are allowed', 400, 'INVALID_MIME')
+  }
+
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
   const base64 = `data:${file.type};base64,${buffer.toString('base64')}`

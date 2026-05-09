@@ -1,6 +1,9 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the Madeena Textile stock platform:
 
-## Getting Started
+- Web/API: Next.js + Prisma (`textilestock`)
+- Mobile: Flutter (`textilestock_mobile`)
+
+## Getting Started (Web)
 
 First, run the development server:
 
@@ -19,6 +22,46 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Mobile App (Flutter)
+
+Build using your Flutter SDK path:
+
+```bash
+cd ../textilestock_mobile
+d:/Flutter/bin/flutter.bat pub get
+d:/Flutter/bin/flutter.bat analyze
+d:/Flutter/bin/flutter.bat test
+d:/Flutter/bin/flutter.bat build apk --release --dart-define=ENV=production --dart-define=API_URL=https://madeenas.vercel.app/api
+```
+
+APK output:
+
+```text
+textilestock_mobile/build/app/outputs/flutter-apk/app-release.apk
+```
+
+## Hourly Database Backup Email (Vercel Cron)
+
+The app includes an internal cron endpoint at `/api/internal/backup/hourly`.
+
+It is scheduled hourly via `vercel.json` and is protected by `BACKUP_CRON_SECRET`.
+
+Required environment variables:
+
+- `BACKUP_ENABLED=true`
+- `BACKUP_CRON_SECRET=<long-random-secret>`
+- `BACKUP_ADMIN_EMAILS=admin1@domain.com,admin2@domain.com`
+- `BACKUP_FROM_EMAIL=noreply@domain.com`
+- `RESEND_API_KEY=re_xxx`
+- `BACKUP_MAX_ROWS_PER_TABLE=5000`
+
+Manual smoke test:
+
+```bash
+curl -X POST http://localhost:3000/api/internal/backup/hourly \
+	-H "Authorization: Bearer YOUR_BACKUP_CRON_SECRET"
+```
 
 ## Learn More
 

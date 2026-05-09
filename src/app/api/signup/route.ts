@@ -4,13 +4,13 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { customerSignupSchema } from '@/lib/validations'
 import { createNotification } from '@/lib/audit'
-import { limitRequests } from '@/lib/rate-limit'
+import { limitRequestsAsync } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
     const forwardedFor = request.headers.get('x-forwarded-for')
     const clientIp = forwardedFor?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'anonymous'
-    const rateLimit = limitRequests({
+    const rateLimit = await limitRequestsAsync({
       key: `customer-signup:${clientIp}`,
       maxRequests: 4,
       windowMs: 60_000,

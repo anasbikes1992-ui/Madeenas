@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { CAN_REQUEST_STOCK } from '@/lib/constants'
+import { stockOutRequestSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -76,32 +77,46 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+  const parsed = stockOutRequestSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
+  }
+  const b = parsed.data
 
   if ((role === 'SHOP_STAFF' || role === 'STORE_KEEPER') && session.user.locationId) {
     const userLocationId = session.user.locationId as string
-    if (body.fromLocationId !== userLocationId) {
+    if (b.fromLocationId !== userLocationId) {
       return NextResponse.json({ error: 'You can only request stock from your assigned location' }, { status: 403 })
     }
   }
 
   // Check available stock
   const stock = await prisma.stock.findUnique({
-    where: { productId_locationId: { productId: body.productId, locationId: body.fromLocationId } },
+    where: { productId_locationId: { productId: b.productId, locationId: b.fromLocationId } },
   })
-  if (!stock || stock.quantity < parseFloat(body.quantityRequested)) {
+  if (!stock || stock.quantity < b.quantityRequested) {
     return NextResponse.json({ error: 'Insufficient stock at selected location' }, { status: 400 })
+  }
+
+  let invoiceDate: Date | null = null
+  if (b.invoiceDate && String(b.invoiceDate).trim() !== '') {
+    const d = new Date(b.invoiceDate)
+    invoiceDate = Number.isNaN(d.getTime()) ? null : d
   }
 
   const stockOut = await prisma.stockOutRequest.create({
     data: {
-      productId: body.productId,
-      fromLocationId: body.fromLocationId,
-      toLocationId: body.toLocationId || null,
+      productId: b.productId,
+      fromLocationId: b.fromLocationId,
+      toLocationId: b.toLocationId ?? null,
       requestedBy: session.user.id as string,
-      quantityRequested: parseFloat(body.quantityRequested),
-      referenceInvoice: body.referenceInvoice,
-      invoiceDate: body.invoiceDate ? new Date(body.invoiceDate) : null,
-      note: body.note,
+      quantityRequested: b.quantityRequested,
+      referenceInvoice: b.referenceInvoice ?? undefined,
+      invoiceDate,
+      note: b.note,
     },
     include: {
       product: true,

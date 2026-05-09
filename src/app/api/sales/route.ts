@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { saleCheckoutSchema } from '@/lib/validations'
+import { captureApiError } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -50,19 +52,27 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+  const parsed = saleCheckoutSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid checkout', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
+  }
+  const checkout = parsed.data
   const locationId = session.user.locationId
 
-  if (!locationId && !body.locationId) {
+  if (!locationId && !checkout.locationId) {
     return NextResponse.json({ error: 'Location required' }, { status: 400 })
   }
 
-  const finalLocationId = locationId || body.locationId
+  const finalLocationId = (locationId || checkout.locationId) as string
 
   try {
     // Perform Sale creation and Stock deduction in a transaction
     const sale = await prisma.$transaction(async (tx) => {
       // 1. Verify stock availability
-      for (const item of body.items) {
+      for (const item of checkout.items) {
         const stock = await tx.stock.findUnique({
           where: { productId_locationId: { productId: item.productId, locationId: finalLocationId } }
         })
@@ -74,25 +84,26 @@ export async function POST(request: NextRequest) {
 
       // 2. Handle Customer & Credit Eligibility
       let customerId = null
-      if (body.customerPhone) {
+      if (checkout.customerPhone) {
+        const updateData: any = {}
+        if (checkout.customerName) updateData.name = checkout.customerName
+        if (checkout.isCreditEligible !== undefined) updateData.isCreditEligible = checkout.isCreditEligible
+        
         const customer = await tx.customer.upsert({
-          where: { phone: body.customerPhone },
-          update: { 
-            name: body.customerName,
-            isCreditEligible: body.isCreditEligible !== undefined ? body.isCreditEligible : undefined
-          },
+          where: { phone: checkout.customerPhone },
+          update: Object.keys(updateData).length > 0 ? updateData : { isCreditEligible: false },
           create: { 
-            name: body.customerName || 'Unknown',
-            phone: body.customerPhone,
-            isCreditEligible: body.isCreditEligible || false
+            name: checkout.customerName || 'Unknown',
+            phone: checkout.customerPhone,
+            isCreditEligible: checkout.isCreditEligible || false
           }
         })
         customerId = customer.id
         
-        if (body.paymentMode === 'CREDIT' && !customer.isCreditEligible) {
+        if (checkout.paymentMode === 'CREDIT' && !customer.isCreditEligible) {
           throw new Error(`Customer ${customer.name} is not eligible for credit.`)
         }
-      } else if (body.paymentMode === 'CREDIT') {
+      } else if (checkout.paymentMode === 'CREDIT') {
         throw new Error('Customer phone number is required for credit sales.')
       }
 
@@ -105,13 +116,13 @@ export async function POST(request: NextRequest) {
           locationId: finalLocationId,
           soldById: session.user.id as string,
           customerId,
-          customerName: body.customerName,
-          customerPhone: body.customerPhone,
-          totalAmount: body.totalAmount,
-          paymentMode: body.paymentMode || 'CASH',
-          note: body.note,
+          customerName: checkout.customerName,
+          customerPhone: checkout.customerPhone,
+          totalAmount: checkout.totalAmount,
+          paymentMode: checkout.paymentMode || 'CASH',
+          note: checkout.note,
           items: {
-            create: body.items.map((item: any) => ({
+            create: checkout.items.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
@@ -123,7 +134,7 @@ export async function POST(request: NextRequest) {
       })
 
       // 4. Deduct stock and create audit logs
-      for (const item of body.items) {
+      for (const item of checkout.items) {
         await tx.stock.update({
           where: { productId_locationId: { productId: item.productId, locationId: finalLocationId } },
           data: { quantity: { decrement: item.quantity } }
@@ -144,8 +155,9 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(sale, { status: 201 })
-  } catch (error: any) {
-    console.error('Sale transaction failed:', error)
-    return NextResponse.json({ error: error.message || 'Sale transaction failed' }, { status: 400 })
+  } catch (error: unknown) {
+    captureApiError(error, { route: 'POST /api/sales' })
+    const message = error instanceof Error ? error.message : 'Sale transaction failed'
+    return NextResponse.json({ error: message }, { status: 400 })
   }
 }

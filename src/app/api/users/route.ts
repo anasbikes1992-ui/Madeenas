@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { adminCreateUserPasswordSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -63,8 +64,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Location is required for shop and warehouse users' }, { status: 400 })
   }
 
+  const pwdParsed = adminCreateUserPasswordSchema.safeParse(body.password)
+  if (!pwdParsed.success) {
+    const msg = pwdParsed.error.issues.map((i) => i.message).join('; ')
+    return NextResponse.json({ error: msg }, { status: 400 })
+  }
+
   const bcrypt = await import('bcryptjs')
-  const passwordHash = await bcrypt.hash(body.password || 'password123', 10)
+  const passwordHash = await bcrypt.hash(pwdParsed.data, 10)
 
   const user = await prisma.user.create({
     data: {

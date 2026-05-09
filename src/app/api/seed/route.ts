@@ -9,6 +9,10 @@ import { fail, ok } from '@/lib/api-response'
 const SEED_SECRET = env.SEED_SECRET
 
 async function runSeed(req: Request) {
+  if (env.NODE_ENV === 'production') {
+    return fail('Not found', 404, 'NOT_FOUND')
+  }
+
   const { searchParams } = new URL(req.url)
   const token = searchParams.get('token') || req.headers.get('x-seed-token')
   if (!SEED_SECRET || token !== SEED_SECRET) {

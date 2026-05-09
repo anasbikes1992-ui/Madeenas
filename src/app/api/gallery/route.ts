@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { customerOrderSchema } from '@/lib/validations'
 import { sendOrderWhatsAppNotifications } from '@/lib/whatsapp'
 import { createNotification } from '@/lib/audit'
-import { limitRequests } from '@/lib/rate-limit'
+import { limitRequestsAsync } from '@/lib/rate-limit'
 import { auth } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const session = await auth()
     const forwardedFor = request.headers.get('x-forwarded-for')
     const clientIp = forwardedFor?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'anonymous'
-    const rateLimit = limitRequests({
+    const rateLimit = await limitRequestsAsync({
       key: `gallery-order:${clientIp}`,
       maxRequests: 6,
       windowMs: 60_000,

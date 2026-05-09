@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity, createNotification } from '@/lib/audit'
+import { stockInSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -44,18 +45,26 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const qty = parseFloat(body.quantity)
+  const parsed = stockInSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid stock-in', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
+  }
+  const b = parsed.data
+  const qty = b.quantity
 
   // Create stock-in record
   const stockIn = await prisma.stockIn.create({
     data: {
-      productId: body.productId,
-      locationId: body.locationId,
+      productId: b.productId,
+      locationId: b.locationId,
       quantity: qty,
-      batchNumber: body.batchNumber,
-      supplierId: body.supplierId || null,
-      costPrice: body.costPrice ? parseFloat(body.costPrice) : null,
-      note: body.note,
+      batchNumber: b.batchNumber,
+      supplierId: b.supplierId ?? null,
+      costPrice: b.costPrice ?? null,
+      note: b.note,
       receivedBy: session.user.id as string,
     },
     include: { product: true, location: true }
@@ -63,9 +72,9 @@ export async function POST(request: NextRequest) {
 
   // Upsert stock level
   await prisma.stock.upsert({
-    where: { productId_locationId: { productId: body.productId, locationId: body.locationId } },
+    where: { productId_locationId: { productId: b.productId, locationId: b.locationId } },
     update: { quantity: { increment: qty } },
-    create: { productId: body.productId, locationId: body.locationId, quantity: qty },
+    create: { productId: b.productId, locationId: b.locationId, quantity: qty },
   })
 
   // Audit Log
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
     action: 'STOCK_IN',
     entity: 'StockIn',
     entityId: stockIn.id,
-    details: `Added ${qty} ${stockIn.product.unit} to ${stockIn.location.name}. Batch: ${body.batchNumber || 'N/A'}`
+    details: `Added ${qty} ${stockIn.product.unit} to ${stockIn.location.name}. Batch: ${b.batchNumber || 'N/A'}`
   })
 
   // Notify Admins about stock arrival

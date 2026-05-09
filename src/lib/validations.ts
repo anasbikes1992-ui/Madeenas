@@ -38,6 +38,45 @@ export const productSchema = z.object({
 
 export type ProductFormData = z.infer<typeof productSchema>
 
+export const productCreateSchema = productSchema.extend({
+  images: z.array(z.string()).optional(),
+  barcodeType: z.string().trim().max(32).optional(),
+})
+
+export const productUpdateSchema = productCreateSchema.partial().extend({
+  isActive: z.boolean().optional(),
+})
+
+export const customerOrderStatusSchema = z.enum(['NEW', 'REVIEWED', 'QUOTED', 'CONFIRMED', 'CLOSED'])
+
+export const customerOrderAdminUpdateSchema = z
+  .object({
+    status: customerOrderStatusSchema.optional(),
+    quotedPrice: z.coerce.number().nonnegative().optional().nullable(),
+  })
+  .refine((d) => d.status !== undefined || d.quotedPrice !== undefined, {
+    message: 'Provide at least status or quotedPrice',
+    path: ['status'],
+  })
+
+const saleLineItemSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  quantity: z.coerce.number().positive('Quantity must be positive'),
+  unitPrice: z.coerce.number().nonnegative(),
+  subTotal: z.coerce.number().nonnegative(),
+})
+
+export const saleCheckoutSchema = z.object({
+  locationId: z.string().optional().nullable(),
+  items: z.array(saleLineItemSchema).min(1, 'At least one item is required'),
+  totalAmount: z.coerce.number().nonnegative(),
+  paymentMode: z.enum(['CASH', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'CREDIT']).optional().default('CASH'),
+  customerName: z.string().max(200).optional().nullable(),
+  customerPhone: z.string().max(32).optional().nullable(),
+  isCreditEligible: z.boolean().optional(),
+  note: z.string().max(2000).optional().nullable(),
+})
+
 export const stockInSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
   locationId: z.string().min(1, 'Location is required'),
@@ -54,6 +93,8 @@ export const stockOutRequestSchema = z.object({
   toLocationId: z.string().optional().nullable(),
   quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
   note: z.string().optional(),
+  referenceInvoice: z.string().trim().max(120).optional().nullable(),
+  invoiceDate: z.string().trim().optional().nullable(),
 })
 
 export const categorySchema = z.object({
@@ -92,6 +133,15 @@ export const customerOrderSchema = z.object({
   note: z.string().trim().max(1000, 'Note is too long').optional().transform((value) => value || null),
   language: z.enum(['en', 'si', 'ta']).optional().default('en'),
 })
+
+/** Password for admin-created users: required, no defaults in API. */
+export const adminCreateUserPasswordSchema = z
+  .string()
+  .min(12, 'Password must be at least 12 characters')
+  .max(128, 'Password is too long')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/[0-9]/, 'Password must contain a digit')
 
 export const customerSignupSchema = z
   .object({

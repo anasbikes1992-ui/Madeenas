@@ -2,14 +2,29 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
 import { fail, ok } from '@/lib/api-response'
 import { signMobileToken } from '@/lib/mobile-auth'
-
-const RATE_WINDOW_MS = 60_000
-const MAX_ATTEMPTS_PER_WINDOW = 10
-const attemptsByIp = new Map<string, { count: number; resetAt: number }>()
+import { limitRequestsAsync } from '@/lib/rate-limit'
 
 type LoginBody = {
   email?: string
   password?: string
+  mode?: 'staff' | 'customer'
+}
+
+const STAFF_ROLES = new Set([
+  'SUPER_ADMIN',
+  'ADMIN',
+  'MANAGER',
+  'SHOP_STAFF',
+  'STORE_KEEPER',
+  'FINANCE',
+])
+
+function isRoleAllowedForMode(role: string, mode: 'staff' | 'customer') {
+  const normalized = role.toUpperCase()
+  if (mode === 'customer') {
+    return normalized === 'CUSTOMER'
+  }
+  return STAFF_ROLES.has(normalized)
 }
 
 function getClientIp(request: Request) {
@@ -21,24 +36,15 @@ function getClientIp(request: Request) {
   return request.headers.get('x-real-ip') ?? 'unknown'
 }
 
-function isRateLimited(ip: string) {
-  const now = Date.now()
-  const existing = attemptsByIp.get(ip)
-
-  if (!existing || existing.resetAt < now) {
-    attemptsByIp.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return false
-  }
-
-  existing.count += 1
-  attemptsByIp.set(ip, existing)
-  return existing.count > MAX_ATTEMPTS_PER_WINDOW
-}
-
 export async function POST(request: Request) {
   try {
     const clientIp = getClientIp(request)
-    if (isRateLimited(clientIp)) {
+    const rate = await limitRequestsAsync({
+      key: `mobile-login:${clientIp}`,
+      maxRequests: 10,
+      windowMs: 60_000,
+    })
+    if (!rate.success) {
       return fail('Too many login attempts. Try again in a minute.', 429, 'RATE_LIMITED')
     }
 
@@ -47,6 +53,8 @@ export async function POST(request: Request) {
     if (!body.email || !body.password) {
       return fail('Email and password are required', 400, 'VALIDATION_ERROR')
     }
+
+    const mode: 'staff' | 'customer' = body.mode === 'customer' ? 'customer' : 'staff'
 
     const user = await prisma.user.findUnique({
       where: { email: body.email },
@@ -62,6 +70,14 @@ export async function POST(request: Request) {
       return fail('Invalid credentials', 401, 'INVALID_CREDENTIALS')
     }
 
+    if (!isRoleAllowedForMode(user.role, mode)) {
+      const message =
+        mode === 'customer'
+          ? 'This account is not a customer account. Please use Staff Login.'
+          : 'This account is not a staff account. Please use Customer Login.'
+      return fail(message, 403, 'ROLE_MODE_MISMATCH')
+    }
+
     const token = await signMobileToken({
       sub: user.id,
       email: user.email,
@@ -71,6 +87,7 @@ export async function POST(request: Request) {
 
     return ok({
       token,
+      mode,
       user: {
         id: user.id,
         email: user.email,

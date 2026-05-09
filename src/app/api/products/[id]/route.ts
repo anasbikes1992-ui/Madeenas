@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
+import { productUpdateSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,24 +25,36 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await request.json()
+  const parsed = productUpdateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid product', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
+  }
+  const d = parsed.data
+  const data: Prisma.ProductUpdateInput = {}
+  if (d.name !== undefined) data.name = d.name
+  if (d.design !== undefined) data.design = d.design
+  if (d.color !== undefined) data.color = d.color
+  if (d.colorHex !== undefined) data.colorHex = d.colorHex
+  if (d.sku !== undefined) data.sku = d.sku
+  if (d.categoryId !== undefined) data.category = { connect: { id: d.categoryId } }
+  if (d.unit !== undefined) data.unit = d.unit
+  if (d.description !== undefined) data.description = d.description
+  if (d.images !== undefined) data.images = JSON.stringify(d.images)
+  if (d.barcodeType !== undefined) data.barcodeType = d.barcodeType
+  if (d.lowStockAt !== undefined) data.lowStockAt = d.lowStockAt
+  if (d.costPrice !== undefined) data.costPrice = d.costPrice
+  if (d.isActive !== undefined) data.isActive = d.isActive
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+  }
 
   const product = await prisma.product.update({
     where: { id },
-    data: {
-      name: body.name,
-      design: body.design,
-      color: body.color,
-      colorHex: body.colorHex,
-      sku: body.sku,
-      categoryId: body.categoryId,
-      unit: body.unit,
-      description: body.description,
-      images: JSON.stringify(body.images || []),
-      barcodeType: body.barcodeType,
-      lowStockAt: parseFloat(body.lowStockAt),
-      costPrice: body.costPrice ? parseFloat(body.costPrice) : null,
-      isActive: body.isActive,
-    },
+    data,
     include: { category: true },
   })
 

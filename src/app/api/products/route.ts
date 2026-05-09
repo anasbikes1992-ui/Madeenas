@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
+import { productCreateSchema } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -47,20 +48,28 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
+  const parsed = productCreateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid product', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
+  }
+  const d = parsed.data
   const product = await prisma.product.create({
     data: {
-      name: body.name,
-      design: body.design,
-      color: body.color,
-      colorHex: body.colorHex || '#000000',
-      sku: body.sku,
-      categoryId: body.categoryId,
-      unit: body.unit || 'meters',
-      description: body.description,
-      images: JSON.stringify(body.images || []),
-      barcodeType: body.barcodeType || 'CODE128',
-      lowStockAt: parseFloat(body.lowStockAt || '10'),
-      costPrice: body.costPrice ? parseFloat(body.costPrice) : null,
+      name: d.name,
+      design: d.design,
+      color: d.color,
+      colorHex: d.colorHex || '#000000',
+      sku: d.sku,
+      categoryId: d.categoryId,
+      unit: d.unit || 'meters',
+      description: d.description ?? undefined,
+      images: JSON.stringify(d.images ?? []),
+      barcodeType: d.barcodeType || 'CODE128',
+      lowStockAt: d.lowStockAt,
+      costPrice: d.costPrice ?? null,
     },
     include: { category: true },
   })
