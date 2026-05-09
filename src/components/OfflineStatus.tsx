@@ -8,7 +8,9 @@ export default function OfflineStatus() {
     const handleOnline = () => setIsOffline(false)
     const handleOffline = () => setIsOffline(true)
 
-    setIsOffline(!navigator.onLine)
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setTimeout(() => setIsOffline(true), 0)
+    }
 
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)

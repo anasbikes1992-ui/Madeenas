@@ -1,11 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 
 export default function SalesHistoryPage() {
   const [sales, setSales] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  const summary = useMemo(() => {
+    const totalRevenue = sales.reduce((sum, sale) => sum + (Number(sale.totalAmount) || 0), 0)
+    const cashCount = sales.filter((sale) => sale.paymentMode === 'CASH').length
+    const avgTicket = sales.length ? totalRevenue / sales.length : 0
+
+    return {
+      totalRevenue,
+      cashCount,
+      avgTicket,
+    }
+  }, [sales])
 
   useEffect(() => {
     fetch('/api/sales')
@@ -14,18 +26,38 @@ export default function SalesHistoryPage() {
         setSales(data.sales || [])
         setLoading(false)
       })
+      .catch(() => {
+        setSales([])
+        setLoading(false)
+      })
   }, [])
 
   return (
     <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Sales History</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{sales.length} transactions recorded</p>
-        </div>
-      </div>
+      <section className="rounded-4xl border border-slate-200/70 bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.08)] sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-500">Sales operations</p>
+            <h1 className="text-3xl font-black text-slate-950 sm:text-4xl">Sales history with the shape of a real operational dashboard.</h1>
+            <p className="text-sm leading-7 text-slate-600">Track receipts, location activity, payment modes, and transaction totals without losing the speed of a working sales desk.</p>
+          </div>
 
-      <div className="table-container">
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-136">
+            {[
+              ['Transactions', String(sales.length)],
+              ['Cash count', String(summary.cashCount)],
+              ['Avg ticket', `Rs. ${summary.avgTicket.toLocaleString(undefined, { maximumFractionDigits: 0 })}`],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+                <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="table-container bg-white">
         <table className="table">
           <thead>
             <tr>
@@ -73,7 +105,7 @@ export default function SalesHistoryPage() {
                   </div>
                 </td>
                 <td className="font-bold text-emerald-600">
-                  Rs. {sale.totalAmount.toLocaleString()}
+                  Rs. {(Number(sale.totalAmount) || 0).toLocaleString()}
                 </td>
                 <td>
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${

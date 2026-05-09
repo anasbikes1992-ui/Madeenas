@@ -1,1 +1,5 @@
-export { default } from '@/app/gallery/page'
+import HomeLandingPage from '@/components/landing/HomeLandingPage'
+
+export default function HomePage() {
+	return <HomeLandingPage />
+}

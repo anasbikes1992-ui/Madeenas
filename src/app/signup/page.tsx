@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -56,19 +57,19 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#eef2ff_0%,#f8fafc_38%,#ffffff_100%)] px-6 py-12">
-      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-        <div className="space-y-6">
-          <a href="/gallery" className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.12),transparent_24%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_38%,#ffffff_100%)] px-6 py-10 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+        <div className="space-y-6 rounded-[2rem] border border-slate-200/70 bg-white p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)] lg:p-10">
+          <Link href="/gallery" className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm">
             ← Back to Gallery
-          </a>
+          </Link>
           <div className="space-y-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">Customer Signup</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">Customer sign up</p>
             <h1 className="text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-              Create your account and keep ordering from the gallery.
+              Create your account and keep your textile orders in one place.
             </h1>
             <p className="max-w-xl text-base leading-7 text-slate-600">
-              Customer accounts let you sign in faster, keep using the public gallery as your home page, and prepare the app for order history, quotes, and confirmations next.
+              Registration gives customers a faster path back into the gallery and prepares the flow for order history, quotes, and confirmations later in the release.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -90,7 +91,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <div className="card rounded-4xl border border-slate-200/80 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)]">
+        <div className="rounded-[2rem] border border-slate-200/80 bg-white p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)]">
           <h2 className="text-2xl font-black text-slate-950">Create customer account</h2>
           <p className="mt-2 text-sm text-slate-500">You will be signed in automatically if registration succeeds.</p>
 
@@ -128,9 +129,9 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Already have an account?{' '}
-            <a href="/login" className="font-medium text-indigo-600 hover:underline">
+            <Link href="/login" className="font-medium text-indigo-600 hover:underline">
               Sign in
-            </a>
+            </Link>
           </p>
         </div>
       </div>

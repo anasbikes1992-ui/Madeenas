@@ -3,9 +3,18 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 
+interface NotificationItem {
+  id: string
+  title: string
+  message: string
+  isRead: boolean
+  createdAt: string
+  link?: string
+}
+
 export default function NotificationBell() {
   const router = useRouter()
-  const [notifications, setNotifications] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -22,7 +31,7 @@ export default function NotificationBell() {
   }
 
   useEffect(() => {
-    fetchNotifications()
+    setTimeout(() => { fetchNotifications() }, 0)
     // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
@@ -47,7 +56,7 @@ export default function NotificationBell() {
     fetchNotifications()
   }
 
-  async function openNotification(notification: any) {
+  async function openNotification(notification: NotificationItem) {
     if (!notification.isRead) {
       await markAsRead(notification.id)
     }
@@ -105,7 +114,7 @@ export default function NotificationBell() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{n.title}</p>
                       <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
-                      <p className="text-[10px] text-slate-400 mt-2">{formatDate(n.createdAt, { dateStyle: 'short', timeStyle: 'short' } as any)}</p>
+                      <p className="text-[10px] text-slate-400 mt-2">{formatDate(n.createdAt, { dateStyle: 'short', timeStyle: 'short' } as Intl.DateTimeFormatOptions)}</p>
                     </div>
                   </div>
                 </div>

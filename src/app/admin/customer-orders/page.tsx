@@ -182,15 +182,32 @@ export default function CustomerOrdersPage() {
 
   return (
     <div className="space-y-6 fade-in">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Customer order requests</h1>
-          <p className="text-sm text-slate-500">Inquiries from the public gallery ({total} total)</p>
+      <section className="rounded-4xl border border-slate-200/70 bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.08)] sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-500">Customer requests</p>
+            <h1 className="text-3xl font-black text-slate-950 sm:text-4xl">Orders from the public gallery, organized for fast review and fulfillment.</h1>
+            <p className="text-sm leading-7 text-slate-600">This workspace keeps the quote-to-fulfillment flow visible, with customer requests, pricing changes, and completion handling in one place.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-136">
+            {[
+              ['Total', String(total)],
+              ['New', String(orders.filter((order) => order.status === 'NEW').length)],
+              ['Closed', String(orders.filter((order) => order.status === 'CLOSED').length)],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+                <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-600">Status</label>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium text-slate-600">Status</label>
           <select
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -208,7 +225,7 @@ export default function CustomerOrdersPage() {
             Open gallery
           </a>
         </div>
-      </div>
+      </section>
 
       {loading ? (
         <div className="card py-12 text-center text-slate-500">Loading…</div>

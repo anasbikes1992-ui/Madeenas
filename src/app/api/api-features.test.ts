@@ -115,7 +115,7 @@ describe('Fulfillment API', () => {
 
   it('should reject fulfillment without authentication', async () => {
     const { auth } = await import('@/lib/auth')
-    vi.mocked(auth).mockResolvedValue(null)
+    vi.mocked(auth).mockResolvedValue(null as any)
 
     const request = new NextRequest('http://localhost/api/customer-orders/order1/fulfill', {
       method: 'POST',
@@ -183,7 +183,7 @@ describe('CSV Import', () => {
 
   it('should require authentication', async () => {
     const { auth } = await import('@/lib/auth')
-    vi.mocked(auth).mockResolvedValue(null)
+    vi.mocked(auth).mockResolvedValue(null as any)
 
     const request = new NextRequest('http://localhost/api/dashboard/import', {
       method: 'POST',
@@ -197,7 +197,7 @@ describe('CSV Import', () => {
 describe('CSV Export', () => {
   it('should require authentication', async () => {
     const { auth } = await import('@/lib/auth')
-    vi.mocked(auth).mockResolvedValue(null)
+    vi.mocked(auth).mockResolvedValue(null as any)
 
     const response = await exportGET()
     expect(response.status).toBe(401)

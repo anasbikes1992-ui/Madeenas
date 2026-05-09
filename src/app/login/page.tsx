@@ -2,6 +2,7 @@
 import { useState, FormEvent, useEffect, Suspense } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { getDashboardPath } from '@/lib/constants'
 
 function LoginForm() {
@@ -50,12 +51,16 @@ function LoginForm() {
   }
 
   return (
-    <div className="card">
-      <h2 className="text-2xl font-bold text-slate-900 mb-1">Staff Login</h2>
-      <p className="text-slate-500 text-sm mb-2">Sign in to admin dashboard</p>
-      <p className="text-xs text-indigo-600 mb-8">
-        <a href="/gallery" className="hover:underline">Customer? Browse catalog here →</a>
-      </p>
+    <div className="rounded-[2rem] border border-slate-200/80 bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.08)] sm:p-8">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-950">Staff login</h2>
+          <p className="mt-1 text-sm text-slate-500">Sign in to sales, inventory, and customer workflows.</p>
+        </div>
+        <Link href="/gallery" className="text-sm font-semibold text-indigo-600 hover:underline">
+          Browse gallery →
+        </Link>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="form-group">
@@ -104,7 +109,7 @@ function LoginForm() {
       </form>
 
       {process.env.NODE_ENV !== 'production' && (
-        <div className="mt-8 pt-6 border-t border-slate-100">
+        <div className="mt-8 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
           <p className="text-xs text-slate-500 mb-3">Demo accounts:</p>
           <div className="grid grid-cols-2 gap-2 text-xs">
             {[
@@ -132,69 +137,77 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-gradient-to-br from-indigo-900 via-indigo-800 to-purple-900 p-12 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <span className="text-xl font-bold tracking-tight">TextileStock</span>
-        </div>
-        <div>
-          <h1 className="text-5xl font-bold leading-tight mb-6">
-            Raw Materials<br/>Stock Management<br/>System
-          </h1>
-          <p className="text-indigo-200 text-lg leading-relaxed">
-            Track every meter, roll, and bundle across all your warehouses and shops — from stock-in to delivery, with complete financial reconciliation.
-          </p>
-          <div className="mt-10 grid grid-cols-3 gap-6">
-            {[
-              { label: 'Warehouses', val: '8+' },
-              { label: 'Product SKUs', val: '500+' },
-              { label: 'Roles', val: '7' },
-            ].map(s => (
-              <div key={s.label} className="bg-white/10 rounded-2xl p-4 text-center">
-                <div className="text-3xl font-bold">{s.val}</div>
-                <div className="text-sm text-indigo-300 mt-1">{s.label}</div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.18),transparent_28%),linear-gradient(180deg,#0f172a_0%,#111827_38%,#f8fafc_38%,#ffffff_100%)] px-6 py-8 lg:px-10 lg:py-10">
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl gap-8 lg:grid-cols-[1fr_0.92fr] lg:items-center">
+        <section className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_55%,#312e81_100%)] p-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.3)] sm:p-10 lg:p-12">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_15%,rgba(34,211,238,0.28),transparent_22%),radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.12),transparent_18%)]" aria-hidden="true" />
+          <div className="relative flex h-full flex-col justify-between gap-10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-lg font-black">TS</div>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100">TextileStock</p>
+                <p className="text-sm text-indigo-100">Secure staff access and customer entry points</p>
               </div>
-            ))}
-          </div>
-        </div>
-        <p className="text-indigo-400 text-sm">© {new Date().getFullYear()} TextileStock. All rights reserved.</p>
-      </div>
-
-      {/* Right panel - Login form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
             </div>
-            <span className="font-bold text-indigo-900 text-lg">Madeena Tex</span>
-          </div>
 
-          <Suspense fallback={<div>Loading login...</div>}>
-            <LoginForm />
-          </Suspense>
-          
-          <p className="text-center text-sm text-slate-500 mt-6">
-            Need access?{' '}
-            <a href="/gallery" className="text-indigo-600 hover:underline font-medium">
-              Browse our product gallery →
-            </a>
-          </p>
-          <p className="text-center text-sm text-slate-500 mt-3">
-            New customer?{' '}
-            <a href="/signup" className="text-indigo-600 hover:underline font-medium">
-              Create an account →
-            </a>
-          </p>
-        </div>
+            <div className="max-w-2xl space-y-5">
+              <p className="inline-flex rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100">
+                Operational workspace
+              </p>
+              <h1 className="text-4xl font-black leading-[0.95] sm:text-5xl lg:text-6xl">
+                Sign in to manage sales, customer requests, and inventory without breaking flow.
+              </h1>
+              <p className="max-w-xl text-base leading-8 text-indigo-100 sm:text-lg">
+                Staff, finance, and customer journeys now start from a clear public homepage and land here only when the workflow requires access.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ['POS', 'Fast checkout'],
+                ['Orders', 'Customer quotes'],
+                ['Inventory', 'Stock-safe moves'],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur">
+                  <p className="text-sm font-semibold text-white">{title}</p>
+                  <p className="mt-1 text-sm text-indigo-100">{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex items-center justify-center">
+          <div className="w-full max-w-md">
+            <div className="mb-6 flex items-center justify-between gap-4 lg:hidden">
+              <Link href="/" className="text-sm font-semibold text-indigo-600 hover:underline">
+                ← Back to home
+              </Link>
+              <Link href="/signup" className="text-sm font-semibold text-indigo-600 hover:underline">
+                New customer sign up
+              </Link>
+            </div>
+
+            <Suspense fallback={<div>Loading login...</div>}>
+              <LoginForm />
+            </Suspense>
+
+            <div className="mt-6 space-y-3 text-center text-sm text-slate-500">
+              <p>
+                Need the product catalog?{' '}
+                <Link href="/gallery" className="font-medium text-indigo-600 hover:underline">
+                  Open the gallery →
+                </Link>
+              </p>
+              <p>
+                New customer?{' '}
+                <Link href="/signup" className="font-medium text-indigo-600 hover:underline">
+                  Create an account →
+                </Link>
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   )

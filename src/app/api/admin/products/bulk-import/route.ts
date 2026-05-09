@@ -22,7 +22,7 @@ export async function POST(req: Request) {
           // For now, assume categoryId is provided correctly or we skip
           if (!p.categoryId) return { name: p.name, status: 'Error', message: 'Category ID missing' }
 
-          const created = await prisma.product.create({
+          await prisma.product.create({
             data: {
               name: p.name,
               design: p.design || 'Default',
@@ -37,8 +37,8 @@ export async function POST(req: Request) {
             }
           })
           return { name: p.name, status: 'Success' }
-        } catch (err: any) {
-          return { name: p.name, status: 'Error', message: err.message }
+        } catch (err: unknown) {
+          return { name: p.name, status: 'Error', message: err instanceof Error ? err.message : String(err) }
         }
       })
     )
