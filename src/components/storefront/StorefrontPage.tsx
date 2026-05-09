@@ -271,6 +271,7 @@ export default function StorefrontPage() {
                 <p className="text-lg font-semibold tracking-wide">Madeena Tex</p>
                 <p className="text-sm text-indigo-200">{t.brandTag}</p>
               </div>
+              <div className="text-xs text-indigo-300/60">v2.1.0</div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -441,9 +442,9 @@ export default function StorefrontPage() {
                           addToCart(product)
                           setCartOpen(true)
                         }}
-                        className="btn-secondary w-full justify-center text-sm"
+                        className="btn-primary w-full justify-center text-sm font-semibold"
                       >
-                        Add to cart
+                        🛒 Add to Cart
                       </button>
                     </div>
                   </button>

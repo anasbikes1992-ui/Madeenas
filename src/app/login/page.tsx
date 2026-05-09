@@ -51,8 +51,11 @@ function LoginForm() {
 
   return (
     <div className="card">
-      <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
-      <p className="text-slate-500 text-sm mb-8">Sign in to your account to continue</p>
+      <h2 className="text-2xl font-bold text-slate-900 mb-1">Staff Login</h2>
+      <p className="text-slate-500 text-sm mb-2">Sign in to admin dashboard</p>
+      <p className="text-xs text-indigo-600 mb-8">
+        <a href="/gallery" className="hover:underline">Customer? Browse catalog here →</a>
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="form-group">
