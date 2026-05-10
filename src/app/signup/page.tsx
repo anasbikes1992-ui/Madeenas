@@ -47,7 +47,7 @@ export default function SignupPage() {
     setLoading(false)
 
     if (signInResult?.ok) {
-      router.push('/')
+      router.push('/gallery')
       router.refresh()
       return
     }

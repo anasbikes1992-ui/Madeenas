@@ -54,8 +54,8 @@ function LoginForm() {
     <div className="rounded-[2rem] border border-slate-200/80 bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.08)] sm:p-8">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-950">Staff login</h2>
-          <p className="mt-1 text-sm text-slate-500">Sign in to sales, inventory, and customer workflows.</p>
+          <h2 className="text-2xl font-black text-slate-950">Sign in</h2>
+          <p className="mt-1 text-sm text-slate-500">Staff, customers, and management all sign in here.</p>
         </div>
         <Link href="/gallery" className="text-sm font-semibold text-indigo-600 hover:underline">
           Browse gallery →
@@ -143,10 +143,10 @@ export default function LoginPage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_15%,rgba(34,211,238,0.28),transparent_22%),radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.12),transparent_18%)]" aria-hidden="true" />
           <div className="relative flex h-full flex-col justify-between gap-10">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-lg font-black">TS</div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-lg font-black">MT</div>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100">TextileStock</p>
-                <p className="text-sm text-indigo-100">Secure staff access and customer entry points</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100">Madeena Tex</p>
+                <p className="text-sm text-indigo-100">Secure staff, customer, and management access</p>
               </div>
             </div>
 
@@ -155,10 +155,10 @@ export default function LoginPage() {
                 Operational workspace
               </p>
               <h1 className="text-4xl font-black leading-[0.95] sm:text-5xl lg:text-6xl">
-                Sign in to manage sales, customer requests, and inventory without breaking flow.
+                Sign in to manage sales, stock, customer requests, and finance in one place.
               </h1>
               <p className="max-w-xl text-base leading-8 text-indigo-100 sm:text-lg">
-                Staff, finance, and customer journeys now start from a clear public homepage and land here only when the workflow requires access.
+                Customers land in the gallery. Staff and management land in the dashboard matching their role. One login form, role-aware routing.
               </p>
             </div>
 
