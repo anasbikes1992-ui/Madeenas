@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'react-hot-toast'
+import { calculateMultipleItemsTax, formatCurrency, formatTaxRate } from '@/lib/tax'
+import { VATBreakdown } from '@/components/shared/VATBreakdown'
 
 interface Product {
   id: string
@@ -16,10 +18,10 @@ interface CartItem {
   product: Product
   quantity: number
   unitPrice: number
-  subTotal: number
 }
 
 const RETAIL_MARKUP = 1.2
+const DEFAULT_TAX_RATE = 18
 
 export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -31,6 +33,7 @@ export default function POSPage() {
   const [paymentMode, setPaymentMode] = useState('CASH')
   const [isCreditEligible, setIsCreditEligible] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE)
 
   useEffect(() => {
     fetch('/api/products')
@@ -58,12 +61,12 @@ export default function POSPage() {
       if (existing) {
         return prev.map(item => 
           item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1, subTotal: (item.quantity + 1) * item.unitPrice }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         )
       }
       const unitPrice = product.costPrice ? product.costPrice * RETAIL_MARKUP : 0 // Adding 20% margin for sale if no retail price defined
-      return [...prev, { product, quantity: 1, unitPrice, subTotal: unitPrice }]
+      return [...prev, { product, quantity: 1, unitPrice }]
     })
   }
 
@@ -74,7 +77,7 @@ export default function POSPage() {
     }
     setCart(prev => prev.map(item => 
       item.product.id === productId 
-        ? { ...item, quantity, subTotal: quantity * item.unitPrice }
+        ? { ...item, quantity }
         : item
     ))
   }
@@ -86,12 +89,19 @@ export default function POSPage() {
     }
     setCart(prev => prev.map(item => 
       item.product.id === productId 
-        ? { ...item, unitPrice, subTotal: item.quantity * unitPrice }
+        ? { ...item, unitPrice }
         : item
     ))
   }
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.subTotal, 0)
+  // Calculate VAT breakdown
+  const taxBreakdown = useMemo(() => {
+    return calculateMultipleItemsTax(
+      cart.map(item => ({ quantity: item.quantity, unitPrice: item.unitPrice })),
+      taxRate
+    )
+  }, [cart, taxRate])
+
   const cartItems = cart.reduce((sum, item) => sum + item.quantity, 0)
   const lowStockCount = products.filter((product) => Number(product.totalStock || 0) <= 5).length
 
@@ -112,15 +122,14 @@ export default function POSPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName,
-          customerPhone,
+          customerName: customerName.trim() || undefined,
+          customerPhone: customerPhone.trim() || undefined,
           paymentMode,
-          totalAmount,
+          taxRate,
           items: cart.map(item => ({
             productId: item.product.id,
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subTotal: item.subTotal
+            unitPrice: item.unitPrice
           })),
           isCreditEligible
         })
@@ -129,14 +138,15 @@ export default function POSPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Checkout failed')
 
-      toast.success('Sale completed successfully!')
+      toast.success(`Sale completed! Receipt: ${data.sale?.receiptNo || ''}`)
       setCart([])
       setCustomerName('')
       setCustomerPhone('')
       setIsCreditEligible(false)
       setPaymentMode('CASH')
+      setTaxRate(DEFAULT_TAX_RATE)
       
-      // Optionally trigger receipt printing here
+      // TODO: Print receipt with VAT breakdown
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -202,7 +212,7 @@ export default function POSPage() {
                     <span className="mt-1 text-xs text-slate-500">{p.sku}</span>
                     <div className="mt-5 flex w-full items-center justify-between">
                       <span className="text-sm font-bold text-indigo-600">
-                        Rs. {p.costPrice ? (p.costPrice * RETAIL_MARKUP).toLocaleString() : '0'}
+                        {formatCurrency((p.costPrice || 0) * RETAIL_MARKUP)}
                       </span>
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">/{p.unit}</span>
                     </div>
@@ -258,7 +268,7 @@ export default function POSPage() {
                       min="0.01"
                     />
                     <span className="ml-auto text-sm font-bold text-slate-950">
-                      Rs. {item.subTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {formatCurrency(item.quantity * item.unitPrice)}
                     </span>
                   </div>
                 </div>
@@ -310,11 +320,35 @@ export default function POSPage() {
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200">
-              <span className="font-medium text-slate-600">Total</span>
-              <span className="text-2xl font-black text-indigo-600">
-                Rs. {totalAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
+            <div className="rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200 space-y-3">
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <span>Subtotal</span>
+                <span className="font-semibold">{formatCurrency(taxBreakdown.subTotal)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-slate-600">VAT</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(parseFloat(e.target.value) || DEFAULT_TAX_RATE)}
+                    className="input h-8 w-16 px-2 text-sm text-right"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                  />
+                  <span className="text-sm text-slate-600">%</span>
+                  <span className="text-sm font-semibold text-slate-950 min-w-[80px] text-right">
+                    {formatCurrency(taxBreakdown.taxAmount)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                <span className="font-semibold text-slate-900">Grand Total</span>
+                <span className="text-2xl font-black text-indigo-600">
+                  {formatCurrency(taxBreakdown.grandTotal)}
+                </span>
+              </div>
             </div>
 
             <button

@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
+import * as ordersService from '@/services/orders.service'
+import { approveOrderSchema } from '@/lib/validation'
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Only admin can approve orders
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(session.user.role || '')) {
+      return NextResponse.json(
+        { success: false, error: 'Only admin can approve orders' },
+        { status: 403 }
+      )
+    }
+
+    const body = await request.json()
+    const validation = approveOrderSchema.safeParse(body)
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid request data',
+          details: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      )
+    }
+
+    const { note } = validation.data
+
+    const order = await ordersService.approveOrder(
+      params.id,
+      session.user.id,
+      note
+    )
+
+    // TODO: Send approval notification to customer (email/SMS)
+
+    return NextResponse.json({
+      success: true,
+      data: order,
+      message: 'Order approved successfully',
+    })
+  } catch (error) {
+    console.error('[Order Approve Error]:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to approve order',
+      },
+      { status: 500 }
+    )
+  }
+}
