@@ -14,13 +14,14 @@ model User {
   name          String
   email         String   @unique
   password      String
-  role          String   @default("STORE_KEEPER")
+  role          String   @default("STORE_KEEPER") // ADMIN, STORE_KEEPER, FINANCE, CUSTOMER
   locationId    String?
   location      Location? @relation(fields: [locationId], references: [id])
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Relations
   stockIns        StockIn[]
   stockOutRequests StockOutRequest[] @relation("RequestedBy")
   approvedRequests StockOutRequest[] @relation("ApprovedBy")
@@ -28,6 +29,7 @@ model User {
   financeReviews  FinanceReview[]
   auditLogs       AuditLog[]
   sales           Sale[]
+  carts           Cart[]
 }
 
 model Category {
@@ -62,8 +64,9 @@ model Product {
   stocks          Stock[]
   stockIns        StockIn[]
   stockOutRequests StockOutRequest[]
-  customerOrders  CustomerOrder[]
   saleItems       SaleItem[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
 }
 
 model Location {
@@ -141,21 +144,66 @@ model StockOutRequest {
 }
 
 model CustomerOrder {
-  id              String   @id @default(cuid())
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
-  customerId      String?
-  customer        User?    @relation(fields: [customerId], references: [id])
-  customerName    String
-  customerEmail   String
-  customerPhone   String?
-  quantity        Float
-  colorPreference String?
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique // e.g., "ORD-2026-0001"
+  customerId      String
+  customer        User        @relation(fields: [customerId], references: [id])
+  
+  // Order items (multiple products)
+  items           OrderItem[]
+  
+  // Status tracking
+  status          OrderStatus @default(PENDING)
+  
+  // Amounts with VAT
+  subTotal        Float
+  taxRate         Float       @default(18)
+  taxAmount       Float
+  grandTotal      Float
+  
+  // Shipping & Contact
+  shippingAddress String
+  billingAddress  String?
+  phoneNumber     String
+  
+  // Workflow tracking
+  approvedBy      String?
+  approvedAt      DateTime?
+  fulfilledBy     String?
+  fulfilledAt     DateTime?
+  
+  // Link to Sale after fulfillment
+  saleId          String?     @unique
+  sale            Sale?       @relation(fields: [saleId], references: [id])
+  
   note            String?
-  status          String   @default("NEW")
-  quotedPrice     Float?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model OrderItem {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id])
+  quantity    Float
+  unitPrice   Float
+  subTotal    Float
+  taxRate     Float         @default(18)
+  taxAmount   Float
+  total       Float
+  createdAt   DateTime      @default(now())
 }
 
 model Supplier {
@@ -219,23 +267,56 @@ model Customer {
   sales           Sale[]
 }
 
-model Sale {
+// Shopping Cart for Customer Portal
+model Cart {
   id          String     @id @default(cuid())
-  receiptNo   String     @unique
-  locationId  String
-  location    Location   @relation(fields: [locationId], references: [id])
-  soldById    String
-  soldBy      User       @relation(fields: [soldById], references: [id])
-  customerId  String?
-  customer    Customer?  @relation(fields: [customerId], references: [id])
-  customerName String?
-  customerPhone String?
-  totalAmount Float
-  paymentMode String     @default("CASH") // CASH, BANK_TRANSFER, CHEQUE, CREDIT
-  note        String?
+  customerId  String     @unique // One cart per customer
+  customer    User       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items       CartItem[]
   createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  cartId      String
+  cart        Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Float
+  unitPrice   Float    // Captured at time of adding to cart
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  items       SaleItem[]
+  @@unique([cartId, productId]) // One entry per product in cart
+}
+
+model Sale {
+  id            String     @id @default(cuid())
+  receiptNo     String     @unique
+  locationId    String
+  location      Location   @relation(fields: [locationId], references: [id])
+  soldById      String
+  soldBy        User       @relation(fields: [soldById], references: [id])
+  customerId    String?
+  customer      Customer?  @relation(fields: [customerId], references: [id])
+  customerName  String?
+  customerPhone String?
+  
+  // VAT calculations
+  subTotal      Float      // Sum of all items before tax
+  taxRate       Float      @default(18) // VAT percentage (default 18%)
+  taxAmount     Float      // Calculated tax
+  grandTotal    Float      // subTotal + taxAmount (replaces totalAmount)
+  totalAmount   Float      // Legacy field, keep for backward compatibility
+  
+  paymentMode   String     @default("CASH") // CASH, BANK_TRANSFER, CHEQUE, CREDIT
+  note          String?
+  createdAt     DateTime   @default(now())
+  
+  // Relations
+  items         SaleItem[]
+  customerOrder CustomerOrder?
 }
 
 model SaleItem {
@@ -246,5 +327,8 @@ model SaleItem {
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Float
   unitPrice Float
-  subTotal  Float
+  subTotal  Float    // quantity × unitPrice
+  taxRate   Float    @default(18) // VAT percentage
+  taxAmount Float    // Calculated tax for this item
+  total     Float    // subTotal + taxAmount
 }

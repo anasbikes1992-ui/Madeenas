@@ -1,9 +1,144 @@
-This is the Madeena Textile stock platform:
+# Madeenas Textile Management System
 
-- Web/API: Next.js + Prisma (`textilestock`)
-- Mobile: Flutter (`textilestock_mobile`)
+Modern textile inventory and sales management platform with VAT integration and customer portal.
+
+**Version**: 2.0 (In Development)  
+**Tech Stack**: Next.js 16 + Prisma + PostgreSQL + Flutter
+
+## 🎯 Platform Components
+
+- **Web/API**: Next.js + Prisma (`textilestock`)
+- **Mobile**: Flutter (`textilestock_mobile`)
+
+---
+
+## ✨ What's New in v2.0
+
+### 🧾 VAT Integration (18%)
+- Complete Ethiopian VAT support with 18% tax rate
+- Automatic tax calculations on all sales and orders
+- Tax breakdown display: Subtotal + Tax Amount = Grand Total
+- Comprehensive tax reporting
+
+### 🛒 Customer Portal
+- Customer registration and authentication
+- Multi-product shopping cart with persistence
+- Online ordering system
+- Order tracking and history
+
+### 📦 Enhanced Order Management
+- Multi-product order support (replaced single-product orders)
+- Order approval workflow: PENDING → APPROVED → PROCESSING → SHIPPED → DELIVERED
+- Order-to-sale conversion on fulfillment
+- Stock deduction at fulfillment time
+
+### 🔐 Role-Based Access Control (RBAC)
+- **ADMIN**: Full system access
+- **STORE_KEEPER**: Inventory management
+- **FINANCE**: Financial reporting and analytics
+- **CUSTOMER**: Shopping cart and order placement (NEW)
+
+---
+
+## 📚 Documentation
+
+Before starting development, review these key documents:
+
+- **[QUICK-START.md](./QUICK-START.md)** - Setup guide and common tasks
+- **[DEVELOPMENT-PLAN.md](./DEVELOPMENT-PLAN.md)** - 6-sprint roadmap with detailed tasks
+- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Current progress and completed features
+- **[API-DOCUMENTATION.md](./API-DOCUMENTATION.md)** - API endpoint documentation
+
+### Sprint Progress
+- **Sprint 0 (Foundation)**: 80% complete ✅
+  - Database schema with VAT models ✅
+  - Tax calculation utilities ✅
+  - Service layer (sales, cart, orders) ✅
+  - Validation schemas ✅
+  - API route examples ✅
+  
+- **Sprint 1-6**: Not started
+  - See DEVELOPMENT-PLAN.md for details
+
+---
+
+## 🏗️ Architecture
+
+### Service Layer (Business Logic)
+All business logic is isolated in service files:
+- `src/services/sales.service.ts` - Sales with VAT calculations
+- `src/services/cart.service.ts` - Shopping cart management
+- `src/services/orders.service.ts` - Customer order workflow
+
+### Tax Utilities
+- `src/lib/tax.ts` - Comprehensive VAT calculation functions
+- `src/lib/validation.ts` - Zod schemas for type-safe validation
+
+### Database Schema (Prisma)
+- Enhanced models with VAT fields
+- Cart and CartItem for shopping cart
+- CustomerOrder with OrderItem for multi-product orders
+- OrderStatus enum for workflow tracking
+
+### Key Features
+✅ Point of Sale (POS) with VAT breakdown  
+✅ Inventory management with multi-location support  
+✅ Customer database with credit tracking  
+✅ Sales reporting with tax analytics  
+✅ Stock management (IN/OUT requests)  
+✅ Audit logging for all critical operations  
+🚧 Customer portal with cart and ordering (in progress)  
+🚧 Mobile app (Flutter) - needs sync with v2 schema  
+
+---
 
 ## Getting Started (Web)
+
+### Prerequisites
+- Node.js 20+ 
+- PostgreSQL 15+
+- npm/pnpm/yarn
+
+### Step 1: Install Dependencies
+
+```bash
+cd textilestock
+npm install
+```
+
+### Step 2: Configure Database
+
+Create `.env.local` file:
+
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/madeenas"
+DIRECT_URL="postgresql://username:password@localhost:5432/madeenas"
+
+# NextAuth
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="generate-a-random-secret-here"
+
+# Optional: Backup system (see below)
+BACKUP_ENABLED=false
+```
+
+**Important**: Ensure special characters in password are URL-encoded!
+
+### Step 3: Setup Database Schema
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Push schema to database
+npx prisma db push
+
+# (Optional) Seed with initial data
+npx prisma db seed
+```
+
+### Step 4: Run Development Server
 
 First, run the development server:
 
@@ -62,6 +197,79 @@ Manual smoke test:
 curl -X POST http://localhost:3000/api/internal/backup/hourly \
 	-H "Authorization: Bearer YOUR_BACKUP_CRON_SECRET"
 ```
+
+---
+
+## 🔧 Common Development Tasks
+
+### Create a Sale with VAT
+```typescript
+import { createSale } from '@/services/sales.service';
+
+const sale = await createSale({
+  locationId: 'location-id',
+  items: [
+    { productId: 'prod-1', quantity: 10, unitPrice: 100 }
+  ],
+  paymentMode: 'CASH',
+}, userId);
+
+console.log(sale.grandTotal); // 1180 (1000 + 18% tax)
+```
+
+### Add to Cart
+```typescript
+import { addToCart } from '@/services/cart.service';
+
+await addToCart({
+  customerId: 'customer-id',
+  productId: 'product-id',
+  quantity: 5,
+});
+```
+
+### Create Order from Cart
+```typescript
+import { createOrderFromCart } from '@/services/orders.service';
+
+const order = await createOrderFromCart('customer-id', {
+  shippingAddress: '123 Main St, Addis Ababa',
+  phoneNumber: '+251911234567',
+});
+
+console.log(order.orderNumber); // ORD-2026-0001
+```
+
+### Generate Tax Report
+```typescript
+import { generateTaxReport } from '@/services/sales.service';
+
+const report = await generateTaxReport(
+  new Date('2026-01-01'),
+  new Date('2026-12-31'),
+  true // Include location breakdown
+);
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Coverage report
+npm run test:coverage
+
+# Type checking
+npm run type-check
+```
+
+---
 
 ## Learn More
 
