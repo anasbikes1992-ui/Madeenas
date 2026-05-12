@@ -1,32 +1,73 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-export default function LocationsSettingsPage() {
-  const [locations, setLocations] = useState<any[]>([])
+interface Location {
+  id: string
+  name: string
+  code: string
+  type: string
+  address?: string
+  isActive: boolean
+  stocks?: any[]
+}
+
+export default function LocationsPage() {
+  const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editLocation, setEditLocation] = useState<any | null>(null)
-  const [form, setForm] = useState({ name: '', code: '', type: 'WAREHOUSE', address: '' })
-  const [editForm, setEditForm] = useState({ name: '', code: '', type: 'WAREHOUSE', address: '' })
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000) }
+  useEffect(() => {
+    loadLocations()
+  }, [])
 
-  async function load() {
+  async function loadLocations() {
     try {
-      const res = await fetch('/api/locations')
-      if (res.ok) {
-        const data = await res.json()
+      const response = await fetch('/api/locations')
+      if (response.ok) {
+        const data = await response.json()
         setLocations(Array.isArray(data) ? data : [])
       }
-    } catch (err) {
-      console.error('Failed to load locations:', err)
-      setLocations([])
+    } catch (error) {
+      console.error('Failed to load locations:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold mb-4">Locations</h1>
+        <p>Loading...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-6">Locations</h1>
+      <div className="space-y-4">
+        {locations.length === 0 ? (
+          <p className="text-slate-500">No locations found</p>
+        ) : (
+          locations.map((location) => (
+            <div key={location.id} className="card p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-semibold">{location.name}</h3>
+                  <p className="text-sm text-slate-500">{location.code} - {location.type}</p>
+                  {location.address && <p className="text-sm text-slate-400 mt-1">{location.address}</p>}
+                </div>
+                <span className={`badge ${location.isActive ? 'badge-green' : 'badge-gray'}`}>
+                  {location.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
 
   useEffect(() => { void load() }, [])
 
