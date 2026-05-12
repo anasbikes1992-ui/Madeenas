@@ -5,9 +5,10 @@ import { approveOrderSchema } from '@/lib/validation'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -38,7 +39,7 @@ export async function POST(
     const { note } = validation.data
 
     const order = await ordersService.approveOrder(
-      params.id,
+      id,
       session.user.id,
       note
     )

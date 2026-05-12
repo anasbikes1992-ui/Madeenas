@@ -114,8 +114,11 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)))
   const status = searchParams.get('status') ?? ''
+  const mine = searchParams.get('mine') === 'true'
+  const canViewAll = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)
 
-  const where: Record<string, unknown> = { requestedBy: user.sub }
+  const where: Record<string, unknown> = {}
+  if (mine || !canViewAll) where.requestedBy = user.sub
   if (status) where.status = status
 
   const [requests, total] = await Promise.all([
@@ -125,6 +128,7 @@ export async function GET(request: NextRequest) {
         product: { select: { name: true, sku: true, unit: true } },
         fromLocation: { select: { name: true } },
         toLocation: { select: { name: true } },
+        requestedByUser: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,

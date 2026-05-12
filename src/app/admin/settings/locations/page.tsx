@@ -5,7 +5,9 @@ export default function LocationsSettingsPage() {
   const [locations, setLocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editLocation, setEditLocation] = useState<any | null>(null)
   const [form, setForm] = useState({ name: '', code: '', type: 'WAREHOUSE', address: '' })
+  const [editForm, setEditForm] = useState({ name: '', code: '', type: 'WAREHOUSE', address: '' })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -17,7 +19,7 @@ export default function LocationsSettingsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { void load() }, [])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -28,7 +30,34 @@ export default function LocationsSettingsPage() {
       body: JSON.stringify(form),
     })
     setSaving(false)
-    if (res.ok) { setShowForm(false); setForm({ name: '', code: '', type: 'WAREHOUSE', address: '' }); load(); showToast('Location added!') }
+    if (res.ok) { setShowForm(false); setForm({ name: '', code: '', type: 'WAREHOUSE', address: '' }); void load(); showToast('Location added!') }
+  }
+
+  function openEdit(l: any) {
+    setEditLocation(l)
+    setEditForm({ name: l.name, code: l.code, type: l.type, address: l.address || '' })
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editLocation) return
+    setSaving(true)
+    const res = await fetch(`/api/locations/${editLocation.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    })
+    setSaving(false)
+    if (res.ok) { setEditLocation(null); void load(); showToast('Location updated!') }
+  }
+
+  async function handleToggleActive(l: any) {
+    const res = await fetch(`/api/locations/${l.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: !l.isActive }),
+    })
+    if (res.ok) { void load(); showToast(l.isActive ? 'Location deactivated' : 'Location activated') }
   }
 
   const warehouses = locations.filter(l => l.type === 'WAREHOUSE')
@@ -52,8 +81,15 @@ export default function LocationsSettingsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="badge badge-green">Active</span>
+                  <span className={l.isActive ? 'badge badge-green' : 'badge badge-gray'}>{l.isActive ? 'Active' : 'Inactive'}</span>
                   <span className="text-xs text-slate-500">{l.stocks?.length || 0} SKUs</span>
+                  <button onClick={() => openEdit(l)} className="text-xs btn-secondary py-1 px-2">Edit</button>
+                  <button
+                    onClick={() => void handleToggleActive(l)}
+                    className={`text-xs py-1 px-2 rounded-lg font-medium transition-colors ${l.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                  >
+                    {l.isActive ? 'Deactivate' : 'Activate'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -73,11 +109,18 @@ export default function LocationsSettingsPage() {
         <button onClick={() => setShowForm(true)} className="btn-primary">+ Add Location</button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <LocationGroup title="Warehouses" icon="🏭" items={warehouses} />
-        <LocationGroup title="Shops" icon="🏪" items={shops} />
-      </div>
+      {loading ? (
+        <div className="grid md:grid-cols-2 gap-6">
+          {[0, 1].map(i => <div key={i} className="card h-48 bg-slate-100 animate-pulse" />)}
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6">
+          <LocationGroup title="Warehouses" icon="🏭" items={warehouses} />
+          <LocationGroup title="Shops" icon="🏪" items={shops} />
+        </div>
+      )}
 
+      {/* Add Location Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
           <div className="modal">
@@ -85,7 +128,7 @@ export default function LocationsSettingsPage() {
               <h2 className="text-xl font-bold">Add Location</h2>
               <button onClick={() => setShowForm(false)} className="text-slate-400 text-2xl">&times;</button>
             </div>
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={e => void handleSave(e)} className="space-y-4">
               <div className="form-group">
                 <label className="label">Location Name *</label>
                 <input required className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Warehouse C" />
@@ -108,16 +151,60 @@ export default function LocationsSettingsPage() {
                 <input className="input" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Physical address" />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-                  {saving ? 'Adding…' : 'Add Location'}
-                </button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Adding…' : 'Add Location'}</button>
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Edit Location Modal */}
+      {editLocation && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setEditLocation(null) }}>
+          <div className="modal">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Edit Location</h2>
+              <button onClick={() => setEditLocation(null)} className="text-slate-400 text-2xl">&times;</button>
+            </div>
+            <form onSubmit={e => void handleEditSave(e)} className="space-y-4">
+              <div className="form-group">
+                <label className="label">Location Name *</label>
+                <input required className="input" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label className="label">Code *</label>
+                  <input required className="input font-mono uppercase" value={editForm.code} onChange={e => setEditForm({ ...editForm, code: e.target.value.toUpperCase() })} />
+                </div>
+                <div className="form-group">
+                  <label className="label">Type *</label>
+                  <select required className="input" value={editForm.type} onChange={e => setEditForm({ ...editForm, type: e.target.value })}>
+                    <option value="WAREHOUSE">Warehouse</option>
+                    <option value="SHOP">Shop</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="label">Address</label>
+                <input className="input" value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} placeholder="Physical address" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">{saving ? 'Saving…' : 'Save Changes'}</button>
+                <button type="button" onClick={() => setEditLocation(null)} className="btn-secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {toast && <div className="toast-success">✅ {toast}</div>}
     </div>
   )
 }
+  const [locations, setLocations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ name: '', code: '', type: 'WAREHOUSE', address: '' })
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)

@@ -5,9 +5,10 @@ import { updateCartItemSchema } from '@/lib/validation'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await getAuthUser(request)
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -39,7 +40,7 @@ export async function PUT(
 
     const cart = await cartService.updateCartItem({
       customerId: user.id,
-      cartItemId: params.id,
+      cartItemId: id,
       quantity,
     })
 
@@ -64,9 +65,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await getAuthUser(request)
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -83,7 +85,7 @@ export async function DELETE(
 
     const cart = await cartService.removeFromCart({
       customerId: user.id,
-      cartItemId: params.id,
+      cartItemId: id,
     })
 
     const cartWithTotals = await cartService.getCartWithTotals(user.id, taxRate)

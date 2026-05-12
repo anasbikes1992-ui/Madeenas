@@ -27,17 +27,45 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [csvBusy, setCsvBusy] = useState(false)
   const [csvMessage, setCsvMessage] = useState<string | null>(null)
+  const [approving, setApproving] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard')
-      .then(r => {
-        if (!r.ok) throw new Error(`Dashboard API error: ${r.status}`)
-        return r.json()
-      })
-      .then(data => { setStats(data); setLoading(false) })
-      .catch(() => { setLoading(false) })
-  }, [])
+  async function loadStats() {
+    try {
+      const r = await fetch('/api/dashboard')
+      if (!r.ok) throw new Error(`Dashboard API error: ${r.status}`)
+      const data = await r.json()
+      setStats(data)
+    } catch {
+      /* silently ignore */
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void loadStats() }, [])
+
+  async function handleApprove(id: string) {
+    setApproving(prev => new Set(prev).add(id))
+    await fetch(`/api/stock-out/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve' }),
+    })
+    setApproving(prev => { const next = new Set(prev); next.delete(id); return next })
+    void loadStats()
+  }
+
+  async function handleReject(id: string) {
+    setApproving(prev => new Set(prev).add(id))
+    await fetch(`/api/stock-out/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject', rejectionReason: 'Rejected from dashboard' }),
+    })
+    setApproving(prev => { const next = new Set(prev); next.delete(id); return next })
+    void loadStats()
+  }
 
   async function exportCsv() {
     setCsvBusy(true)
@@ -189,16 +217,36 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {stats.recentStockOuts.map((req: any) => (
-                <div key={req.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div key={req.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">{req.product.name}</p>
                     <p className="text-xs text-slate-500">
-                      {req.fromLocation.name} → by {req.requestedByUser.name}
+                      {req.fromLocation.name} · by {req.requestedByUser?.name || '—'}
                     </p>
                   </div>
-                  <div className="text-right ml-3">
-                    <span className={STATUS_CLASSES[req.status] || 'badge-gray'}>{req.status}</span>
-                    <p className="text-xs text-slate-400 mt-1">{formatDate(req.createdAt)}</p>
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    <div className="text-right">
+                      <span className={STATUS_CLASSES[req.status] || 'badge-gray'}>{req.status}</span>
+                      <p className="text-xs text-slate-400 mt-1">{formatDate(req.createdAt)}</p>
+                    </div>
+                    {req.status === 'PENDING' && (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => void handleApprove(req.id)}
+                          disabled={approving.has(req.id)}
+                          className="text-xs py-1 px-2 rounded-lg font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => void handleReject(req.id)}
+                          disabled={approving.has(req.id)}
+                          className="text-xs py-1 px-2 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                        >
+                          ✗
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

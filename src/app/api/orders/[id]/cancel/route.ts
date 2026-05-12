@@ -4,9 +4,10 @@ import * as ordersService from '@/services/orders.service'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await getAuthUser(request)
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -23,7 +24,7 @@ export async function POST(
     }
 
     // Check if user can cancel this order
-    const order = await ordersService.getOrderById(params.id)
+    const order = await ordersService.getOrderById(id)
     if (!order) {
       return NextResponse.json(
         { success: false, error: 'Order not found' },
@@ -44,7 +45,7 @@ export async function POST(
     }
 
     const cancelledOrder = await ordersService.cancelOrder(
-      params.id,
+      id,
       user.id,
       reason
     )

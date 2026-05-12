@@ -5,15 +5,16 @@ import { updateOrderStatusSchema } from '@/lib/validation'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await getAuthUser(request)
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    const order = await ordersService.getOrderById(params.id)
+    const order = await ordersService.getOrderById(id)
 
     if (!order) {
       return NextResponse.json(
@@ -48,9 +49,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const user = await getAuthUser(request)
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -81,7 +83,7 @@ export async function PATCH(
     const { status, note } = validation.data
 
     const order = await ordersService.updateOrderStatus(
-      params.id,
+      id,
       status,
       user.id,
       note

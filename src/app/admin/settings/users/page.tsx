@@ -4,157 +4,307 @@ import { useSession } from 'next-auth/react'
 import { ROLE_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 
+const ROLE_BADGE: Record<string, string> = {
+  SUPER_ADMIN: 'badge-red',
+  ADMIN: 'badge-indigo',
+  MANAGER: 'badge-blue',
+  STORE_KEEPER: 'badge-teal',
+  SALES_STAFF: 'badge-amber',
+}
+
+const ALL_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SALES_STAFF']
+
 export default function UsersSettingsPage() {
   const { data: session } = useSession()
   const actorRole = session?.user?.role || ''
+  const actorId = session?.user?.id || ''
+  const canEdit = ['SUPER_ADMIN', 'ADMIN'].includes(actorRole)
+
   const [users, setUsers] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editUser, setEditUser] = useState<any | null>(null)
   const [form, setForm] = useState<any>({ name: '', email: '', password: 'Madeena@2024', role: 'STORE_KEEPER', locationId: '' })
+  const [editForm, setEditForm] = useState<any>({ name: '', role: '', locationId: '' })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000) }
+  const availableRoles = actorRole === 'SUPER_ADMIN'
+    ? ALL_ROLES
+    : ALL_ROLES.filter(r => r !== 'SUPER_ADMIN' && r !== 'ADMIN')
 
-  async function load() {
-    const [u, l] = await Promise.all([
-      fetch('/api/users').then(r => r.json()),
-      fetch('/api/locations').then(r => r.json()),
-    ])
-    setUsers(u.users || [])
-    setLocations(l)
-    setLoading(false)
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
   }
 
-  useEffect(() => { load() }, [])
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setFormError(null)
-    const res = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    setSaving(false)
-    if (res.ok) {
-      setShowForm(false)
-      setForm({ name: '', email: '', password: 'Madeena@2024', role: 'STORE_KEEPER', locationId: '' })
-      load()
-      showToast('User created!')
-    } else {
-      const data = await res.json().catch(() => ({}))
-      setFormError(data.error || `Error ${res.status}: Failed to create user`)
+  async function loadUsers() {
+    try {
+      const [uRes, lRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/locations'),
+      ])
+      if (uRes.ok) setUsers(await uRes.json())
+      if (lRes.ok) setLocations(await lRes.json())
+    } finally {
+      setLoading(false)
     }
   }
 
-  const availableRoles = Object.entries(ROLE_LABELS).filter(([value]) => {
-    if (actorRole === 'SUPER_ADMIN') return true
-    if (actorRole === 'ADMIN') return !['SUPER_ADMIN', 'ADMIN'].includes(value)
-    return false
-  })
+  useEffect(() => { void loadUsers() }, [])
 
-  const selectedRoleNeedsLocation = ['STORE_KEEPER', 'SHOP_STAFF'].includes(form.role)
-
-  const roleColors: Record<string, string> = {
-    SUPER_ADMIN: 'badge-red', ADMIN: 'badge-indigo', MANAGER: 'badge-blue',
-    STORE_KEEPER: 'badge-amber', SHOP_STAFF: 'badge-green', FINANCE: 'badge-teal', CUSTOMER: 'badge-gray',
+  function openEdit(u: any) {
+    setEditUser(u)
+    setEditForm({ name: u.name, role: u.role, locationId: u.locationId || '' })
   }
 
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setFormError(null)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setFormError((err as any).error || 'Failed to create user')
+        return
+      }
+      setShowForm(false)
+      setForm({ name: '', email: '', password: 'Madeena@2024', role: 'STORE_KEEPER', locationId: '' })
+      showToast('User created successfully')
+      void loadUsers()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editUser) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/users/${editUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setFormError((err as any).error || 'Failed to update user')
+        return
+      }
+      setEditUser(null)
+      showToast('User updated')
+      void loadUsers()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleToggleActive(u: any) {
+    await fetch(`/api/users/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: !u.isActive }),
+    })
+    showToast(u.isActive ? 'User deactivated' : 'User activated')
+    void loadUsers()
+  }
+
+  if (loading) return <div className="p-8 text-center text-slate-400">Loading users…</div>
+
   return (
-    <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between">
+    <div className="p-6 max-w-5xl mx-auto">
+      {toast && <div className="toast-success fade-in">{toast}</div>}
+
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Users</h1>
-          <p className="text-sm text-slate-500">{users.length} total users</p>
+          <p className="text-slate-500 text-sm mt-0.5">Manage system users and their roles</p>
         </div>
-        <button onClick={() => { setShowForm(true); setFormError(null) }} className="btn-primary">+ Add User</button>
+        {canEdit && (
+          <button onClick={() => { setShowForm(true); setFormError(null) }} className="btn-primary">
+            + Add User
+          </button>
+        )}
       </div>
 
-      <div className="table-container">
-        <table className="table">
-          <thead>
-            <tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Status</th><th>Joined</th></tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              [...Array(4)].map((_, i) => <tr key={i}>{[...Array(6)].map((_, j) => <td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}</tr>)
-            ) : users.map((u: any) => (
-              <tr key={u.id}>
-                <td className="font-medium text-slate-900">{u.name}</td>
-                <td className="text-sm text-slate-600">{u.email}</td>
-                <td><span className={roleColors[u.role] || 'badge-gray'}>{ROLE_LABELS[u.role]}</span></td>
-                <td className="text-sm text-slate-600">{u.location?.name || '—'}</td>
-                <td>
-                  <span className={u.isActive ? 'badge-green' : 'badge-gray'}>
-                    {u.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="text-sm text-slate-500">{formatDate(u.createdAt)}</td>
+      <div className="card overflow-hidden">
+        <div className="table-container">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Created</th>
+                {canEdit && <th>Actions</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u: any) => (
+                <tr key={u.id}>
+                  <td className="font-medium">{u.name}</td>
+                  <td className="text-slate-500">{u.email}</td>
+                  <td>
+                    <span className={ROLE_BADGE[u.role] || 'badge-gray'}>
+                      {ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] || u.role}
+                    </span>
+                  </td>
+                  <td className="text-slate-500">{u.location?.name || '—'}</td>
+                  <td>
+                    <span className={u.isActive ? 'badge-green' : 'badge-gray'}>
+                      {u.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="text-slate-400 text-sm">{formatDate(u.createdAt)}</td>
+                  {canEdit && (
+                    <td>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { openEdit(u); setFormError(null) }}
+                          className="text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-medium"
+                        >
+                          Edit
+                        </button>
+                        {u.id !== actorId && (
+                          <button
+                            onClick={() => void handleToggleActive(u)}
+                            className={`text-xs px-2 py-1 rounded-lg font-medium ${
+                              u.isActive
+                                ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {u.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* Add User Modal */}
       {showForm && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
-          <div className="modal">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Add New User</h2>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 text-2xl">&times;</button>
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold">Add New User</h2>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
             </div>
-            <form onSubmit={handleSave} className="space-y-4">
+            {formError && <p className="text-red-600 text-sm mb-3">{formError}</p>}
+            <form onSubmit={(e) => void handleAdd(e)} className="space-y-4">
               <div className="form-group">
-                <label className="label">Full Name *</label>
-                <input required className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <label className="label">Name</label>
+                <input className="input" required value={form.name}
+                  onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label className="label">Email *</label>
-                <input required type="email" className="input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                <label className="label">Email</label>
+                <input className="input" type="email" required value={form.email}
+                  onChange={e => setForm((f: any) => ({ ...f, email: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label className="label">Initial Password</label>
-                <input required className="input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-                <p className="text-xs text-slate-400 mt-1">Min 12 chars, must include uppercase, lowercase and a digit.</p>
+                <label className="label">Password</label>
+                <input className="input" type="password" required value={form.password}
+                  onChange={e => setForm((f: any) => ({ ...f, password: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label htmlFor="user-role" className="label">Role *</label>
-                <select id="user-role" required className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                  {availableRoles.map(([val, label]) => (
-                    <option key={val} value={val}>{label}</option>
+                <label className="label">Role</label>
+                <select className="input" value={form.role}
+                  onChange={e => setForm((f: any) => ({ ...f, role: e.target.value }))}>
+                  {availableRoles.map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r as keyof typeof ROLE_LABELS] || r}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="user-location" className="label">Assigned Location {selectedRoleNeedsLocation ? '*' : ''}</label>
-                <select id="user-location" className="input" required={selectedRoleNeedsLocation} value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
-                  <option value="">No specific location</option>
-                  {locations.map((l: any) => <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>)}
+                <label className="label">Location</label>
+                <select className="input" value={form.locationId}
+                  onChange={e => setForm((f: any) => ({ ...f, locationId: e.target.value }))}>
+                  <option value="">— None —</option>
+                  {locations.map((l: any) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
                 </select>
-                {selectedRoleNeedsLocation && (
-                  <p className="text-xs text-slate-500 mt-1">Store and shop users must be linked to one location.</p>
-                )}
               </div>
-              {formError && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                  {formError}
-                </div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-                  {saving ? 'Creating…' : 'Create User'}
+              <div className="flex gap-3 pt-1">
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  {saving ? 'Saving…' : 'Create User'}
                 </button>
-                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
+                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {toast && <div className="toast-success">✅ {toast}</div>}
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="modal-overlay" onClick={() => setEditUser(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold">Edit User</h2>
+              <button onClick={() => setEditUser(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+            {formError && <p className="text-red-600 text-sm mb-3">{formError}</p>}
+            <form onSubmit={(e) => void handleEditSave(e)} className="space-y-4">
+              <div className="form-group">
+                <label className="label">Name</label>
+                <input className="input" required value={editForm.name}
+                  onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="label">Email (read-only)</label>
+                <input className="input opacity-60" disabled value={editUser.email} />
+              </div>
+              <div className="form-group">
+                <label className="label">Role</label>
+                <select className="input" value={editForm.role}
+                  onChange={e => setEditForm((f: any) => ({ ...f, role: e.target.value }))}>
+                  {availableRoles.map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r as keyof typeof ROLE_LABELS] || r}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="label">Location</label>
+                <select className="input" value={editForm.locationId}
+                  onChange={e => setEditForm((f: any) => ({ ...f, locationId: e.target.value }))}>
+                  <option value="">— None —</option>
+                  {locations.map((l: any) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button type="button" onClick={() => setEditUser(null)} className="btn-secondary flex-1">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
