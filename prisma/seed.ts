@@ -137,13 +137,21 @@ async function main() {
 
   // ─── 3. Categories ─────────────────────────────────────────────────────────
   const cats = [
-    { name: 'Woven Fabrics',    slug: 'woven-fabrics',    color: '#3b82f6' },
-    { name: 'Knit Fabrics',     slug: 'knit-fabrics',     color: '#10b981' },
-    { name: 'Lace & Embroidery',slug: 'lace-embroidery',  color: '#8b5cf6' },
-    { name: 'Printed Cottons',  slug: 'printed-cottons',  color: '#f59e0b' },
-    { name: 'Silk & Satin',     slug: 'silk-satin',       color: '#ec4899' },
-    { name: 'Denim',            slug: 'denim',            color: '#1e40af' },
-    { name: 'Synthetic',        slug: 'synthetic',        color: '#64748b' },
+    // Generic base categories
+    { name: 'Woven Fabrics',         slug: 'woven-fabrics',       color: '#3b82f6' },
+    { name: 'Knit Fabrics',          slug: 'knit-fabrics',        color: '#10b981' },
+    { name: 'Lace & Embroidery',     slug: 'lace-embroidery',     color: '#8b5cf6' },
+    { name: 'Printed Cottons',       slug: 'printed-cottons',     color: '#f59e0b' },
+    { name: 'Silk & Satin',          slug: 'silk-satin',          color: '#ec4899' },
+    { name: 'Denim',                 slug: 'denim',               color: '#1e40af' },
+    { name: 'Synthetic',             slug: 'synthetic',           color: '#64748b' },
+    // Madeena Tex real product categories
+    { name: 'Sarees',                slug: 'sarees',              color: '#ec4899' },
+    { name: '3MTR / Nighty Fabrics', slug: 'nighty-3mtr',        color: '#8b5cf6' },
+    { name: 'Bedding & Home',        slug: 'bedding',             color: '#0ea5e9' },
+    { name: 'Shirtings & Suitings',  slug: 'shirtings-suitings',  color: '#22c55e' },
+    { name: 'Laces & Trims',         slug: 'laces-trims',         color: '#f59e0b' },
+    { name: 'Bulk / Lots',           slug: 'bulk-lots',           color: '#64748b' },
   ]
 
   for (const cat of cats) {
@@ -195,6 +203,85 @@ async function main() {
   }
 
   console.log('✅ Products created')
+
+  // ─── 5b. Madeena Tex Real Products ────────────────────────────────────────
+  const sareesCat          = await prisma.category.findUnique({ where: { slug: 'sarees' } })
+  const nightyCat          = await prisma.category.findUnique({ where: { slug: 'nighty-3mtr' } })
+  const beddingCat         = await prisma.category.findUnique({ where: { slug: 'bedding' } })
+  const shirtingCat        = await prisma.category.findUnique({ where: { slug: 'shirtings-suitings' } })
+  const lacesCat           = await prisma.category.findUnique({ where: { slug: 'laces-trims' } })
+  const bulkCat            = await prisma.category.findUnique({ where: { slug: 'bulk-lots' } })
+
+  const madeenaProducts = [
+    // ── Sarees (PCS) ──────────────────────────────────────────────────────
+    { sku: 'SAR-001', name: 'Aura Saree',              design: 'Aura',              color: 'Multi',   colorHex: '#ec4899', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 800  },
+    { sku: 'SAR-002', name: 'Flora Saree',             design: 'Flora',             color: 'Green',   colorHex: '#22c55e', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 750  },
+    { sku: 'SAR-003', name: 'Golden Rose Saree',       design: 'Golden Rose',       color: 'Gold',    colorHex: '#FFD700', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 1500 },
+    { sku: 'SAR-004', name: 'Royal Queen Saree',       design: 'Royal Queen',       color: 'Maroon',  colorHex: '#800000', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 1200 },
+    { sku: 'SAR-005', name: 'Butterfly Saree',         design: 'Butterfly',         color: 'Blue',    colorHex: '#3b82f6', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 900  },
+    { sku: 'SAR-006', name: 'Ocean Pearl Saree',       design: 'Ocean Pearl',       color: 'Pearl',   colorHex: '#f0f9ff', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 1100 },
+    { sku: 'SAR-007', name: 'Century Gold Saree',      design: 'Century Gold',      color: 'Gold',    colorHex: '#ca8a04', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 1300 },
+    { sku: 'SAR-008', name: 'Moonlight Rajwadi Saree', design: 'Moonlight Rajwadi', color: 'Silver',  colorHex: '#94a3b8', categoryId: sareesCat!.id,   unit: 'PCS',    lowStockAt: 5,  costPrice: 950  },
+
+    // ── 3MTR / Nighty Fabrics (PCS) ────────────────────────────────────────
+    { sku: 'NF-001', name: '3MTR Kushboo Export',      design: 'Kushboo Export',    color: 'Assorted',colorHex: '#c084fc', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 600  },
+    { sku: 'NF-002', name: '3MTR Ocean Pearl Dhaman',  design: 'Ocean Pearl',       color: 'Pearl',   colorHex: '#bae6fd', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 650  },
+    { sku: 'NF-003', name: '3MTR Babagold',            design: 'Babagold',          color: 'Gold',    colorHex: '#fde68a', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 550  },
+    { sku: 'NF-004', name: '3MTR Century Gold',        design: 'Century Gold',      color: 'Gold',    colorHex: '#ca8a04', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 700  },
+    { sku: 'NF-005', name: '3MTR Moonlight Rajwadi',   design: 'Moonlight Rajwadi', color: 'Silver',  colorHex: '#94a3b8', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 600  },
+    { sku: 'NF-006', name: '3MTR Vama Export',         design: 'Vama Export',       color: 'Assorted',colorHex: '#a78bfa', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 580  },
+    { sku: 'NF-007', name: '3MTR Star Galaxy',         design: 'Star Galaxy',       color: 'Dark',    colorHex: '#1e1b4b', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 620  },
+    { sku: 'NF-008', name: '3MTR Classic Designer',    design: 'Classic Designer',  color: 'Multi',   colorHex: '#7c3aed', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 640  },
+    { sku: 'NF-009', name: '3MTR Fancy Nighty',        design: 'Fancy',             color: 'Assorted',colorHex: '#f9a8d4', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 500  },
+    { sku: 'NF-010', name: '3MTR Premium Set',         design: 'Premium',           color: 'Assorted',colorHex: '#8b5cf6', categoryId: nightyCat!.id,   unit: 'PCS',    lowStockAt: 10, costPrice: 750  },
+
+    // ── Bedding & Home ──────────────────────────────────────────────────────
+    { sku: 'BED-001', name: 'Bed Sheet Single',        design: 'Plain',             color: 'Assorted',colorHex: '#0ea5e9', categoryId: beddingCat!.id,  unit: 'PCS',    lowStockAt: 10, costPrice: 350  },
+    { sku: 'BED-002', name: 'Bed Sheet Double',        design: 'Plain',             color: 'Assorted',colorHex: '#0284c7', categoryId: beddingCat!.id,  unit: 'PCS',    lowStockAt: 10, costPrice: 550  },
+    { sku: 'BED-003', name: 'Cotton Bed Sheet New',    design: 'Cotton New',        color: 'Assorted',colorHex: '#e0f2fe', categoryId: beddingCat!.id,  unit: 'KG',     lowStockAt: 20, costPrice: 220  },
+    { sku: 'BED-004', name: 'Pillow Cover Set',        design: 'Plain',             color: 'White',   colorHex: '#f8fafc', categoryId: beddingCat!.id,  unit: 'PCS',    lowStockAt: 10, costPrice: 180  },
+    { sku: 'BED-005', name: 'Bed Cover Plain',         design: 'Plain',             color: 'Assorted',colorHex: '#bae6fd', categoryId: beddingCat!.id,  unit: 'PCS',    lowStockAt: 5,  costPrice: 480  },
+
+    // ── Shirtings & Suitings (meters) ──────────────────────────────────────
+    { sku: 'SH-001', name: 'Poplin Plain',             design: 'Plain',             color: 'White',   colorHex: '#f8fafc', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 90   },
+    { sku: 'SH-002', name: 'Poplin Printed',           design: 'Printed',           color: 'Multi',   colorHex: '#fb923c', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 110  },
+    { sku: 'SH-003', name: 'Oxford Shirting',          design: 'Oxford',            color: 'Blue',    colorHex: '#3b82f6', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 130  },
+    { sku: 'SH-004', name: 'TC Shirting 60"',          design: 'TC 60"',            color: 'Assorted',colorHex: '#64748b', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 120  },
+    { sku: 'SH-005', name: 'Radio Shirting',           design: 'Radio',             color: 'Striped', colorHex: '#1e40af', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 100  },
+    { sku: 'SH-006', name: 'Cotton Dobbi 60"',         design: 'Dobbi 60"',         color: 'Cream',   colorHex: '#fef3c7', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 30, costPrice: 140  },
+    { sku: 'SH-007', name: 'Cotton Poplin Stripe',     design: 'Stripe',            color: 'Blue',    colorHex: '#60a5fa', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 105  },
+    { sku: 'SH-008', name: 'TC Suiting',               design: 'TC Suiting',        color: 'Navy',    colorHex: '#1e3a5f', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 30, costPrice: 160  },
+    { sku: 'SH-009', name: 'Poly Viscose Suiting',     design: 'Poly Viscose',      color: 'Grey',    colorHex: '#94a3b8', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 30, costPrice: 150  },
+    { sku: 'SH-010', name: 'Check Shirting',           design: 'Check',             color: 'Multi',   colorHex: '#22d3ee', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 115  },
+    { sku: 'SH-011', name: 'Plain Shirting 45"',       design: 'Plain 45"',         color: 'White',   colorHex: '#f8fafc', categoryId: shirtingCat!.id, unit: 'meters', lowStockAt: 50, costPrice: 85   },
+
+    // ── Laces & Trims (meters) ──────────────────────────────────────────────
+    { sku: 'LT-001', name: 'Lace Cotton Plain',        design: 'Plain',             color: 'White',   colorHex: '#f8fafc', categoryId: lacesCat!.id,    unit: 'meters', lowStockAt: 50, costPrice: 50   },
+    { sku: 'LT-002', name: 'Lace Cotton Printed',      design: 'Printed',           color: 'Multi',   colorHex: '#fcd34d', categoryId: lacesCat!.id,    unit: 'meters', lowStockAt: 50, costPrice: 65   },
+    { sku: 'LT-003', name: 'Border Sarong',            design: 'Border',            color: 'Gold',    colorHex: '#ca8a04', categoryId: lacesCat!.id,    unit: 'meters', lowStockAt: 30, costPrice: 80   },
+    { sku: 'LT-004', name: 'Lace Nylon',               design: 'Nylon',             color: 'White',   colorHex: '#f1f5f9', categoryId: lacesCat!.id,    unit: 'meters', lowStockAt: 50, costPrice: 45   },
+    { sku: 'LT-005', name: 'Elastic Border',           design: 'Elastic',           color: 'White',   colorHex: '#f8fafc', categoryId: lacesCat!.id,    unit: 'meters', lowStockAt: 50, costPrice: 35   },
+    { sku: 'LT-006', name: 'Ribbon Lace',              design: 'Ribbon',            color: 'Multi',   colorHex: '#f472b6', categoryId: lacesCat!.id,    unit: 'meters', lowStockAt: 50, costPrice: 40   },
+
+    // ── Bulk / Lots (KG) ───────────────────────────────────────────────────
+    { sku: 'BL-001', name: 'Maaza Printed Lot',        design: 'Printed Mix',       color: 'Multi',   colorHex: '#a3e635', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 20, costPrice: 120  },
+    { sku: 'BL-002', name: 'Reyon Lot China',          design: 'Reyon China',       color: 'Assorted',colorHex: '#f43f5e', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 20, costPrice: 150  },
+    { sku: 'BL-003', name: 'Viscose Cut Piece New',    design: 'Viscose New',       color: 'Multi',   colorHex: '#8b5cf6', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 20, costPrice: 130  },
+    { sku: 'BL-004', name: 'Cotton Cut Piece',         design: 'Cotton Mix',        color: 'Assorted',colorHex: '#86efac', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 20, costPrice: 100  },
+    { sku: 'BL-005', name: 'Printed Lot Mixed',        design: 'Printed Mix',       color: 'Multi',   colorHex: '#fda4af', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 20, costPrice: 110  },
+    { sku: 'BL-006', name: 'Nylon Lot',                design: 'Nylon Mix',         color: 'Assorted',colorHex: '#67e8f9', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 20, costPrice: 140  },
+    { sku: 'BL-007', name: 'Silk Cut Piece',           design: 'Silk Mix',          color: 'Multi',   colorHex: '#e879f9', categoryId: bulkCat!.id,     unit: 'KG',     lowStockAt: 15, costPrice: 200  },
+  ]
+
+  for (const prod of madeenaProducts) {
+    await prisma.product.upsert({
+      where: { sku: prod.sku },
+      update: { costPrice: prod.costPrice },
+      create: { ...prod, description: `${prod.name} - Madeena Tex`, images: '[]' }
+    })
+  }
+
+  console.log('✅ Madeena Tex products created')
 
   // ─── 6. Initial Stock ─────────────────────────────────────────────────────
   const adminUser = await prisma.user.findUnique({ where: { email: 'anasbikes1992@gmail.com' } })
