@@ -33,7 +33,7 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>
           <p className="text-sm text-slate-500">Stock movement and inventory overview</p>
         </div>
-        <select value={period} onChange={e => setPeriod(e.target.value)} className="input max-w-xs">
+        <select id="period-filter" aria-label="Report period" value={period} onChange={e => setPeriod(e.target.value)} className="input max-w-xs">
           <option value="7">Last 7 days</option>
           <option value="30">Last 30 days</option>
           <option value="90">Last 90 days</option>

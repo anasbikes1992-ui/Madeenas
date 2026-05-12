@@ -199,6 +199,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-3">
             <button
               onClick={() => { setSidebarOpen(o => !o); setMobileOpen(o => !o) }}
+              title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
               className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

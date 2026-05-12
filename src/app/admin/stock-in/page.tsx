@@ -127,15 +127,15 @@ export default function StockInPage() {
             </div>
             <form onSubmit={handleSave} className="space-y-4">
               <div className="form-group">
-                <label className="label">Product *</label>
-                <select required className="input" value={form.productId} onChange={e => setForm({ ...form, productId: e.target.value })}>
+                <label htmlFor="stockin-product" className="label">Product *</label>
+                <select id="stockin-product" required className="input" value={form.productId} onChange={e => setForm({ ...form, productId: e.target.value })}>
                   <option value="">Select product</option>
                   {products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="label">Destination Location *</label>
-                <select required className="input" value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
+                <label htmlFor="stockin-location" className="label">Destination Location *</label>
+                <select id="stockin-location" required className="input" value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
                   <option value="">Select location</option>
                   {warehouses.length > 0 && <optgroup label="Warehouses">{warehouses.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>}
                   {shops.length > 0 && <optgroup label="Shops">{shops.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>}
@@ -156,8 +156,8 @@ export default function StockInPage() {
                 <input className="input font-mono" value={form.batchNumber || ''} onChange={e => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g. BATCH-2024-001" />
               </div>
               <div className="form-group">
-                <label className="label">Supplier</label>
-                <select className="input" value={form.supplierId || ''} onChange={e => setForm({ ...form, supplierId: e.target.value })}>
+                <label htmlFor="stockin-supplier" className="label">Supplier</label>
+                <select id="stockin-supplier" className="input" value={form.supplierId || ''} onChange={e => setForm({ ...form, supplierId: e.target.value })}>
                   <option value="">No supplier</option>
                   {suppliers.map((supplier: any) => (
                     <option key={supplier.id} value={supplier.id}>{supplier.name}</option>

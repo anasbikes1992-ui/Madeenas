@@ -281,6 +281,7 @@ export default function POSPage() {
               <input
                 type="text"
                 placeholder="Customer name (optional)"
+                aria-label="Customer name"
                 className="input h-10 text-sm"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
@@ -289,11 +290,13 @@ export default function POSPage() {
                 <input
                   type="text"
                   placeholder="Phone (required for credit)"
+                  aria-label="Customer phone number"
                   className="input h-10 text-sm"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                 />
                 <select
+                  aria-label="Payment mode"
                   className="input h-10 text-sm"
                   value={paymentMode}
                   onChange={(e) => setPaymentMode(e.target.value)}
@@ -331,6 +334,7 @@ export default function POSPage() {
                   <input
                     type="number"
                     value={taxRate}
+                    aria-label="VAT tax rate percentage"
                     onChange={(e) => setTaxRate(parseFloat(e.target.value) || DEFAULT_TAX_RATE)}
                     className="input h-8 w-16 px-2 text-sm text-right"
                     min="0"

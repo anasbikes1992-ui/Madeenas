@@ -111,16 +111,16 @@ export default function UsersSettingsPage() {
                 <input required className="input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
               </div>
               <div className="form-group">
-                <label className="label">Role *</label>
-                <select required className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                <label htmlFor="user-role" className="label">Role *</label>
+                <select id="user-role" required className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                   {availableRoles.map(([val, label]) => (
                     <option key={val} value={val}>{label}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label className="label">Assigned Location {selectedRoleNeedsLocation ? '*' : ''}</label>
-                <select className="input" required={selectedRoleNeedsLocation} value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
+                <label htmlFor="user-location" className="label">Assigned Location {selectedRoleNeedsLocation ? '*' : ''}</label>
+                <select id="user-location" className="input" required={selectedRoleNeedsLocation} value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
                   <option value="">No specific location</option>
                   {locations.map((l: any) => <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>)}
                 </select>

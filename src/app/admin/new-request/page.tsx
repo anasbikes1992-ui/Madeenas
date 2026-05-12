@@ -78,7 +78,7 @@ export default function NewRequestPage() {
         {/* Product */}
         <div className="form-group">
           <label className="label">Product *</label>
-          <select required className="input" value={form.productId} onChange={e => onProductChange(e.target.value)}>
+          <select required id="product-select" aria-label="Select product" className="input" value={form.productId} onChange={e => onProductChange(e.target.value)}>
             <option value="">Select a product</option>
             {products.map((p: any) => (
               <option key={p.id} value={p.id}>{p.name} — {p.sku}</option>
@@ -97,7 +97,7 @@ export default function NewRequestPage() {
         {/* From Location */}
         <div className="form-group">
           <label className="label">From Location (Source) *</label>
-          <select required className="input" value={form.fromLocationId} onChange={e => onLocationChange(e.target.value)}>
+          <select required id="from-location" aria-label="Source location" className="input" value={form.fromLocationId} onChange={e => onLocationChange(e.target.value)}>
             <option value="">Select source location</option>
             {locations.map((l: any) => (
               <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>
@@ -113,7 +113,7 @@ export default function NewRequestPage() {
         {/* To Location */}
         <div className="form-group">
           <label className="label">Destination (optional)</label>
-          <select className="input" value={form.toLocationId} onChange={e => setForm({ ...form, toLocationId: e.target.value })}>
+          <select id="to-location" aria-label="Destination location (optional)" className="input" value={form.toLocationId} onChange={e => setForm({ ...form, toLocationId: e.target.value })}>
             <option value="">Select destination (optional)</option>
             {locations.filter(l => l.id !== form.fromLocationId).map((l: any) => (
               <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>
@@ -157,6 +157,8 @@ export default function NewRequestPage() {
           <label className="label">Invoice Number / Reference *</label>
           <input
             required
+            id="invoice-ref"
+            aria-label="Invoice number or reference"
             className="input font-mono"
             value={form.referenceInvoice}
             onChange={e => setForm({ ...form, referenceInvoice: e.target.value })}

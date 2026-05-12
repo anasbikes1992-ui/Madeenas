@@ -127,8 +127,10 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <input
             ref={fileInputRef}
+            id="csv-import-input"
             type="file"
             accept=".csv,.xlsx,.xls"
+            aria-label="Import CSV file"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0]

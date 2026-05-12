@@ -205,8 +205,10 @@ export default function CustomerOrdersPage() {
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium text-slate-600">Status</label>
+          <label htmlFor="status-filter" className="text-sm font-medium text-slate-600">Status</label>
           <select
+            id="status-filter"
+            aria-label="Filter by status"
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -334,8 +336,10 @@ export default function CustomerOrdersPage() {
                 </div>
               )}
             </div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <label htmlFor="edit-status" className="block text-sm font-medium text-slate-700 mb-1">Status</label>
             <select
+              id="edit-status"
+              aria-label="Order status"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 mb-4"
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value)}
@@ -365,8 +369,10 @@ export default function CustomerOrdersPage() {
             )}
             {selected.status !== 'CLOSED' && (
               <>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Fulfillment location</label>
+                <label htmlFor="fulfill-location" className="block text-sm font-medium text-slate-700 mb-1">Fulfillment location</label>
             <select
+              id="fulfill-location"
+              aria-label="Fulfillment location"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 mb-4"
               value={fulfillLocationId}
               onChange={(e) => setFulfillLocationId(e.target.value)}
@@ -378,8 +384,10 @@ export default function CustomerOrdersPage() {
                 </option>
               ))}
             </select>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Payment mode for sale</label>
+            <label htmlFor="payment-mode" className="block text-sm font-medium text-slate-700 mb-1">Payment mode for sale</label>
             <select
+              id="payment-mode"
+              aria-label="Payment mode"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 mb-6"
               value={fulfillPaymentMode}
               onChange={(e) => setFulfillPaymentMode(e.target.value)}

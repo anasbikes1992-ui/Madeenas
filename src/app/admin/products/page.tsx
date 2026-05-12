@@ -152,11 +152,12 @@ export default function ProductsPage() {
         <input
           type="text"
           placeholder="Search by name, SKU, design..."
+          aria-label="Search products"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="input max-w-xs"
         />
-        <select value={category} onChange={e => setCategory(e.target.value)} className="input max-w-xs">
+        <select id="category-filter" aria-label="Filter by category" value={category} onChange={e => setCategory(e.target.value)} className="input max-w-xs">
           <option value="">All Categories</option>
           {categories.map((c: any) => (
             <option key={c.id} value={c.id}>{c.name}</option>
