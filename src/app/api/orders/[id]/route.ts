@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
 import { updateOrderStatusSchema } from '@/lib/validation'
 
@@ -8,8 +8,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -23,7 +23,7 @@ export async function GET(
     }
 
     // Customers can only see their own orders
-    if (session.user.role === 'CUSTOMER' && order.customerId !== session.user.id) {
+    if (user.role === 'CUSTOMER' && order.customerId !== user.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
@@ -51,13 +51,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
     // Only admin/staff can update order status
-    if (!['ADMIN', 'SUPER_ADMIN', 'STORE_KEEPER'].includes(session.user.role || '')) {
+    if (!['ADMIN', 'SUPER_ADMIN', 'STORE_KEEPER'].includes(user.role || '')) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
@@ -83,7 +83,7 @@ export async function PATCH(
     const order = await ordersService.updateOrderStatus(
       params.id,
       status,
-      session.user.id,
+      user.id,
       note
     )
 

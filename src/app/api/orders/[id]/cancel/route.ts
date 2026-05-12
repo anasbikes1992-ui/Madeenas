@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
 
 export async function POST(
@@ -7,8 +7,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -33,8 +33,8 @@ export async function POST(
 
     // Customers can cancel their own PENDING orders
     // Admin can cancel any order
-    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(session.user.role || '')
-    const isOwner = order.customerId === session.user.id && order.status === 'PENDING'
+    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role || '')
+    const isOwner = order.customerId === user.id && order.status === 'PENDING'
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(
@@ -45,7 +45,7 @@ export async function POST(
 
     const cancelledOrder = await ordersService.cancelOrder(
       params.id,
-      session.user.id,
+      user.id,
       reason
     )
 

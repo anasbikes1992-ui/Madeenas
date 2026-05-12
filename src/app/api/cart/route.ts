@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as cartService from '@/services/cart.service'
 import { addToCartSchema, updateCartItemSchema, removeFromCartSchema } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
     const taxRate = parseFloat(searchParams.get('taxRate') || '18')
 
-    const cart = await cartService.getCartWithTotals(session.user.id, taxRate)
+    const cart = await cartService.getCartWithTotals(user.id, taxRate)
 
     return NextResponse.json({
       success: true,
@@ -33,13 +33,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
     // Only customers can add to cart
-    if (session.user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER') {
       return NextResponse.json(
         { success: false, error: 'Only customers can use shopping cart' },
         { status: 403 }
@@ -64,12 +64,12 @@ export async function POST(request: NextRequest) {
     const taxRate = body.taxRate || 18
 
     const cart = await cartService.addToCart({
-      customerId: session.user.id,
+      customerId: user.id,
       productId,
       quantity,
     })
 
-    const cartWithTotals = await cartService.getCartWithTotals(session.user.id, taxRate)
+    const cartWithTotals = await cartService.getCartWithTotals(user.id, taxRate)
 
     return NextResponse.json({
       success: true,
@@ -90,19 +90,19 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER') {
       return NextResponse.json(
         { success: false, error: 'Only customers can use shopping cart' },
         { status: 403 }
       )
     }
 
-    const cart = await cartService.clearCart(session.user.id)
+    const cart = await cartService.clearCart(user.id)
 
     return NextResponse.json({
       success: true,

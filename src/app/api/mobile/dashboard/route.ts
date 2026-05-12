@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       where: {
         isRead: false,
         OR: [
-          { userId: user.id },
+          { userId: user.sub },
           { role },
           { role: null, userId: null },
         ],

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as cartService from '@/services/cart.service'
 import { updateCartItemSchema } from '@/lib/validation'
 
@@ -8,12 +8,12 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER') {
       return NextResponse.json(
         { success: false, error: 'Only customers can use shopping cart' },
         { status: 403 }
@@ -38,12 +38,12 @@ export async function PUT(
     const taxRate = body.taxRate || 18
 
     const cart = await cartService.updateCartItem({
-      customerId: session.user.id,
+      customerId: user.id,
       cartItemId: params.id,
       quantity,
     })
 
-    const cartWithTotals = await cartService.getCartWithTotals(session.user.id, taxRate)
+    const cartWithTotals = await cartService.getCartWithTotals(user.id, taxRate)
 
     return NextResponse.json({
       success: true,
@@ -67,12 +67,12 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER') {
       return NextResponse.json(
         { success: false, error: 'Only customers can use shopping cart' },
         { status: 403 }
@@ -82,11 +82,11 @@ export async function DELETE(
     const taxRate = parseFloat(new URL(request.url).searchParams.get('taxRate') || '18')
 
     const cart = await cartService.removeFromCart({
-      customerId: session.user.id,
+      customerId: user.id,
       cartItemId: params.id,
     })
 
-    const cartWithTotals = await cartService.getCartWithTotals(session.user.id, taxRate)
+    const cartWithTotals = await cartService.getCartWithTotals(user.id, taxRate)
 
     return NextResponse.json({
       success: true,

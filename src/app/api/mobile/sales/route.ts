@@ -29,7 +29,7 @@ const saleItemSchema = z.object({
 const saleSchema = z.object({
   locationId: z.string().min(1),
   items: z.array(saleItemSchema).min(1),
-  totalAmount: z.number().nonnegative(),
+  taxRate: z.number().min(0).max(100).optional().default(18),
   paymentMode: z.enum(['CASH', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'CREDIT']).default('CASH'),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
@@ -58,8 +58,13 @@ export async function POST(request: NextRequest) {
     return fail('Validation error', 400, 'VALIDATION_ERROR')
   }
 
-  const { locationId, items, totalAmount, paymentMode, customerName, customerPhone, isCreditEligible, note } =
+  const { locationId, items, taxRate, paymentMode, customerName, customerPhone, isCreditEligible, note } =
     parsed.data
+
+  // Compute VAT totals server-side
+  const subTotal = parseFloat(items.reduce((sum, i) => sum + i.subTotal, 0).toFixed(2))
+  const taxAmount = parseFloat(((subTotal * taxRate) / 100).toFixed(2))
+  const grandTotal = parseFloat((subTotal + taxAmount).toFixed(2))
 
   // Verify location
   const location = await prisma.location.findUnique({ where: { id: locationId } })
@@ -119,16 +124,26 @@ export async function POST(request: NextRequest) {
         customerId,
         customerName: customerName ?? null,
         customerPhone: customerPhone ?? null,
-        totalAmount,
+        subTotal,
+        taxRate,
+        taxAmount,
+        grandTotal,
+        totalAmount: grandTotal,
         paymentMode,
         note: note ?? null,
         items: {
-          create: items.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            subTotal: i.subTotal,
-          })),
+          create: items.map((i) => {
+            const itemTax = parseFloat(((i.subTotal * taxRate) / 100).toFixed(2))
+            return {
+              productId: i.productId,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              subTotal: i.subTotal,
+              taxRate,
+              taxAmount: itemTax,
+              total: parseFloat((i.subTotal + itemTax).toFixed(2)),
+            }
+          }),
         },
       },
       include: { items: true },
@@ -151,7 +166,7 @@ export async function POST(request: NextRequest) {
     action: 'CREATE',
     entity: 'Sale',
     entityId: sale.id,
-    details: `Mobile POS: ${items.length} item(s), total Rs. ${totalAmount}, receipt ${receiptNo}`,
+    details: `Mobile POS: ${items.length} item(s), total Rs. ${grandTotal}, receipt ${receiptNo}`,
   })
 
   return ok({ sale, receiptNo }, 201)

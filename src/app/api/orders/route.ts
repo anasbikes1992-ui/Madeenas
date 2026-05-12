@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       : undefined
 
     // Customers can only see their own orders
-    const customerId = session.user.role === 'CUSTOMER' ? session.user.id : undefined
+    const customerId = user.role === 'CUSTOMER' ? user.id : undefined
 
     const result = await ordersService.listOrders({
       customerId,

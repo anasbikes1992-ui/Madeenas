@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         supplierId: supplierId || null,
         costPrice,
         note,
-        receivedBy: user.id,
+        receivedBy: user.sub!
       },
     })
 
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
   })
 
   await logActivity({
-    userId: user.id,
+    userId: user.sub!,
     action: 'STOCK_IN',
     entity: 'StockIn',
     entityId: stockIn.id,

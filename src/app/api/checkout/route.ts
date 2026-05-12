@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
 import * as cartService from '@/services/cart.service'
 import { checkoutSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER') {
       return NextResponse.json(
         { success: false, error: 'Only customers can checkout' },
         { status: 403 }
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Validate stock availability if locationId provided
     if (checkoutData.locationId) {
       const stockValidation = await cartService.validateCartStock(
-        session.user.id,
+        user.id,
         checkoutData.locationId
       )
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Create order from cart
     const order = await ordersService.createOrderFromCart(
-      session.user.id,
+      user.id,
       {
         items: checkoutData.items,
         shippingAddress: checkoutData.shippingAddress,
