@@ -14,9 +14,18 @@ export default function LocationsSettingsPage() {
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
   async function load() {
-    const res = await fetch('/api/locations')
-    setLocations(await res.json())
-    setLoading(false)
+    try {
+      const res = await fetch('/api/locations')
+      if (res.ok) {
+        const data = await res.json()
+        setLocations(Array.isArray(data) ? data : [])
+      }
+    } catch (err) {
+      console.error('Failed to load locations:', err)
+      setLocations([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { void load() }, [])
