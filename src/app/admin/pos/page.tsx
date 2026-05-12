@@ -126,6 +126,7 @@ export default function POSPage() {
           customerPhone: customerPhone.trim() || undefined,
           paymentMode,
           taxRate,
+          totalAmount: taxBreakdown.grandTotal,
           items: cart.map(item => ({
             productId: item.product.id,
             quantity: item.quantity,
