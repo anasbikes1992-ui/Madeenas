@@ -24,7 +24,8 @@ export default function UsersPage() {
       const response = await fetch('/api/users')
       if (response.ok) {
         const data = await response.json()
-        setUsers(Array.isArray(data) ? data : [])
+        // API returns { users: [...], total: number }
+        setUsers(Array.isArray(data.users) ? data.users : [])
       }
     } catch (error) {
       console.error('Failed to load users:', error)
