@@ -113,6 +113,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       const subTotal = unitPrice * order.quantity
+      const taxRate = 18
+      const taxAmount = (subTotal * taxRate) / 100
+      const grandTotal = subTotal + taxAmount
       const receiptNo = await generateReceiptNo()
 
       const sale = await tx.sale.create({
@@ -123,7 +126,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           customerId,
           customerName: order.customerName,
           customerPhone: order.customerPhone,
-          totalAmount: subTotal,
+          totalAmount: grandTotal,
+          subTotal,
+          taxRate,
+          taxAmount,
+          grandTotal,
           paymentMode,
           note: parsed.data.note || `Fulfilled from customer order ${order.id}`,
           items: {
@@ -132,7 +139,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 productId: order.productId,
                 quantity: order.quantity,
                 unitPrice,
-                subTotal,
+                subTotal: unitPrice * order.quantity,
+                taxRate,
+                taxAmount: ((unitPrice * order.quantity) * taxRate) / 100,
+                total: (unitPrice * order.quantity) + (((unitPrice * order.quantity) * taxRate) / 100),
               },
             ],
           },
