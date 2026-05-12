@@ -27,9 +27,10 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)))
 
+  const userId = user.sub ?? (user as any).id ?? ''
   const where = {
     OR: [
-      { userId: user.id },
+      { userId },
       { role },
       { role: null as string | null, userId: null as string | null },
     ],
@@ -56,12 +57,13 @@ export async function PATCH(request: NextRequest) {
   const role = (user.role ?? '').toUpperCase()
   if (!STAFF_ROLES.has(role)) return fail('Forbidden', 403, 'FORBIDDEN')
 
+  const userId = user.sub ?? (user as any).id ?? ''
   // Mark all as read for this user/role
   await prisma.notification.updateMany({
     where: {
       isRead: false,
       OR: [
-        { userId: user.id },
+        { userId },
         { role },
       ],
     },

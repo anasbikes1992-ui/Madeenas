@@ -25,19 +25,21 @@ const STATUS_CLASSES: Record<string, string> = {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [csvBusy, setCsvBusy] = useState(false)
   const [csvMessage, setCsvMessage] = useState<string | null>(null)
   const [approving, setApproving] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   async function loadStats() {
+    setError(null)
     try {
       const r = await fetch('/api/dashboard')
       if (!r.ok) throw new Error(`Dashboard API error: ${r.status}`)
       const data = await r.json()
       setStats(data)
-    } catch {
-      /* silently ignore */
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
@@ -139,7 +141,12 @@ export default function DashboardPage() {
     )
   }
 
-  if (!stats) return null
+  if (!stats) return (
+    <div className="p-8 text-center">
+      <p className="text-red-500 font-medium">{error || 'No dashboard data available.'}</p>
+      <button onClick={() => { setLoading(true); void loadStats() }} className="mt-4 btn-secondary btn-sm">Retry</button>
+    </div>
+  )
 
   const statCards = [
     { label: 'Total Products', value: stats.totalProducts, icon: '📦', color: 'bg-indigo-50 text-indigo-600', change: 'Active SKUs' },

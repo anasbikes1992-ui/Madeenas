@@ -121,15 +121,25 @@ export async function POST(request: NextRequest) {
           customerName: checkout.customerName,
           customerPhone: checkout.customerPhone,
           totalAmount: checkout.totalAmount,
+          subTotal: checkout.items.reduce((s, i) => s + i.subTotal, 0),
+          taxRate: 18,
+          taxAmount: checkout.items.reduce((s, i) => s + i.subTotal, 0) * 0.18,
+          grandTotal: checkout.items.reduce((s, i) => s + i.subTotal, 0) * 1.18,
           paymentMode: checkout.paymentMode || 'CASH',
           note: checkout.note,
           items: {
-            create: checkout.items.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              subTotal: item.subTotal
-            }))
+            create: checkout.items.map((item) => {
+              const itemTax = item.subTotal * 0.18
+              return {
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                subTotal: item.subTotal,
+                taxRate: 18,
+                taxAmount: itemTax,
+                total: item.subTotal + itemTax,
+              }
+            })
           }
         },
         include: { items: true }
