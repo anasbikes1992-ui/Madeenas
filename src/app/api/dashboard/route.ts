@@ -19,7 +19,7 @@ export async function GET() {
     prisma.product.count({ where: { isActive: true } }),
     prisma.location.count({ where: { isActive: true } }),
     prisma.stockOutRequest.count({ where: { status: 'PENDING' } }),
-    prisma.customerOrder.count({ where: { status: 'NEW' } }),
+    prisma.customerOrder.count({ where: { status: 'PENDING' } }),
     prisma.stock.findMany({
       where: {},
       include: { product: true, location: true },

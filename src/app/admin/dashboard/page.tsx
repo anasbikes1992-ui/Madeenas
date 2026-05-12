@@ -31,8 +31,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetch('/api/dashboard')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`Dashboard API error: ${r.status}`)
+        return r.json()
+      })
       .then(data => { setStats(data); setLoading(false) })
+      .catch(() => { setLoading(false) })
   }, [])
 
   async function exportCsv() {

@@ -11,9 +11,10 @@ export default function UsersSettingsPage() {
   const [locations, setLocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<any>({ name: '', email: '', password: 'password123', role: 'STORE_KEEPER', locationId: '' })
+  const [form, setForm] = useState<any>({ name: '', email: '', password: 'Madeena@2024', role: 'STORE_KEEPER', locationId: '' })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
@@ -32,13 +33,22 @@ export default function UsersSettingsPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    setFormError(null)
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
     setSaving(false)
-    if (res.ok) { setShowForm(false); load(); showToast('User created!') }
+    if (res.ok) {
+      setShowForm(false)
+      setForm({ name: '', email: '', password: 'Madeena@2024', role: 'STORE_KEEPER', locationId: '' })
+      load()
+      showToast('User created!')
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setFormError(data.error || `Error ${res.status}: Failed to create user`)
+    }
   }
 
   const availableRoles = Object.entries(ROLE_LABELS).filter(([value]) => {
@@ -61,7 +71,7 @@ export default function UsersSettingsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Users</h1>
           <p className="text-sm text-slate-500">{users.length} total users</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary">+ Add User</button>
+        <button onClick={() => { setShowForm(true); setFormError(null) }} className="btn-primary">+ Add User</button>
       </div>
 
       <div className="table-container">
@@ -109,6 +119,7 @@ export default function UsersSettingsPage() {
               <div className="form-group">
                 <label className="label">Initial Password</label>
                 <input required className="input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                <p className="text-xs text-slate-400 mt-1">Min 12 chars, must include uppercase, lowercase and a digit.</p>
               </div>
               <div className="form-group">
                 <label htmlFor="user-role" className="label">Role *</label>
@@ -128,6 +139,11 @@ export default function UsersSettingsPage() {
                   <p className="text-xs text-slate-500 mt-1">Store and shop users must be linked to one location.</p>
                 )}
               </div>
+              {formError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
                   {saving ? 'Creating…' : 'Create User'}
