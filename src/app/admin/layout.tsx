@@ -6,6 +6,8 @@ import { ROLE_LABELS, getDashboardPath } from '@/lib/constants'
 import { getInitials } from '@/lib/utils'
 import NotificationBell from '@/components/NotificationBell'
 
+export const dynamic = 'force-dynamic'
+
 const navItems = [
   {
     group: 'Overview',

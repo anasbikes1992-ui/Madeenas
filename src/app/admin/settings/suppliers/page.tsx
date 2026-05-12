@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 type SupplierItem = {
   id: string
   name: string

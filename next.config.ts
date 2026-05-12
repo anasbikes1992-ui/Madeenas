@@ -13,9 +13,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   async headers() {
     const commonHeaders = [
       { key: 'X-Frame-Options', value: 'DENY' },
