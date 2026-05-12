@@ -4,8 +4,6 @@ import { useSession } from 'next-auth/react'
 import { ROLE_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 
-export const dynamic = 'force-dynamic'
-
 const ROLE_BADGE: Record<string, string> = {
   SUPER_ADMIN: 'badge-red',
   ADMIN: 'badge-indigo',

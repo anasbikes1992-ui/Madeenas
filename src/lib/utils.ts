@@ -12,9 +12,9 @@ export function formatDate(date: Date | string | null, opts?: Intl.DateTimeForma
   }).format(new Date(date))
 }
 
-export function formatCurrency(amount: number | null, currency = 'USD') {
+export function formatCurrency(amount: number | null, currency = 'LKR') {
   if (amount === null || amount === undefined) return '—'
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-LK', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,

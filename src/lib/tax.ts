@@ -213,14 +213,14 @@ export function breakdownTotalWithTax(
 // =============================================================================
 
 /**
- * Format currency amount (Ethiopian Birr)
+ * Format currency amount (Sri Lankan Rupee)
  * @param amount - Amount to format
  * @returns Formatted currency string
  */
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-ET', {
+  return new Intl.NumberFormat('en-LK', {
     style: 'currency',
-    currency: 'ETB',
+    currency: 'LKR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);

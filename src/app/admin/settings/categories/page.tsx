@@ -1,8 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-export const dynamic = 'force-dynamic'
-
 type CategoryItem = {
   id: string
   name: string
