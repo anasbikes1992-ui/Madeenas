@@ -6,12 +6,12 @@ interface Location {
   name: string
   code: string
   type: string
-  address?: string | null
+  address?: string
   isActive: boolean
   stocks?: any[]
 }
 
-export default function LocationsPage() {
+export default function LocationsDebugPage() {
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -36,7 +36,7 @@ export default function LocationsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Locations</h1>
+        <h1 className="text-2xl font-bold mb-4">Locations Debug</h1>
         <p>Loading...</p>
       </div>
     )
@@ -44,7 +44,7 @@ export default function LocationsPage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">Locations</h1>
+      <h1 className="text-2xl font-bold mb-6">Locations Debug</h1>
       <div className="space-y-4">
         {locations.length === 0 ? (
           <p className="text-slate-500">No locations found</p>
