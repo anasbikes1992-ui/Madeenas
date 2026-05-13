@@ -1,6 +1,20 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { formatDate } from '@/lib/utils'
+import { PremiumCard } from '@/components/ui/PremiumCard'
+import { GoldButton } from '@/components/ui/GoldButton'
+import { NavyButton } from '@/components/ui/NavyButton'
+import { motion } from 'framer-motion'
+
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } }
+}
 
 interface DashboardStats {
   totalProducts: number
@@ -149,21 +163,28 @@ export default function DashboardPage() {
   )
 
   const statCards = [
-    { label: 'Total Products', value: stats.totalProducts, icon: '📦', color: 'bg-indigo-50 text-indigo-600', change: 'Active SKUs' },
-    { label: 'Pending Requests', value: stats.pendingRequests, icon: '⏳', color: 'bg-amber-50 text-amber-600', change: 'Awaiting approval' },
-    { label: 'Low Stock Items', value: stats.lowStockCount, icon: '⚠️', color: 'bg-red-50 text-red-600', change: 'Need restocking' },
-    { label: 'Customer Orders', value: stats.newCustomerOrders, icon: '🛍️', color: 'bg-emerald-50 text-emerald-600', change: 'New inquiries' },
+    { label: 'Total Products', value: stats.totalProducts, icon: '📦', gradient: 'from-navy-500 to-navy-600', change: 'Active SKUs' },
+    { label: 'Pending Requests', value: stats.pendingRequests, icon: '⏳', gradient: 'from-gold-500 to-gold-600', change: 'Awaiting approval' },
+    { label: 'Low Stock Items', value: stats.lowStockCount, icon: '⚠️', gradient: 'from-red-500 to-red-600', change: 'Need restocking' },
+    { label: 'Customer Orders', value: stats.newCustomerOrders, icon: '🛍️', gradient: 'from-emerald-500 to-emerald-600', change: 'New inquiries' },
   ]
 
   return (
-    <div className="space-y-6 fade-in">
+    <motion.div 
+      className="space-y-8"
+      initial="hidden"
+      animate="visible"
+      variants={stagger}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <motion.div variants={fadeIn} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Overview of your textile stock operations</p>
+          <h1 className="text-4xl font-heading font-bold bg-gradient-to-r from-navy-600 to-navy-800 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          <p className="text-navy-600/70 text-lg mt-2">Overview of your textile stock operations</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <input
             ref={fileInputRef}
             id="csv-import-input"
@@ -177,78 +198,82 @@ export default function DashboardPage() {
                 void importCsv(file)
               }
             }}
-          />
-          <button type="button" className="btn-secondary btn-sm" disabled={csvBusy} onClick={() => void exportCsv()}>
-            {csvBusy ? 'Working…' : 'Export CSV'}
-          </button>
-          <button type="button" className="btn-secondary btn-sm" disabled={csvBusy} onClick={() => fileInputRef.current?.click()}>
-            {csvBusy ? 'Working…' : 'Import CSV'}
-          </button>
-          <a href="/api/dashboard/import-template" download className="btn-secondary btn-sm">
-            Download Template
+          />>
+            <NavyButton variant="outline" size="sm">Download Template</NavyButton>
           </a>
-          <a href="/admin/stock-in" className="btn-secondary btn-sm">⬇️ Stock In</a>
-          <a href="/admin/new-request" className="btn-primary btn-sm">+ New Request</a>
+          <a href="/admin/stock-in">
+            <NavyButton size="sm">⬇️ Stock In</NavyButton>
+          </a>
+          <a href="/admin/new-request">
+            <GoldButton size="sm">+ New Request</GoldButton>
+          </a>
         </div>
-      </div>
-      {csvMessage ? <p className="text-sm text-slate-600">{csvMessage}</p> : null}
+      </motion.div>
+      {csvMessage ? <motion.p variants={fadeIn} className="text-sm text-navy-600">{csvMessage}</motion.p> : null}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={fadeIn} className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map(s => (
-          <div key={s.label} className="card">
+          <PremiumCard key={s.label} hover>
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-slate-500 mb-1">{s.label}</p>
-                <p className="text-3xl font-bold text-slate-900">{s.value.toLocaleString()}</p>
-                <p className="text-xs text-slate-400 mt-1">{s.change}</p>
+                <p className="text-sm text-navy-600/70 mb-2 font-medium">{s.label}</p>
+                <p className="text-4xl font-bold text-navy-900 mb-1">{s.value.toLocaleString()}</p>
+                <p className="text-xs text-navy-500">{s.change}</p>
               </div>
+              <div className={`p-4 rounded-xl bg-gradient-to-br ${s.gradient} shadow-premium`}>
+                <span className="text-2xl">{s.icon}</span>
+              </div>
+            </div>
+          </PremiumCard>
+        ))}
+      </motion.      </div>
               <div className={`p-3 rounded-xl ${s.color}`}>
                 <span className="text-xl">{s.icon}</span>
               </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Two-column layout */}
-      <div className="grid lg:grid-cols-2 gap-6">
+       motion.div variants={fadeIn} className="grid lg:grid-cols-2 gap-6">
         {/* Recent Stock Out Requests */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">Recent Stock Requests</h2>
-            <a href="/admin/stock-out" className="text-indigo-600 text-sm hover:underline">View all →</a>
-          </div>
+        <PremiumCard>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-navy-900">Recent Stock Requests</h2>
+            <a href="/admin/stock-out" className="text-gold-600 text-sm font-semibold hover:text-gold-700 transition">
+              View all →
+            
+        <div className="card">navy-400 text-sm text-center py-12">No requests yet</p>
+          ) : (
+            <div className="space-y-3">
+              {stats.recentStockOuts.map((req: any) => (
+                <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-50 to-navy-50/30 rounded-xl border border-navy-100 hover:border-navy-200 transition-al
           {stats.recentStockOuts.length === 0 ? (
             <p className="text-slate-400 text-sm text-center py-8">No requests yet</p>
           ) : (
             <div className="space-y-3">
               {stats.recentStockOuts.map((req: any) => (
-                <div key={req.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{req.product.name}</p>
-                    <p className="text-xs text-slate-500">
+                <div key={req.id} className="flsemibold text-navy-900 truncate">{req.product.name}</p>
+                    <p className="text-xs text-navy-600/70">
                       {req.fromLocation.name} · by {req.requestedByUser?.name || '—'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                  <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className="text-right">
                       <span className={STATUS_CLASSES[req.status] || 'badge-gray'}>{req.status}</span>
-                      <p className="text-xs text-slate-400 mt-1">{formatDate(req.createdAt)}</p>
+                      <p className="text-xs text-navy-500 mt-1">{formatDate(req.createdAt)}</p>
                     </div>
                     {req.status === 'PENDING' && (
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => void handleApprove(req.id)}
                           disabled={approving.has(req.id)}
-                          className="text-xs py-1 px-2 rounded-lg font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                          className="text-xs py-2 px-3 rounded-lg font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50 shadow-sm"
                         >
                           ✓
                         </button>
                         <button
                           onClick={() => void handleReject(req.id)}
                           disabled={approving.has(req.id)}
-                          className="text-xs py-1 px-2 rounded-lg font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+                          className="text-xs py-2 px-3 rounded-lg font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 shadow-sm"
                         >
                           ✗
                         </button>
@@ -259,84 +284,90 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </div>
+        </PremiumCard>
 
         {/* Recent Stock In */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">Recent Stock In</h2>
-            <a href="/admin/stock-in" className="text-indigo-600 text-sm hover:underline">View all →</a>
-          </div>
-          {stats.recentStockIns.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">No stock entries yet</p>
+        <PremiumCard>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-navy-900">Recent Stock In</h2>
+            <a href="/admin/stock-in" className="text-gold-600 text-sm font-semibold hover:text-gold-700 transition">
+              View all →
+            
+            <h2 className="fontnavy-400 text-sm text-center py-12">No stock entries yet</p>
           ) : (
             <div className="space-y-3">
               {stats.recentStockIns.map((entry: any) => (
-                <div key={entry.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div key={entry.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-emerald-50 to-navy-50/20 rounded-xl border border-emerald-100 hover:border-emerald-200 transition-all">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{entry.product.name}</p>
-                    <p className="text-xs text-slate-500">To {entry.location.name}</p>
+                    <p className="text-sm font-semibold text-navy-900 truncate">{entry.product.name}</p>
+                    <p className="text-xs text-navy-600/70">To {entry.location.name}</p>
                   </div>
                   <div className="text-right ml-3">
-                    <span className="font-bold text-emerald-600">+{entry.quantity}</span>
-                    <p className="text-xs text-slate-400 mt-1">{formatDate(entry.createdAt)}</p>
+                    <span className="text-lg font-bold text-emerald-600">+{entry.quantity}</span>
+                    <p className="text-xs text-navy-500 mt-1">{formatDate(entry.createdAt)}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </PremiumCard>
 
         {/* Low Stock Alerts */}
+        <PremiumCard>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-navy-900">⚠️ Low Stock Alerts</h2>
+            <a href="/admin/inventory" className="text-gold-600 text-sm font-semibold hover:text-gold-700 transition">
+              View inventory →
+            
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-900">⚠️ Low Stock Alerts</h2>
             <a href="/admin/inventory" className="text-indigo-600 text-sm hover:underline">View inventory →</a>
           </div>
           {stats.lowStockItems.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">✅ All stocks healthy</p>
+            <p className="text-emerald-600 text-sm text-center py-12 font-semibold">✅ All stocks healthy</p>
           ) : (
             <div className="space-y-3">
               {stats.lowStockItems.map((s: any) => (
-                <div key={`${s.productId}-${s.locationId}`} className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
+                <div key={`${s.productId}-${s.locationId}`} className="flex items-center justify-between p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-100 hover:border-red-200 transition-all">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{s.product.name}</p>
-                    <p className="text-xs text-slate-500">{s.location.name}</p>
+                    <p className="text-sm font-semibold text-navy-900">{s.product.name}</p>
+                    <p className="text-xs text-navy-600/70">{s.location.name}</p>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-red-600">{s.quantity} {s.product.unit}</span>
-                    <p className="text-xs text-slate-400">Threshold: {s.product.lowStockAt}</p>
+                    <span className="text-lg font-bold text-red-600">{s.quantity} {s.product.unit}</span>
+                    <p className="text-xs text-navy-500">Threshold: {s.product.lowStockAt}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </PremiumCard>
 
         {/* Quick Actions */}
-        <div className="card">
-          <h2 className="font-semibold text-slate-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-3">
+        <PremiumCard>
+          <h2 className="text-xl font-bold text-navy-900 mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-4">
             {[
-              { href: '/admin/products', label: 'Add Product', icon: '📦', color: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100' },
-              { href: '/admin/stock-in', label: 'Record Stock In', icon: '⬇️', color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
-              { href: '/admin/new-request', label: 'Request Stock', icon: '📤', color: 'bg-amber-50 text-amber-700 hover:bg-amber-100' },
-              { href: '/admin/reports', label: 'View Reports', icon: '📈', color: 'bg-purple-50 text-purple-700 hover:bg-purple-100' },
-              { href: '/admin/customer-orders', label: 'Customer Orders', icon: '🛍️', color: 'bg-pink-50 text-pink-700 hover:bg-pink-100' },
-              { href: '/finance/dashboard', label: 'Finance', icon: '💰', color: 'bg-teal-50 text-teal-700 hover:bg-teal-100' },
+              { href: '/admin/products', label: 'Add Product', icon: '📦', gradient: 'from-navy-500 to-navy-600' },
+              { href: '/admin/stock-in', label: 'Record Stock In', icon: '⬇️', gradient: 'from-emerald-500 to-emerald-600' },
+              { href: '/admin/new-request', label: 'Request Stock', icon: '📤', gradient: 'from-gold-500 to-gold-600' },
+              { href: '/admin/reports', label: 'View Reports', icon: '📈', gradient: 'from-purple-500 to-purple-600' },
+              { href: '/admin/customer-orders', label: 'Customer Orders', icon: '🛍️', gradient: 'from-pink-500 to-pink-600' },
+              { href: '/finance/dashboard', label: 'Finance', icon: '💰', gradient: 'from-teal-500 to-teal-600' },
             ].map(a => (
               <a
                 key={a.href}
                 href={a.href}
-                className={`flex items-center gap-3 p-4 rounded-xl font-medium text-sm transition-colors ${a.color}`}
+                className={`flex items-center gap-3 p-4 bg-gradient-to-br ${a.gradient} text-white rounded-xl shadow-premium hover:shadow-premium-lg transition-all font-semibold text-sm`}
               >
-                <span className="text-xl">{a.icon}</span>
+                <span className="text-2xl">{a.icon}</span>
                 <span>{a.label}</span>
               </a>
             ))}
           </div>
-        </div>
-      </div>
-    </div>
+        </PremiumCard>
+      </motion.div>
+    </motion.div>
   )
 }

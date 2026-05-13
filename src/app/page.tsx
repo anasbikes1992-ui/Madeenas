@@ -4,12 +4,35 @@ import { GoldButton } from '@/components/ui/GoldButton'
 import { NavyButton } from '@/components/ui/NavyButton'
 import { PremiumCard } from '@/components/ui/PremiumCard'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
+
+const EASE = [0.22, 1, 0.36, 1]
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 32 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } }
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } }
+}
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: EASE } }
+}
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-navy-50/30">
       {/* Premium Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-navy-100 shadow-md">
+      <motion.nav 
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: EASE }}
+        className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-navy-100 shadow-premium"
+      >
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-navy-600 to-navy-700 flex items-center justify-center">
@@ -32,25 +55,53 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-32 pb-24 overflow-hidden">
         {/* Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-navy-50 via-white to-gold-50 opacity-60" />
-        <div className="absolute top-20 right-10 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-10 left-10 w-80 h-80 bg-navy-600/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-navy-50 via-white to-gold-50/50" />
+        <motion.div 
+          className="absolute top-20 right-10 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl"
+          animate={{ 
+            y: [0, 30, 0],
+            scale: [1, 1.1, 1] 
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute bottom-10 left-10 w-80 h-80 bg-navy-600/10 rounded-full blur-3xl"
+          animate={{ 
+            y: [0, -30, 0],
+            scale: [1, 1.15, 1] 
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        />
         
         <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-6xl md:text-7xl font-heading font-bold mb-6 bg-gradient-to-r from-navy-600 via-navy-700 to-gold-600 bg-clip-text text-transparent leading-tight">
+          <motion.div 
+            className="max-w-4xl mx-auto text-center"
+            initial="hidden"
+            animate="visible"
+            variants={stagger}
+          >
+            <motion.h1 
+              variants={fadeInUp}
+              className="text-6xl md:text-7xl lg:text-8xl font-heading font-bold mb-6 bg-gradient-to-r from-navy-600 via-navy-700 to-gold-600 bg-clip-text text-transparent leading-tight"
+            >
               Premium Sri Lankan Textiles
-            </h1>
-            <p className="text-xl md:text-2xl text-navy-700/80 mb-8 leading-relaxed">
+            </motion.h1>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-xl md:text-2xl text-navy-700/80 mb-10 leading-relaxed"
+            >
               Experience luxury fabrics with unmatched quality and elegance. 
               From traditional handloom to contemporary designs.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+            </motion.p>
+            <motion.div 
+              variants={fadeInUp}
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
+            >
               <Link href="/shop">
                 <GoldButton size="lg">
                   Explore Collection
@@ -62,10 +113,13 @@ export default function HomePage() {
               <Link href="/about">
                 <NavyButton variant="outline" size="lg">Learn Our Story</NavyButton>
               </Link>
-            </div>
+            </motion.div>
             
             {/* Trust Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-navy-600/70">
+            <motion.div 
+              variants={fadeInUp}
+              className="flex flex-wrap items-center justify-center gap-8 text-sm text-navy-600/70"
+            >
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-gold-500" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -85,32 +139,60 @@ export default function HomePage() {
                 </svg>
                 <span>Island-wide Delivery</span>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-cream/30">
+      <section className="py-24 bg-gradient-to-b from-cream/30 to-white">
         <div className="container mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-heading font-bold mb-4 text-navy-700">
-              Why Choose Madeena?
-            </h2>
-            <p className="text-lg text-navy-600/70 max-w-2xl mx-auto">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+            className="text-center mb-16"
+          >
+            <motion.h2 
+            motion.div>
+          
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+            className="grid md:grid-cols-3 gap-8"
+          >
+            <motion.div variants={scaleIn}>
+              <PremiumCard hover>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold"
+
+            <motion.p 
+              variants={fadeInUp}
+              className="text-lg text-navy-600/70 max-w-2xl mx-auto"
+            >
               We blend traditional Sri Lankan craftsmanship with modern technology 
               to deliver the finest textile experience.
-            </p>
-          </div>
+            </motion.p>
+          </motion.div>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+            className="grid md:grid-cols-3 gap-8"
+          >
             <PremiumCard hover>
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 text-navy-700">Authentic Craftsmanship</h3>
+              </PremiumCard>
+            </motion.div>
+            
+            <motion.div variants={scaleIn}>
+              <PremiumCard hover>
+                <h3 className="text-2xl font-bold mb-3 text-navy-700">Authentic Craftsmanship</h3>
               <p className="text-navy-600/70">
                 Handpicked fabrics woven by master artisans using time-honored techniques 
                 passed down through generations.
@@ -126,10 +208,12 @@ export default function HomePage() {
               <h3 className="text-2xl font-bold mb-3 text-navy-700">Quality Guaranteed</h3>
               <p className="text-navy-600/70">
                 Every fabric undergoes rigorous quality control. We stand behind 
-                our products with a satisfaction guarantee.
-              </p>
-            </PremiumCard>
+              </PremiumCard>
+            </motion.div>
             
+            <motion.div variants={scaleIn}>
+              <PremiumCard hover>
+              
             <PremiumCard hover>
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,28 +221,65 @@ export default function HomePage() {
                 </svg>
               </div>
               <h3 className="text-2xl font-bold mb-3 text-navy-700">Fast Turnaround</h3>
-              <p className="text-navy-600/70">
-                Real-time inventory tracking and efficient order processing ensure 
-                your textiles arrive when you need them.
-              </p>
-            </PremiumCard>
-          </div>
+              </PremiumCard>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-navy relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gold-500 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gold-500 rounded-full blur-3xl" />
-        </div>
+      <section className="py-24 bg-gradient-to-br from-navy-600 via-navy-700 to-navy-900
+      </section>
+motion.div 
+          className="absolute inset-0 opacity-20"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 0.2 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1 }}
+        >
+          <motion.div 
+            className="absolute top-0 left-1/4 w-96 h-96 bg-gold-500 rounded-full blur-3xl"
+            animate={{ scale: [1, 1.2, 1], x: [0, 50, 0] }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-0 right-1/4 w-96 h-96 bg-gold-500 rounded-full blur-3xl"
+            animate={{ scale: [1, 1.3, 1], x: [0, -50, 0] }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </motion.div>
         
         <div className="container mx-auto px-6 text-center relative z-10">
-          <h2 className="text-4xl md:text-5xl font-heading font-bold mb-6 text-white">
-            Ready to Experience Premium Textiles?
-          </h2>
-          <p className="text-xl text-gold-100 mb-8 max-w-2xl mx-auto">
-            Join hundreds of satisfied customers across Sri Lanka who trust Madeena 
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <motion.footer 
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="bg-navy-900 text-white py-12"
+      
+              Ready to Experience Premium Textiles?
+            </motion.h2>
+            <motion.p 
+              variants={fadeInUp}
+              className="text-xl text-gold-100 mb-10 max-w-2xl mx-auto"
+            >
+              Join hundreds of satisfied customers across Sri Lanka who trust Madeena 
+              for their textile needs.
+            </motion.p>
+            <motion.div 
+              variants={fadeInUp}
+              className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            
             for their textile needs.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -215,7 +336,7 @@ export default function HomePage() {
             <p>&copy; {new Date().getFullYear()} Madeena Textiles. All rights reserved.</p>
           </div>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   )
 }
