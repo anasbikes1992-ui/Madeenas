@@ -260,7 +260,7 @@ export default function StorefrontPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.18),transparent_28%),linear-gradient(180deg,#eef4ff_0%,#f8fafc_42%,#ffffff_100%)]">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,175,55,0.2),transparent_30%),radial-gradient(circle_at_90%_15%,rgba(99,102,241,0.18),transparent_24%),linear-gradient(180deg,#0a1128_0%,#0e1b3d_48%,#12224b_100%)]">
       <section className="relative overflow-hidden border-b border-indigo-100/60 bg-slate-950 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.22),transparent_24%),radial-gradient(circle_at_20%_10%,rgba(99,102,241,0.28),transparent_30%),linear-gradient(135deg,#020617_0%,#172554_55%,#312e81_100%)]" />
         <div className="relative mx-auto flex max-w-7xl flex-col gap-10 px-6 py-8 lg:px-10 lg:py-12">
@@ -345,11 +345,11 @@ export default function StorefrontPage() {
       </section>
 
       <section id="catalog" className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-12">
-        <div className="mb-8 grid gap-4 rounded-4xl border border-slate-200/70 bg-white/90 p-5 shadow-[0_24px_90px_rgba(15,23,42,0.08)] backdrop-blur lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="mb-8 grid gap-4 rounded-4xl border border-indigo-200/25 bg-white/10 p-5 shadow-[0_24px_90px_rgba(2,6,23,0.45)] backdrop-blur-xl lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="space-y-2">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">{t.catalogLabel}</p>
-            <h2 className="text-3xl font-black text-slate-950">{productCountLabel}</h2>
-            <p className="text-sm text-slate-500">{search ? `${t.matchingLabel} “${search}”` : t.exploreCatalog}</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-300">{t.catalogLabel}</p>
+            <h2 className="text-3xl font-black text-white">{productCountLabel}</h2>
+            <p className="text-sm text-slate-200/85">{search ? `${t.matchingLabel} “${search}”` : t.exploreCatalog}</p>
           </div>
 
           <div className="relative min-w-full lg:min-w-104">
@@ -358,9 +358,9 @@ export default function StorefrontPage() {
               placeholder={t.searchPlaceholder}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="input rounded-3xl border-slate-200 bg-slate-50 py-4 pl-12 pr-5 shadow-inner"
+              className="input rounded-3xl border-indigo-200/40 bg-slate-950/40 py-4 pl-12 pr-5 text-slate-100 placeholder:text-slate-400"
             />
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⌕</span>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">⌕</span>
           </div>
         </div>
 
@@ -368,7 +368,7 @@ export default function StorefrontPage() {
           <button
             type="button"
             onClick={() => setCategory('')}
-            className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${!category ? 'bg-slate-950 text-white shadow-lg shadow-slate-300/50' : 'bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:ring-indigo-300'}`}
+            className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${!category ? 'bg-gold-500 text-slate-950 shadow-lg shadow-gold-900/40' : 'bg-white/10 text-slate-100 shadow-sm ring-1 ring-white/20 hover:ring-gold-400/70'}`}
           >
             {t.allProducts}
           </button>
@@ -377,7 +377,7 @@ export default function StorefrontPage() {
               key={item.id}
               type="button"
               onClick={() => setCategory(item.slug)}
-              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${category === item.slug ? 'text-white shadow-lg' : 'bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:ring-indigo-300'}`}
+              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${category === item.slug ? 'text-slate-950 shadow-lg' : 'bg-white/10 text-slate-100 shadow-sm ring-1 ring-white/20 hover:ring-gold-400/70'}`}
               style={category === item.slug ? { backgroundColor: item.color } : undefined}
             >
               {item.name}
@@ -392,10 +392,10 @@ export default function StorefrontPage() {
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="rounded-4xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center shadow-sm">
+          <div className="rounded-4xl border border-dashed border-white/30 bg-white/10 px-6 py-20 text-center shadow-sm backdrop-blur">
             <div className="mb-4 text-6xl">🔎</div>
-            <h3 className="text-2xl font-black text-slate-900">{t.noProductsTitle}</h3>
-            <p className="mt-3 text-slate-500">{t.noProductsBody}</p>
+            <h3 className="text-2xl font-black text-white">{t.noProductsTitle}</h3>
+            <p className="mt-3 text-slate-200">{t.noProductsBody}</p>
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
@@ -405,7 +405,7 @@ export default function StorefrontPage() {
               return (
                 <article
                   key={product.id}
-                  className="group overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_80px_rgba(79,70,229,0.18)]"
+                  className="group overflow-hidden rounded-3xl border border-white/20 bg-white/95 shadow-[0_18px_60px_rgba(2,6,23,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_80px_rgba(212,175,55,0.25)]"
                 >
                   <button type="button" className="w-full text-left" onClick={() => resetOrderFlow(product)}>
                     <div className="relative h-64 overflow-hidden bg-[linear-gradient(135deg,#dbeafe_0%,#e0e7ff_55%,#ede9fe_100%)]">
@@ -456,19 +456,19 @@ export default function StorefrontPage() {
       </section>
 
       <section id="workflow" className="mx-auto grid max-w-7xl gap-6 px-6 pb-14 lg:grid-cols-[1fr_0.9fr] lg:px-10">
-        <div className="rounded-4xl border border-slate-200/70 bg-white p-8 shadow-[0_22px_80px_rgba(15,23,42,0.07)]">
+        <div className="rounded-4xl border border-white/20 bg-white/10 p-8 shadow-[0_22px_80px_rgba(2,6,23,0.45)] backdrop-blur-xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">{t.flowLabel}</p>
-          <h2 className="mt-3 text-3xl font-black text-slate-950">{t.howItWorksTitle}</h2>
+          <h2 className="mt-3 text-3xl font-black text-white">{t.howItWorksTitle}</h2>
           <div className="mt-8 grid gap-5 md:grid-cols-3">
             {[
               { title: t.stepOneTitle, body: t.stepOneBody, marker: '01' },
               { title: t.stepTwoTitle, body: t.stepTwoBody, marker: '02' },
               { title: t.stepThreeTitle, body: t.stepThreeBody, marker: '03' },
             ].map((step) => (
-              <div key={step.marker} className="rounded-3xl bg-slate-50 p-5 ring-1 ring-slate-200/70">
+              <div key={step.marker} className="rounded-3xl bg-slate-950/35 p-5 ring-1 ring-white/15">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-500">{step.marker}</p>
-                <h3 className="mt-3 text-lg font-bold text-slate-900">{step.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{step.body}</p>
+                <h3 className="mt-3 text-lg font-bold text-white">{step.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-200/85">{step.body}</p>
               </div>
             ))}
           </div>

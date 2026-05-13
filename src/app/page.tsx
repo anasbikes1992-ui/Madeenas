@@ -25,30 +25,33 @@ const scaleIn = {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-navy-50/30">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.22),transparent_28%),radial-gradient(circle_at_15%_20%,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,#070b1a_0%,#0b1430_48%,#0f1d45_100%)] text-slate-100">
       {/* Premium Navigation */}
       <motion.nav 
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: EASE }}
-        className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-navy-100 shadow-premium"
+        className="fixed top-0 left-0 right-0 z-50 border-b border-navy-200/20 bg-slate-950/70 backdrop-blur-md shadow-premium"
       >
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-navy-600 to-navy-700 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-navy-600 to-navy-700 flex items-center justify-center">
               <span className="text-xl font-bold text-gold-500">M</span>
             </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-navy-600 to-navy-800 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-linear-to-r from-gold-300 via-gold-400 to-gold-500 bg-clip-text text-transparent">
               Madeena Textiles
             </h1>
           </div>
           
           <div className="flex items-center gap-4">
-            <Link href="/shop">
-              <NavyButton variant="ghost" size="sm">Browse Catalog</NavyButton>
+            <Link href="/sales">
+              <NavyButton variant="ghost" size="sm" className="text-gold-200 hover:bg-gold-500/10 hover:text-gold-100">Sales Hub</NavyButton>
             </Link>
-            <Link href="/admin/login">
-              <NavyButton variant="outline" size="sm">Staff Login</NavyButton>
+            <Link href="/gallery">
+              <NavyButton variant="ghost" size="sm" className="text-slate-100 hover:bg-white/10 hover:text-white">Browse Catalog</NavyButton>
+            </Link>
+            <Link href="/login">
+              <NavyButton variant="outline" size="sm" className="border-slate-200/60 text-slate-100 hover:bg-white/10 hover:text-white">Staff Login</NavyButton>
             </Link>
             <Link href="/customer/login">
               <GoldButton size="sm">Customer Portal</GoldButton>
@@ -58,9 +61,9 @@ export default function HomePage() {
       </motion.nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-24 overflow-hidden">
+      <section className="relative overflow-hidden pt-32 pb-24">
         {/* Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-navy-50 via-white to-gold-50/50" />
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(8,14,35,0.95)_0%,rgba(17,30,68,0.92)_55%,rgba(12,20,45,0.96)_100%)]" />
         <motion.div 
           className="absolute top-20 right-10 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl"
           animate={{ 
@@ -87,13 +90,13 @@ export default function HomePage() {
           >
             <motion.h1 
               variants={fadeInUp}
-              className="text-6xl md:text-7xl lg:text-8xl font-heading font-bold mb-6 bg-gradient-to-r from-navy-600 via-navy-700 to-gold-600 bg-clip-text text-transparent leading-tight"
+              className="mb-6 bg-linear-to-r from-white via-gold-100 to-gold-300 bg-clip-text text-6xl font-heading font-bold leading-tight text-transparent md:text-7xl lg:text-8xl"
             >
               Premium Sri Lankan Textiles
             </motion.h1>
             <motion.p 
               variants={fadeInUp}
-              className="text-xl md:text-2xl text-navy-700/80 mb-10 leading-relaxed"
+              className="mb-10 text-xl leading-relaxed text-slate-200/90 md:text-2xl"
             >
               Experience luxury fabrics with unmatched quality and elegance. 
               From traditional handloom to contemporary designs.
@@ -102,7 +105,7 @@ export default function HomePage() {
               variants={fadeInUp}
               className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
             >
-              <Link href="/shop">
+              <Link href="/gallery">
                 <GoldButton size="lg">
                   Explore Collection
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,15 +113,15 @@ export default function HomePage() {
                   </svg>
                 </GoldButton>
               </Link>
-              <Link href="/about">
-                <NavyButton variant="outline" size="lg">Learn Our Story</NavyButton>
+              <Link href="/gallery#workflow">
+                <NavyButton variant="outline" size="lg">How It Works</NavyButton>
               </Link>
             </motion.div>
             
             {/* Trust Badges */}
             <motion.div 
               variants={fadeInUp}
-              className="flex flex-wrap items-center justify-center gap-8 text-sm text-navy-600/70"
+              className="flex flex-wrap items-center justify-center gap-8 text-sm text-slate-300/90"
             >
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-gold-500" fill="currentColor" viewBox="0 0 20 20">
@@ -145,7 +148,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-24 bg-gradient-to-b from-cream/30 to-white">
+      <section className="bg-[linear-gradient(180deg,rgba(8,13,32,0.85)_0%,rgba(12,21,49,0.95)_100%)] py-24">
         <div className="container mx-auto px-6">
           <motion.div 
             initial="hidden"
@@ -156,13 +159,13 @@ export default function HomePage() {
           >
             <motion.h2 
               variants={fadeInUp}
-              className="text-4xl md:text-5xl font-heading font-bold text-navy-900 mb-6"
+              className="mb-6 text-4xl font-heading font-bold text-white md:text-5xl"
             >
               Why Choose Madeena?
             </motion.h2>
             <motion.p 
               variants={fadeInUp}
-              className="text-lg text-navy-600/70 max-w-2xl mx-auto"
+              className="mx-auto max-w-2xl text-lg text-slate-200/80"
             >
               We blend traditional Sri Lankan craftsmanship with modern technology 
               to deliver the finest textile experience.
@@ -178,7 +181,7 @@ export default function HomePage() {
           >
             <motion.div variants={scaleIn}>
               <PremiumCard hover>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
+                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
@@ -192,7 +195,7 @@ export default function HomePage() {
             
             <motion.div variants={scaleIn}>
               <PremiumCard hover>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-navy-600 to-navy-700 flex items-center justify-center mb-6 shadow-premium">
+                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-navy-600 to-navy-700 flex items-center justify-center mb-6 shadow-premium">
                   <svg className="w-7 h-7 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                   </svg>
@@ -206,7 +209,7 @@ export default function HomePage() {
             
             <motion.div variants={scaleIn}>
               <PremiumCard hover>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
+                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -222,7 +225,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-navy-600 via-navy-700 to-navy-900 relative overflow-hidden">
+      <section className="relative overflow-hidden bg-[linear-gradient(140deg,#101a45_0%,#0a1230_55%,#050b1c_100%)] py-24">
         <motion.div 
           className="absolute inset-0 opacity-20"
           initial={{ opacity: 0 }}
@@ -265,11 +268,11 @@ export default function HomePage() {
               variants={fadeInUp}
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
             >
-              <GoldButton href="/products" size="lg">
+              <GoldButton href="/customer/products" size="lg">
                 Browse Products
               </GoldButton>
-              <NavyButton href="/contact" size="lg">
-                Contact Us
+              <NavyButton href="/customer/signup" size="lg">
+                Create Customer Account
               </NavyButton>
             </motion.div>
           </motion.div>
@@ -277,7 +280,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-navy-900 text-white py-12">
+      <footer className="bg-slate-950/90 py-12 text-white">
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -289,17 +292,17 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-navy-200">
-                <li><Link href="/shop" className="hover:text-gold-500 transition">Browse Catalog</Link></li>
-                <li><Link href="/about" className="hover:text-gold-500 transition">About Us</Link></li>
-                <li><Link href="/contact" className="hover:text-gold-500 transition">Contact</Link></li>
+                <li><Link href="/gallery" className="hover:text-gold-500 transition">Browse Catalog</Link></li>
+                <li><Link href="/gallery#workflow" className="hover:text-gold-500 transition">How It Works</Link></li>
+                <li><Link href="/customer/signup" className="hover:text-gold-500 transition">Get Started</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Customer Service</h4>
               <ul className="space-y-2 text-sm text-navy-200">
-                <li><Link href="/help" className="hover:text-gold-500 transition">Help Center</Link></li>
-                <li><Link href="/returns" className="hover:text-gold-500 transition">Returns & Refunds</Link></li>
-                <li><Link href="/shipping" className="hover:text-gold-500 transition">Shipping Info</Link></li>
+                <li><Link href="/customer/login" className="hover:text-gold-500 transition">Customer Portal</Link></li>
+                <li><Link href="/customer/returns" className="hover:text-gold-500 transition">Returns & Refunds</Link></li>
+                <li><Link href="/gallery" className="hover:text-gold-500 transition">Delivery Info</Link></li>
               </ul>
             </div>
             <div>
