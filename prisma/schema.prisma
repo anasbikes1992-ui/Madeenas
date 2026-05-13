@@ -18,6 +18,16 @@ model User {
   locationId    String?
   location      Location? @relation(fields: [locationId], references: [id])
   isActive      Boolean  @default(true)
+  
+  // 2FA fields
+  twoFactorEnabled     Boolean  @default(false)
+  twoFactorSecret      String?
+  twoFactorBackupCodes String[] @default([])
+  
+  // Multi-tenant support
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -30,6 +40,32 @@ model User {
   auditLogs       AuditLog[]
   sales           Sale[]
   carts           Cart[]
+  
+  // Returns relations
+  returns              Return[]              @relation
+  returnsApproved      Return[]              @relation("ReturnApprovedBy")
+  returnsRejected      Return[]              @relation("ReturnRejectedBy")
+  returnsReceived      Return[]              @relation("ReturnReceivedBy")
+  returnsProcessed     Return[]              @relation("ReturnProcessedBy")
+}
+
+model Tenant {
+  id                String   @id @default(cuid())
+  name              String
+  subdomain         String   @unique
+  domain            String?
+  plan              String   @default("FREE") // FREE, PRO, ENTERPRISE
+  maxUsers          Int      @default(5)
+  maxProducts       Int      @default(100)
+  whatsappEnabled   Boolean  @default(false)
+  customBranding    Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  trialEndsAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  users             User[]
 }
 
 model Category {
@@ -67,6 +103,7 @@ model Product {
   saleItems       SaleItem[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
+  returnItems     ReturnItem[]
 }
 
 model Location {
@@ -255,6 +292,28 @@ model Notification {
   createdAt DateTime @default(now())
 }
 
+// =============================================================================
+// DYNAMIC PRICING ENGINE
+// =============================================================================
+
+model PriceRule {
+  id            String   @id @default(cuid())
+  name          String
+  ruleType      String   // BULK_DISCOUNT, CUSTOMER_SEGMENT, STOCK_LEVEL, TIME_BASED, PRODUCT_CATEGORY
+  discountType  String   // PERCENTAGE, FIXED_AMOUNT, FIXED_PRICE
+  discountValue Float
+  priority      Int      @default(0) // Higher = applied first
+  conditions    Json     // RuleConditions object
+  isActive      Boolean  @default(true)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([ruleType, isActive])
+  @@index([priority])
+}
+
 model Customer {
   id              String   @id @default(cuid())
   name            String
@@ -317,6 +376,7 @@ model Sale {
   // Relations
   items         SaleItem[]
   customerOrder CustomerOrder?
+  returns       Return[]
 }
 
 model SaleItem {
@@ -331,4 +391,104 @@ model SaleItem {
   taxRate   Float    @default(18) // VAT percentage
   taxAmount Float    // Calculated tax for this item
   total     Float    // subTotal + taxAmount
+  
+  // Returns relation
+  returnItems ReturnItem[]
+}
+
+// =============================================================================
+// RETURNS & REFUNDS MANAGEMENT
+// =============================================================================
+
+enum ReturnStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ITEMS_RECEIVED
+  REFUND_PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+model Return {
+  id                    String       @id @default(cuid())
+  returnNumber          String       @unique
+  saleId                String
+  sale                  Sale         @relation(fields: [saleId], references: [id])
+  customerId            String
+  customer              User         @relation(fields: [customerId], references: [id])
+  
+  // Request details
+  status                ReturnStatus @default(PENDING)
+  customerNote          String?      @db.Text
+  preferredResolution   String       // REFUND, EXCHANGE, STORE_CREDIT
+  
+  // Financial
+  totalRefundAmount     Float
+  approvedRefundAmount  Float?
+  
+  // Approval workflow
+  approvedBy            String?
+  approvedAt            DateTime?
+  approvedByUser        User?        @relation("ReturnApprovedBy", fields: [approvedBy], references: [id])
+  adminNote             String?      @db.Text
+  
+  // Rejection
+  rejectedBy            String?
+  rejectedAt            DateTime?
+  rejectedByUser        User?        @relation("ReturnRejectedBy", fields: [rejectedBy], references: [id])
+  rejectionReason       String?      @db.Text
+  
+  // Items received
+  itemsReceivedAt       DateTime?
+  receivedBy            String?
+  receivedByUser        User?        @relation("ReturnReceivedBy", fields: [receivedBy], references: [id])
+  inspectionNote        String?      @db.Text
+  itemCondition         String?      // GOOD, ACCEPTABLE, DAMAGED
+  
+  // Refund processing
+  refundProcessedAt     DateTime?
+  refundMethod          String?      // BANK_TRANSFER, STORE_CREDIT, ORIGINAL_METHOD
+  refundTransactionRef  String?
+  processedBy           String?
+  processedByUser       User?        @relation("ReturnProcessedBy", fields: [processedBy], references: [id])
+  
+  // Timestamps
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  
+  // Relations
+  items                 ReturnItem[]
+}
+
+enum ReturnReason {
+  DEFECTIVE
+  WRONG_ITEM
+  SIZE_ISSUE
+  COLOR_MISMATCH
+  DAMAGED
+  NOT_AS_DESCRIBED
+  CHANGED_MIND
+  OTHER
+}
+
+model ReturnItem {
+  id            String       @id @default(cuid())
+  returnId      String
+  return        Return       @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItemId    String
+  saleItem      SaleItem     @relation(fields: [saleItemId], references: [id])
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id])
+  
+  quantity      Float
+  unitPrice     Float
+  refundAmount  Float
+  
+  reason        ReturnReason
+  note          String?      @db.Text
+  images        String[]     // Array of image URLs
+  
+  createdAt     DateTime     @default(now())
 }

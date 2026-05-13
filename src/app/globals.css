@@ -2,12 +2,22 @@
 
 @layer base {
   :root {
-    --indigo-50: #eef2ff;
-    --indigo-100: #e0e7ff;
-    --indigo-500: #6366f1;
-    --indigo-600: #4f46e5;
-    --indigo-700: #4338ca;
-    --indigo-900: #312e81;
+    /* Premium Navy Blue & Gold Theme */
+    --navy-50: #E8EAF6;
+    --navy-100: #C5CAE9;
+    --navy-500: #3F51B5;
+    --navy-600: #1A237E;
+    --navy-700: #0D1B3E;
+    --navy-900: #050A14;
+    
+    --gold-50: #FFFBEB;
+    --gold-100: #FEF3C7;
+    --gold-500: #F59E0B;
+    --gold-600: #D97706;
+    --gold-metallic: #D4AF37;
+    
+    --cream: #FDF6E3;
+    --pearl: #F8F9FA;
   }
 
   * {
@@ -22,8 +32,9 @@
 
   body {
     font-family: var(--font-inter), system-ui, sans-serif;
-    background: #f8fafc;
+    background: linear-gradient(160deg, #ffffff 0%, #f8fafc 42%, #E8EAF6 100%);
     color: #0f172a;
+    min-height: 100vh;
   }
 
   ::-webkit-scrollbar {
