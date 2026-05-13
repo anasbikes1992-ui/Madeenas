@@ -198,7 +198,8 @@ export default function DashboardPage() {
                 void importCsv(file)
               }
             }}
-          />>
+          />
+          <a href="/admin/import-csv">
             <NavyButton variant="outline" size="sm">Download Template</NavyButton>
           </a>
           <a href="/admin/stock-in">
@@ -227,34 +228,31 @@ export default function DashboardPage() {
             </div>
           </PremiumCard>
         ))}
-      </motion.      </div>
-              <div className={`p-3 rounded-xl ${s.color}`}>
-                <span className="text-xl">{s.icon}</span>
-              </div>
-            </div>
-          </div>
-       motion.div variants={fadeIn} className="grid lg:grid-cols-2 gap-6">
+      </motion.div>
+
+      <motion.div variants={fadeIn} className="grid lg:grid-cols-2 gap-6">
         {/* Recent Stock Out Requests */}
         <PremiumCard>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-navy-900">Recent Stock Requests</h2>
             <a href="/admin/stock-out" className="text-gold-600 text-sm font-semibold hover:text-gold-700 transition">
               View all →
-            
-        <div className="card">navy-400 text-sm text-center py-12">No requests yet</p>
-          ) : (
-            <div className="space-y-3">
-              {stats.recentStockOuts.map((req: any) => (
-                <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-50 to-navy-50/30 rounded-xl border border-navy-100 hover:border-navy-200 transition-al
+            </a>
+          </div>
           {stats.recentStockOuts.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">No requests yet</p>
+            <p className="text-navy-400 text-sm text-center py-12">No requests yet</p>
           ) : (
             <div className="space-y-3">
               {stats.recentStockOuts.map((req: any) => (
-                <div key={req.id} className="flsemibold text-navy-900 truncate">{req.product.name}</p>
-                    <p className="text-xs text-navy-600/70">
-                      {req.fromLocation.name} · by {req.requestedByUser?.name || '—'}
-                    </p>
+                <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-50 to-navy-50/30 rounded-xl border border-navy-100 hover:border-navy-200 transition-all">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-navy-100 flex items-center justify-center text-navy-600 text-lg shrink-0">📦</div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-navy-900 truncate">{req.product.name}</p>
+                      <p className="text-xs text-navy-600/70">
+                        {req.fromLocation.name} · by {req.requestedByUser?.name || '—'}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 ml-2 shrink-0">
                     <div className="text-right">
@@ -292,8 +290,10 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold text-navy-900">Recent Stock In</h2>
             <a href="/admin/stock-in" className="text-gold-600 text-sm font-semibold hover:text-gold-700 transition">
               View all →
-            
-            <h2 className="fontnavy-400 text-sm text-center py-12">No stock entries yet</p>
+            </a>
+          </div>
+          {stats.recentStockIns.length === 0 ? (
+            <p className="text-navy-400 text-sm text-center py-12">No stock entries yet</p>
           ) : (
             <div className="space-y-3">
               {stats.recentStockIns.map((entry: any) => (
@@ -318,11 +318,7 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold text-navy-900">⚠️ Low Stock Alerts</h2>
             <a href="/admin/inventory" className="text-gold-600 text-sm font-semibold hover:text-gold-700 transition">
               View inventory →
-            
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">⚠️ Low Stock Alerts</h2>
-            <a href="/admin/inventory" className="text-indigo-600 text-sm hover:underline">View inventory →</a>
+            </a>
           </div>
           {stats.lowStockItems.length === 0 ? (
             <p className="text-emerald-600 text-sm text-center py-12 font-semibold">✅ All stocks healthy</p>

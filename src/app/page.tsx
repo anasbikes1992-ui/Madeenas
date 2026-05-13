@@ -155,19 +155,11 @@ export default function HomePage() {
             className="text-center mb-16"
           >
             <motion.h2 
-            motion.div>
-          
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={stagger}
-            className="grid md:grid-cols-3 gap-8"
-          >
-            <motion.div variants={scaleIn}>
-              <PremiumCard hover>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold"
-
+              variants={fadeInUp}
+              className="text-4xl md:text-5xl font-heading font-bold text-navy-900 mb-6"
+            >
+              Why Choose Madeena?
+            </motion.h2>
             <motion.p 
               variants={fadeInUp}
               className="text-lg text-navy-600/70 max-w-2xl mx-auto"
@@ -184,43 +176,45 @@ export default function HomePage() {
             variants={stagger}
             className="grid md:grid-cols-3 gap-8"
           >
-            <PremiumCard hover>
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <motion.div variants={scaleIn}>
+              <PremiumCard hover>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold mb-3 text-navy-700">Premium Quality</h3>
+                <p className="text-navy-600/70">
+                  Sourced from the finest mills, every fabric meets our stringent quality standards for excellence.
+                </p>
               </PremiumCard>
             </motion.div>
             
             <motion.div variants={scaleIn}>
               <PremiumCard hover>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-navy-600 to-navy-700 flex items-center justify-center mb-6 shadow-premium">
+                  <svg className="w-7 h-7 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                </div>
                 <h3 className="text-2xl font-bold mb-3 text-navy-700">Authentic Craftsmanship</h3>
-              <p className="text-navy-600/70">
-                Handpicked fabrics woven by master artisans using time-honored techniques 
-                passed down through generations.
-              </p>
-            </PremiumCard>
-            
-            <PremiumCard hover>
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-navy-600 to-navy-700 flex items-center justify-center mb-6 shadow-navy">
-                <svg className="w-7 h-7 text-gold-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 text-navy-700">Quality Guaranteed</h3>
-              <p className="text-navy-600/70">
-                Every fabric undergoes rigorous quality control. We stand behind 
+                <p className="text-navy-600/70">
+                  Handpicked fabrics woven by master artisans using time-honored techniques passed down through generations.
+                </p>
               </PremiumCard>
             </motion.div>
             
             <motion.div variants={scaleIn}>
               <PremiumCard hover>
-              
-            <PremiumCard hover>
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold mb-3 text-navy-700">Fast Turnaround</h3>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-600 flex items-center justify-center mb-6 shadow-gold">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold mb-3 text-navy-700">Fast Turnaround</h3>
+                <p className="text-navy-600/70">
+                  Quick delivery without compromising quality. Your fabrics arrive when you need them.
+                </p>
               </PremiumCard>
             </motion.div>
           </motion.div>
@@ -228,9 +222,8 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-br from-navy-600 via-navy-700 to-navy-900
-      </section>
-motion.div 
+      <section className="py-24 bg-gradient-to-br from-navy-600 via-navy-700 to-navy-900 relative overflow-hidden">
+        <motion.div 
           className="absolute inset-0 opacity-20"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 0.2 }}
@@ -254,46 +247,32 @@ motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <motion.footer 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        className="bg-navy-900 text-white py-12"
-      
+            variants={stagger}
+          >
+            <motion.h2 
+              variants={fadeInUp}
+              className="text-4xl md:text-5xl font-heading font-bold text-white mb-6"
+            >
               Ready to Experience Premium Textiles?
             </motion.h2>
             <motion.p 
               variants={fadeInUp}
               className="text-xl text-gold-100 mb-10 max-w-2xl mx-auto"
             >
-              Join hundreds of satisfied customers across Sri Lanka who trust Madeena 
-              for their textile needs.
+              Join hundreds of satisfied customers across Sri Lanka who trust Madeena for their textile needs.
             </motion.p>
             <motion.div 
               variants={fadeInUp}
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
-            
-            for their textile needs.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/shop">
-              <GoldButton size="lg">
-                Start Shopping
+            >
+              <GoldButton href="/products" size="lg">
+                Browse Products
               </GoldButton>
-            </Link>
-            <Link href="/contact">
-              <NavyButton variant="outline" size="lg" className="border-white text-white hover:bg-white/10">
-                Contact Sales
+              <NavyButton href="/contact" size="lg">
+                Contact Us
               </NavyButton>
-            </Link>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
@@ -336,7 +315,7 @@ motion.div
             <p>&copy; {new Date().getFullYear()} Madeena Textiles. All rights reserved.</p>
           </div>
         </div>
-      </motion.footer>
+      </footer>
     </div>
   )
 }
