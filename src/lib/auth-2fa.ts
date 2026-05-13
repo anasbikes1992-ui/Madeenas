@@ -3,13 +3,14 @@
  * TOTP-based authentication using Google Authenticator/Authy compatible tokens
  */
 
-import { authenticator } from 'otplib'
+import { TOTP } from 'otplib'
 import QRCode from 'qrcode'
 import { prisma } from '@/lib/db'
 
 const APP_NAME = 'Madeena Textiles'
 
-authenticator.options = {
+// Configure TOTP
+TOTP.options = {
   window: 1, // Allow 30s time drift
 }
 
@@ -28,8 +29,8 @@ export interface Verify2FAResult {
  * Generate 2FA secret and QR code for user enrollment
  */
 export async function setup2FA(userId: string, userEmail: string): Promise<Setup2FAResult> {
-  const secret = authenticator.generateSecret()
-  const otpauth = authenticator.keyuri(userEmail, APP_NAME, secret)
+  const secret = TOTP.generateSecret()
+  const otpauth = `otpauth://totp/${APP_NAME}:${userEmail}?secret=${secret}&issuer=${APP_NAME}`
 
   // Generate QR code as data URL
   const qrCode = await QRCode.toDataURL(otpauth)
@@ -85,7 +86,7 @@ export async function verify2FASetup(
     }
   }
 
-  const isValid = authenticator.verify({
+  const isValid = TOTP.verify({
     token,
     secret: user.twoFactorSecret,
   })
@@ -130,7 +131,7 @@ export async function verify2FALogin(userId: string, token: string): Promise<Ver
   }
 
   // Try TOTP token first
-  const isValidToken = authenticator.verify({
+  const isValidToken = TOTP.verify({
     token,
     secret: user.twoFactorSecret,
   })
@@ -193,7 +194,7 @@ export async function disable2FA(userId: string, token: string): Promise<Verify2
   }
 
   // Verify token before disabling
-  const isValid = authenticator.verify({
+  const isValid = TOTP.verify({
     token,
     secret: user.twoFactorSecret,
   })
@@ -271,7 +272,7 @@ export async function regenerateBackupCodes(
   }
 
   // Verify current token
-  const isValid = authenticator.verify({
+  const isValid = TOTP.verify({
     token: verificationToken,
     secret: user.twoFactorSecret,
   })
