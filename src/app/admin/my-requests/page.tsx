@@ -4,7 +4,7 @@ import { formatDate } from '@/lib/utils'
 
 const STATUS_BADGE: Record<string, string> = {
   PENDING: 'badge-amber', APPROVED: 'badge-blue', DISPATCHED: 'badge-indigo',
-  ACKNOWLEDGED: 'badge-green', REJECTED: 'badge-red', CANCELLED: 'badge-gray',
+  IN_TRANSIT: 'badge-indigo', ACKNOWLEDGED: 'badge-green', RECEIVED: 'badge-green', REJECTED: 'badge-red', CANCELLED: 'badge-gray',
 }
 
 export default function MyRequestsPage() {
@@ -16,7 +16,7 @@ export default function MyRequestsPage() {
     setLoading(true)
     const [sentRes, incomingRes] = await Promise.all([
       fetch('/api/stock-out?mine=1&limit=50').then(r => r.json()),
-      fetch('/api/stock-out?assignedToMe=1&status=DISPATCHED&limit=50').then(r => r.json()),
+      fetch('/api/stock-out?assignedToMe=1&status=DISPATCHED,IN_TRANSIT&limit=50').then(r => r.json()),
     ])
     setSentRequests(sentRes.requests || [])
     setIncomingRequests(incomingRes.requests || [])
@@ -34,7 +34,7 @@ export default function MyRequestsPage() {
     if (!res.ok) return
 
     setIncomingRequests(prev => prev.filter(r => r.id !== id))
-    setSentRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'ACKNOWLEDGED', acknowledgedAt: new Date().toISOString() } : r))
+    setSentRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'RECEIVED', receivedAt: new Date().toISOString() } : r))
   }
 
   return (
@@ -132,7 +132,7 @@ export default function MyRequestsPage() {
                   <p className="text-xs text-slate-400 mt-2">Submitted: {formatDate(r.createdAt)}</p>
                 </div>
                 <div className="shrink-0">
-                  {r.status === 'DISPATCHED' && incomingRequests.some(i => i.id === r.id) && (
+                  {(r.status === 'DISPATCHED' || r.status === 'IN_TRANSIT') && incomingRequests.some(i => i.id === r.id) && (
                     <button onClick={() => acknowledge(r.id)} className="btn-success btn-sm">
                       ✅ Acknowledge Receipt
                     </button>

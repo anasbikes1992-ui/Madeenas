@@ -3,8 +3,7 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { createNotification, logActivity } from '@/lib/audit'
 import { z } from 'zod'
-
-const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+import { hasPermission } from '@/lib/permissions'
 
 const adjustmentSchema = z.object({
   productId: z.string().min(1),
@@ -18,7 +17,7 @@ export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!ALLOWED_ROLES.includes(session.user.role as string)) {
+  if (!hasPermission(session.user.role as string, 'stock.adjust')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!ALLOWED_ROLES.includes(session.user.role as string)) {
+  if (!hasPermission(session.user.role as string, 'stock.adjust')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

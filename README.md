@@ -119,6 +119,12 @@ DIRECT_URL="postgresql://username:password@localhost:5432/madeenas"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="generate-a-random-secret-here"
 
+# Optional stock transfer policy (approval workflow)
+# If transfer quantity >= threshold OR transfer value >= threshold,
+# approval is required before dispatch.
+STOCK_TRANSFER_APPROVAL_QTY_THRESHOLD=500
+STOCK_TRANSFER_APPROVAL_VALUE_THRESHOLD=200000
+
 # Optional: Backup system (see below)
 BACKUP_ENABLED=false
 ```

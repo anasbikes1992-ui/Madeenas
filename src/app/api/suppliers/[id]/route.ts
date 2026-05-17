@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { supplierSchema } from '@/lib/validations'
+import { hasPermission } from '@/lib/permissions'
 
 export async function PATCH(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function PATCH(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(session.user.role as string)) {
+  if (!hasPermission(session.user.role as string, 'suppliers.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -46,7 +47,8 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role as string)) {
+  const role = session.user.role as string
+  if (!hasPermission(role, 'suppliers.manage') || role === 'MANAGER') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

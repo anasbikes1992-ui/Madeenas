@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { adminCreateUserPasswordSchema } from '@/lib/validations'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '20')
   const role = session.user.role as string
 
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {
+  if (!hasPermission(role, 'users.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const actorRole = session.user.role as string
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(actorRole)) {
+  if (!hasPermission(actorRole, 'users.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

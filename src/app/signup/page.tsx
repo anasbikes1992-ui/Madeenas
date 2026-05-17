@@ -111,11 +111,11 @@ export default function SignupPage() {
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="form-group">
                 <label className="label">Password</label>
-                <input required minLength={8} type="password" className="input" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
+                <input required minLength={7} type="password" className="input" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
               </div>
               <div className="form-group">
                 <label className="label">Confirm password</label>
-                <input required minLength={8} type="password" className="input" value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} />
+                <input required minLength={7} type="password" className="input" value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} />
               </div>
             </div>
 

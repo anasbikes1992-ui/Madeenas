@@ -7,12 +7,11 @@ import {
 } from './validations'
 
 describe('adminCreateUserPasswordSchema', () => {
-  it('rejects short or weak passwords', () => {
+  it('rejects short passwords', () => {
     expect(adminCreateUserPasswordSchema.safeParse('short').success).toBe(false)
-    expect(adminCreateUserPasswordSchema.safeParse('alllowercase123').success).toBe(false)
   })
-  it('accepts strong passwords', () => {
-    expect(adminCreateUserPasswordSchema.safeParse('GoodPass1234').success).toBe(true)
+  it('accepts passwords with minimum required length', () => {
+    expect(adminCreateUserPasswordSchema.safeParse('GoodPa7').success).toBe(true)
   })
 })
 

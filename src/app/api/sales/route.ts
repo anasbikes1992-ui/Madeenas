@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { saleCheckoutSchema } from '@/lib/validations'
 import { captureApiError } from '@/lib/logger'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'sales.read')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const locationId = searchParams.get('locationId')
@@ -15,7 +20,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '20')
   const role = session.user.role as string
 
-  const where: any = {}
+  const where: Prisma.SaleWhereInput = {}
   if (locationId) where.locationId = locationId
   if (receiptNo) where.receiptNo = receiptNo
   
@@ -48,8 +53,7 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const role = session.user.role as string
-
-  if (!['ADMIN', 'SUPER_ADMIN', 'SHOP_STAFF'].includes(role)) {
+  if (!hasPermission(role, 'sales.create')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -87,7 +91,7 @@ export async function POST(request: NextRequest) {
       // 2. Handle Customer & Credit Eligibility
       let customerId = null
       if (checkout.customerPhone) {
-        const updateData: any = {}
+        const updateData: { name?: string; isCreditEligible?: boolean } = {}
         if (checkout.customerName) updateData.name = checkout.customerName
         if (checkout.isCreditEligible !== undefined) updateData.isCreditEligible = checkout.isCreditEligible
         

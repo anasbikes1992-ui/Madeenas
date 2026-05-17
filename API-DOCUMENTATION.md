@@ -20,6 +20,24 @@
 
 ## Authentication
 
+### Password Policy
+
+- Minimum password length: **7 characters**.
+- Super Admin can reset any user password from admin UI and API.
+
+### Super Admin Reset User Password
+
+```http
+PATCH /api/users/{userId}/password
+Content-Type: application/json
+
+{
+  "password": "new-password"
+}
+```
+
+Required role: `SUPER_ADMIN`.
+
 All API endpoints require authentication. The app uses NextAuth.js v5 with JWT tokens and session cookies.
 
 ### Login (Mobile JWT)
@@ -251,6 +269,40 @@ Authorization: Bearer {token}
 ---
 
 ## Stock Management
+
+### Stock Transfer Lifecycle (v2.1 update)
+
+Transfers now support a fast dispatch flow for warehouse/store operators:
+
+- `PENDING` (new request)
+- `APPROVED` (optional for high-value/high-quantity transfers)
+- `IN_TRANSIT` (dispatched)
+- `RECEIVED` (destination acknowledged)
+- `REJECTED` / `CANCELLED`
+
+For backward compatibility, older records may still show `DISPATCHED` and `ACKNOWLEDGED`.
+
+### Mobile Dispatch / Receive Action
+
+```http
+PATCH /api/mobile/stock-out/{requestId}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "action": "dispatch"
+}
+```
+
+or:
+
+```http
+{
+  "action": "acknowledge"
+}
+```
+
+Dispatch can happen directly from `PENDING` when transfer value/quantity does not exceed approval thresholds.
 
 ### Get Low Stock Items
 

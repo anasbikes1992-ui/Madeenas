@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
+import { hasPermission } from '@/lib/permissions'
 
 export async function PATCH(
   request: NextRequest,
@@ -9,7 +10,7 @@ export async function PATCH(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role as string)) {
+  if (!hasPermission(session.user.role as string, 'categories.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -44,7 +45,7 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role as string)) {
+  if (!hasPermission(session.user.role as string, 'categories.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

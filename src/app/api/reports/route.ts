@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'reports.read')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') || 'movement'
@@ -23,7 +27,10 @@ export async function GET(request: NextRequest) {
       prisma.stockOutRequest.groupBy({
         by: ['createdAt'],
         _sum: { quantityApproved: true },
-        where: { status: 'DISPATCHED', createdAt: { gte: startDate } },
+        where: {
+          status: { in: ['DISPATCHED', 'IN_TRANSIT', 'ACKNOWLEDGED', 'RECEIVED'] },
+          createdAt: { gte: startDate },
+        },
         orderBy: { createdAt: 'asc' },
       }),
     ])

@@ -102,7 +102,7 @@ export default function NewRequestPage() {
       <div className="max-w-lg mx-auto text-center py-20">
         <div className="text-6xl mb-4">✅</div>
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Request Submitted!</h2>
-        <p className="text-slate-500 mb-8">Your stock-out request has been submitted and is awaiting approval.</p>
+        <p className="text-slate-500 mb-8">Your stock transfer request has been submitted. It may dispatch immediately or await approval based on policy thresholds.</p>
         <div className="flex gap-3 justify-center">
           <button onClick={() => setSuccess(false)} className="btn-secondary">New Request</button>
           <a href="/admin/my-requests" className="btn-primary">View My Requests</a>

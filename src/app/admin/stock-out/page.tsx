@@ -1,14 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
-import { STATUS_COLORS } from '@/lib/constants'
 import { useSession } from 'next-auth/react'
 
 const STATUS_BADGE: Record<string, string> = {
+  DRAFT: 'badge-gray',
   PENDING: 'badge-amber',
   APPROVED: 'badge-blue',
   DISPATCHED: 'badge-indigo',
+  IN_TRANSIT: 'badge-indigo',
   ACKNOWLEDGED: 'badge-green',
+  RECEIVED: 'badge-green',
   REJECTED: 'badge-red',
   CANCELLED: 'badge-gray',
 }
@@ -76,8 +78,8 @@ export default function StockOutPage() {
       <div className="flex border-b border-slate-200 mb-6">
         {[
           { id: 'pending', label: 'Pending Requests', statuses: ['PENDING'] },
-          { id: 'progress', label: 'In-Progress (Approved/Dispatched)', statuses: ['APPROVED', 'DISPATCHED'] },
-          { id: 'history', label: 'Completed History', statuses: ['ACKNOWLEDGED', 'REJECTED', 'CANCELLED'] },
+          { id: 'progress', label: 'In-Progress (Approved/Transit)', statuses: ['APPROVED', 'DISPATCHED', 'IN_TRANSIT'] },
+          { id: 'history', label: 'Completed History', statuses: ['ACKNOWLEDGED', 'RECEIVED', 'REJECTED', 'CANCELLED'] },
         ].map(tab => (
           <button
             key={tab.id}
@@ -159,10 +161,10 @@ export default function StockOutPage() {
                               <button onClick={() => { setActionModal({ req: r, action: 'reject' }); setActionNote('') }} className="btn-danger btn-sm">✗</button>
                             </>
                           )}
-                          {r.status === 'APPROVED' && canDispatch && (
+                          {(r.status === 'APPROVED' || r.status === 'PENDING') && canDispatch && (
                             <button onClick={() => setActionModal({ req: r, action: 'dispatch' })} className="btn-primary btn-sm">📤</button>
                           )}
-                          {r.status === 'DISPATCHED' && canAcknowledge && (
+                          {(r.status === 'DISPATCHED' || r.status === 'IN_TRANSIT') && canAcknowledge && (
                             <button onClick={() => setActionModal({ req: r, action: 'acknowledge' })} className="btn-success btn-sm">✅</button>
                           )}
                           {r.status === 'PENDING' && (r.requestedBy === session?.user?.id || ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) && (

@@ -83,6 +83,10 @@ textilestock/
 
 ## Key Features Implemented
 
+### Password & User Security Updates
+- Minimum password length is now **7 characters** across signup and admin-managed flows.
+- Super Admin can reset any user password from **Admin > Settings > Users**.
+
 ### 1. VAT Integration (18%)
 All sales and orders now include proper VAT breakdown:
 - Subtotal (before tax)

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { listCustomerOrders } from '@/services/customer-orders.service'
-
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const role = session.user.role as string
-  if (!ADMIN_ROLES.includes(role)) {
+  if (!hasPermission(session.user.role as string, 'customerOrders.read')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

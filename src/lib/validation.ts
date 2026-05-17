@@ -23,7 +23,7 @@ export const phoneSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
+  .min(7, 'Password must be at least 7 characters')
   .max(100, 'Password is too long');
 
 export const positiveNumberSchema = z

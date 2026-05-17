@@ -36,6 +36,8 @@ model User {
   stockAdjustments StockAdjustment[]
   stockOutRequests StockOutRequest[] @relation("RequestedBy")
   approvedRequests StockOutRequest[] @relation("ApprovedBy")
+  dispatchedRequests StockOutRequest[] @relation("DispatchedBy")
+  receivedRequests  StockOutRequest[] @relation("ReceivedBy")
   customerOrders  CustomerOrder[]
   financeReviews  FinanceReview[]
   auditLogs       AuditLog[]
@@ -192,7 +194,12 @@ model StockOutRequest {
   approvedBy         String?
   approvedByUser     User?    @relation("ApprovedBy", fields: [approvedBy], references: [id])
   approvedAt         DateTime?
+  dispatchedBy       String?
+  dispatchedByUser   User?    @relation("DispatchedBy", fields: [dispatchedBy], references: [id])
   dispatchedAt       DateTime?
+  receivedBy         String?
+  receivedByUser     User?    @relation("ReceivedBy", fields: [receivedBy], references: [id])
+  receivedAt         DateTime?
   acknowledgedAt     DateTime?
   rejectionReason    String?
   note               String?

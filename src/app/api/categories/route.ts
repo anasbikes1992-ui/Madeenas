@@ -4,8 +4,15 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
 import { categorySchema } from '@/lib/validations'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET() {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'products.read')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const categories = await prisma.category.findMany({
     include: {
       _count: { select: { products: true } },
@@ -18,9 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const role = session.user.role as string
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {
+  if (!hasPermission(session.user.role as string, 'categories.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

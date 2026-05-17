@@ -35,10 +35,13 @@ export const CAN_ADD_STOCK_IN = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
 export const FINANCE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'FINANCE']
 
 export const STATUS_COLORS: Record<string, string> = {
+  DRAFT: 'slate',
   PENDING: 'amber',
   APPROVED: 'blue',
   DISPATCHED: 'indigo',
+  IN_TRANSIT: 'indigo',
   ACKNOWLEDGED: 'green',
+  RECEIVED: 'green',
   REJECTED: 'red',
   CANCELLED: 'gray',
   NEW: 'purple',

@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     }),
     prisma.stockOutRequest.findMany({
       where: {
-        status: { in: ['DISPATCHED', 'ACKNOWLEDGED'] },
+        status: { in: ['DISPATCHED', 'IN_TRANSIT', 'ACKNOWLEDGED', 'RECEIVED'] },
         ...(productId ? { productId } : {}),
         ...(locationId ? { OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] } : {}),
       },
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       fromLocation: entry.fromLocation.name,
       toLocation: entry.toLocation?.name ?? null,
       quantity: -(entry.quantityApproved || entry.quantityRequested),
-      date: (entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt).toISOString(),
+      date: (entry.receivedAt || entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt).toISOString(),
       actor: entry.requestedByUser.name,
       note: entry.note ?? null,
     })),

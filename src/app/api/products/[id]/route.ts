@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
 import { productUpdateSchema } from '@/lib/validations'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,6 +25,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'products.update')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const body = await request.json()
   const parsed = productUpdateSchema.safeParse(body)
   if (!parsed.success) {

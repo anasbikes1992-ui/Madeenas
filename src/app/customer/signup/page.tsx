@@ -31,8 +31,8 @@ export default function CustomerSignupPage() {
       return
     }
 
-    if (formData.password.length < 8) {
-      toast.error('Password must be at least 8 characters')
+    if (formData.password.length < 7) {
+      toast.error('Password must be at least 7 characters')
       return
     }
 
@@ -135,7 +135,7 @@ export default function CustomerSignupPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                minLength={8}
+                minLength={7}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="••••••••"
               />
@@ -152,7 +152,7 @@ export default function CustomerSignupPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                minLength={8}
+                minLength={7}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="••••••••"
               />

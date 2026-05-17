@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity, createNotification } from '@/lib/audit'
+import { hasPermission } from '@/lib/permissions'
+import { shouldRequireTransferApproval } from '@/lib/stock-transfer-policy'
 
 const includeRelations = {
   product: true,
   fromLocation: true,
   toLocation: true,
   requestedByUser: { select: { name: true } },
+  dispatchedByUser: { select: { name: true } },
+  receivedByUser: { select: { name: true } },
 } as const
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +41,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     if (action === 'approve') {
-      if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
+      if (!hasPermission(role, 'stock.approve')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
       if (existing.status !== 'PENDING') {
@@ -82,7 +86,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (action === 'reject') {
-      if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
+      if (!hasPermission(role, 'stock.approve')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
       if (existing.status !== 'PENDING') {
@@ -126,17 +130,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (action === 'dispatch') {
-      if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'].includes(role)) {
+      if (!hasPermission(role, 'stock.dispatch')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
       if (['STORE_KEEPER', 'SHOP_STAFF'].includes(role) && !isSourceOperator) {
         return NextResponse.json({ error: 'You can only dispatch from your assigned source location' }, { status: 403 })
       }
-      if (existing.status !== 'APPROVED') {
-        return NextResponse.json({ error: 'Must be approved first' }, { status: 400 })
-      }
-
       const qty = existing.quantityApproved || existing.quantityRequested
+      const requiresApproval = shouldRequireTransferApproval({
+        quantity: qty,
+        unitCost: existing.product.costPrice,
+      })
+      const canDispatchWithoutApproval = existing.status === 'PENDING' && !requiresApproval
+
+      if (!canDispatchWithoutApproval && existing.status !== 'APPROVED') {
+        return NextResponse.json({ error: 'Must be approved first for this transfer' }, { status: 400 })
+      }
 
       const updated = await prisma.$transaction(async (tx) => {
         const sourceStock = await tx.stock.findUnique({
@@ -169,9 +178,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           })
         }
 
+        const expectedStatuses = canDispatchWithoutApproval ? ['PENDING', 'APPROVED'] : ['APPROVED']
+        const dispatchedAt = new Date()
         const result = await tx.stockOutRequest.updateMany({
-          where: { id, status: 'APPROVED' },
-          data: { status: 'DISPATCHED', dispatchedAt: new Date() },
+          where: { id, status: { in: expectedStatuses } },
+          data: {
+            status: 'IN_TRANSIT',
+            dispatchedAt,
+            dispatchedBy: session.user.id,
+            // Keep legacy timestamp fields populated for existing reports/UI paths.
+            acknowledgedAt: existing.acknowledgedAt,
+          },
         })
 
         if (result.count !== 1) {
@@ -189,7 +206,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         action: 'DISPATCH',
         entity: 'StockOutRequest',
         entityId: id,
-        details: `Dispatched ${qty} ${existing.product.unit} from ${existing.fromLocation.name}`,
+        details: `Dispatched ${qty} ${existing.product.unit} from ${existing.fromLocation.name}${canDispatchWithoutApproval ? ' (direct dispatch)' : ''}`,
       })
       await createNotification({
         role: 'FINANCE',
@@ -229,7 +246,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!(isRequester || isElevated || isReceiverAtDestination)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      if (existing.status !== 'DISPATCHED') {
+      if (!['DISPATCHED', 'IN_TRANSIT'].includes(existing.status)) {
         return NextResponse.json({ error: 'Must be dispatched first' }, { status: 400 })
       }
 
@@ -245,9 +262,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             update: { quantity: { increment: qty } },
           })
         }
+        const receivedAt = new Date()
         const result = await tx.stockOutRequest.updateMany({
-          where: { id, status: 'DISPATCHED' },
-          data: { status: 'ACKNOWLEDGED', acknowledgedAt: new Date() },
+          where: { id, status: { in: ['DISPATCHED', 'IN_TRANSIT'] } },
+          data: {
+            status: 'RECEIVED',
+            receivedAt,
+            receivedBy: session.user.id,
+            acknowledgedAt: receivedAt,
+          },
         })
 
         if (result.count !== 1) {

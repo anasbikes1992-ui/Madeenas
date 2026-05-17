@@ -137,19 +137,16 @@ export const customerOrderSchema = z.object({
 /** Password for admin-created users: required, no defaults in API. */
 export const adminCreateUserPasswordSchema = z
   .string()
-  .min(12, 'Password must be at least 12 characters')
+  .min(7, 'Password must be at least 7 characters')
   .max(128, 'Password is too long')
-  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
-  .regex(/[a-z]/, 'Password must contain a lowercase letter')
-  .regex(/[0-9]/, 'Password must contain a digit')
 
 export const customerSignupSchema = z
   .object({
     name: z.string().trim().min(2, 'Name is required').max(120, 'Name is too long'),
     email: z.string().trim().email('Valid email is required'),
     phone: phoneNumberOrEmpty,
-    password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password is too long'),
-    confirmPassword: z.string().min(8, 'Please confirm your password'),
+    password: z.string().min(7, 'Password must be at least 7 characters').max(100, 'Password is too long'),
+    confirmPassword: z.string().min(7, 'Please confirm your password'),
   })
   .refine((value) => value.password === value.confirmPassword, {
     message: 'Passwords do not match',

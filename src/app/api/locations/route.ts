@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
-
-const STOCK_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF', 'FINANCE']
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET() {
   const session = await auth()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const role = session.user.role as string
-  if (!STOCK_ROLES.includes(role)) {
+  if (!hasPermission(session.user.role as string, 'locations.read')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -29,8 +27,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const role = session.user.role as string
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {
+  if (!hasPermission(session.user.role as string, 'locations.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const body = await request.json()

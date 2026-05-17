@@ -21,7 +21,7 @@ async function resolveUser(request: NextRequest) {
 const stockOutSchema = z.object({
   productId: z.string().min(1),
   fromLocationId: z.string().min(1),
-  toLocationId: z.string().min(1),
+  toLocationId: z.string().min(1).optional().nullable(),
   quantityRequested: z.number().positive(),
   note: z.string().optional(),
   referenceInvoice: z.string().optional(),
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   const { productId, fromLocationId, toLocationId, quantityRequested, note, referenceInvoice } =
     parsed.data
 
-  let effectiveToLocationId = toLocationId
+  let effectiveToLocationId = toLocationId ?? null
 
   if (role === 'SHOP_STAFF') {
     if (!userLocationId) {
@@ -74,6 +74,10 @@ export async function POST(request: NextRequest) {
     if (sourceLocation.id === effectiveToLocationId) {
       return fail('Source and destination locations must be different', 400, 'VALIDATION_ERROR')
     }
+  }
+
+  if (!effectiveToLocationId) {
+    return fail('Destination location is required', 400, 'VALIDATION_ERROR')
   }
 
   // Verify product and location exist

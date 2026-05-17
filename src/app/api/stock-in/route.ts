@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity, createNotification } from '@/lib/audit'
 import { stockInSchema } from '@/lib/validations'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'inventory.read')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const locationId = searchParams.get('locationId')
@@ -14,7 +19,7 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
 
-  const where: any = {}
+  const where: Prisma.StockInWhereInput = {}
   if (locationId) where.locationId = locationId
   if (productId) where.productId = productId
 
@@ -39,8 +44,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const role = session.user.role as string
-  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
+  if (!hasPermission(session.user.role as string, 'stock.in')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

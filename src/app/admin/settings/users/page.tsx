@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { Users as UsersIcon, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Users as UsersIcon, Plus, Pencil, Trash2, Eye, EyeOff, KeyRound } from 'lucide-react'
 
 interface Location {
   id: string
@@ -37,7 +37,11 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
+  const [resetUser, setResetUser] = useState<User | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('')
   const [saving, setSaving] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   
@@ -199,6 +203,46 @@ export default function UsersPage() {
     }
   }
 
+  async function handleResetPassword(event: React.FormEvent) {
+    event.preventDefault()
+    if (!resetUser) return
+
+    if (resetPassword.length < 7) {
+      setFormError('Password must be at least 7 characters')
+      return
+    }
+
+    if (resetPassword !== resetPasswordConfirm) {
+      setFormError('Passwords do not match')
+      return
+    }
+
+    setResettingPassword(true)
+    setFormError(null)
+    try {
+      const res = await fetch(`/api/users/${resetUser.id}/password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPassword }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        setFormError(data.error || 'Failed to reset password')
+        return
+      }
+
+      setResetUser(null)
+      setResetPassword('')
+      setResetPasswordConfirm('')
+      showToast(`Password reset for ${resetUser.name}`)
+    } catch (error) {
+      setFormError('Network error occurred')
+    } finally {
+      setResettingPassword(false)
+    }
+  }
+
   const needsLocation = (role: string) => ['STORE_KEEPER', 'SHOP_STAFF'].includes(role)
 
   if (loading) {
@@ -215,7 +259,7 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
+          <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
             <UsersIcon className="w-6 h-6" />
           </div>
           <div>
@@ -262,6 +306,20 @@ export default function UsersPage() {
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
+                    {session?.user?.role === 'SUPER_ADMIN' && user.id !== session?.user?.id && (
+                      <button
+                        onClick={() => {
+                          setResetUser(user)
+                          setResetPassword('')
+                          setResetPasswordConfirm('')
+                          setFormError(null)
+                        }}
+                        className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                        title="Reset password"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleToggleActive(user)}
                       className={`p-2 rounded-lg transition-colors ${
@@ -336,10 +394,10 @@ export default function UsersPage() {
                   className="input"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Minimum 8 characters"
-                  minLength={8}
+                  placeholder="Minimum 7 characters"
+                  minLength={7}
                 />
-                <p className="text-xs text-slate-500 mt-1">At least 8 characters</p>
+                <p className="text-xs text-slate-500 mt-1">At least 7 characters (stronger passwords recommended)</p>
               </div>
 
               <div className="form-group">
@@ -477,6 +535,61 @@ export default function UsersPage() {
                   {saving ? 'Saving…' : 'Save Changes'}
                 </button>
                 <button type="button" onClick={() => setEditUser(null)} className="btn-secondary">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetUser && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setResetUser(null)}>
+          <div className="modal max-w-lg">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Reset Password</h2>
+              <button onClick={() => setResetUser(null)} className="text-slate-400 text-2xl">&times;</button>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              Set a new password for <span className="font-semibold text-slate-900">{resetUser.name}</span>.
+            </p>
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                {formError}
+              </div>
+            )}
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="form-group">
+                <label className="label">New Password *</label>
+                <input
+                  required
+                  type="password"
+                  minLength={7}
+                  className="input"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Minimum 7 characters"
+                />
+              </div>
+              <div className="form-group">
+                <label className="label">Confirm Password *</label>
+                <input
+                  required
+                  type="password"
+                  minLength={7}
+                  className="input"
+                  value={resetPasswordConfirm}
+                  onChange={(e) => setResetPasswordConfirm(e.target.value)}
+                  placeholder="Re-enter new password"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={resettingPassword} className="btn-primary flex-1 justify-center">
+                  {resettingPassword ? 'Resetting…' : 'Reset Password'}
+                </button>
+                <button type="button" onClick={() => setResetUser(null)} className="btn-secondary">
                   Cancel
                 </button>
               </div>

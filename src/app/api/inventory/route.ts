@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
+import { hasPermission } from '@/lib/permissions'
 
 /**
  * GET /api/inventory/low-stock
  * Get all products below their low stock threshold
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'inventory.read')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   try {
     // Fetch all stocks with related data
@@ -59,6 +63,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'inventory.reorder')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   try {
     const { productId, locationId, reorderQuantity, supplierId } = await request.json()
@@ -156,7 +163,7 @@ export async function POST(request: NextRequest) {
  * GET /api/inventory/reorder-suggestions
  * Get AI-based reorder suggestions based on sales velocity and current stock
  */
-export async function getReorderSuggestions(request: NextRequest) {
+export async function getReorderSuggestions() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

@@ -3,10 +3,14 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { supplierSchema } from '@/lib/validations'
+import { hasPermission } from '@/lib/permissions'
 
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasPermission(session.user.role as string, 'products.read')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const suppliers = await prisma.supplier.findMany({
     orderBy: { name: 'asc' },
@@ -21,9 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const role = session.user.role as string
-  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
+  if (!hasPermission(session.user.role as string, 'suppliers.manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
