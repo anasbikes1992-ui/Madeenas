@@ -42,7 +42,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
           toLocation: so.toLocation?.name || 'Customer',
           ref: so.status,
           user: so.requestedByUser.name,
-          note: so.purpose
+          note: so.note
         })
       }
     })

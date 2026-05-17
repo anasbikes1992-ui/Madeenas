@@ -5,7 +5,7 @@ import { verifyMobileToken } from '@/lib/mobile-auth'
 import { logActivity } from '@/lib/audit'
 import { z } from 'zod'
 
-const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER'])
+const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER'])
 
 async function resolveUser(request: NextRequest) {
   const authHeader = request.headers.get('authorization') || ''

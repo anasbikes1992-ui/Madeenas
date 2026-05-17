@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { formatDate } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState('30')
@@ -44,7 +44,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total Stock Units', value: totalUnits.toLocaleString(), icon: '📦', color: 'bg-indigo-50 text-indigo-700' },
-          { label: 'Estimated Stock Value', value: `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: '💰', color: 'bg-emerald-50 text-emerald-700' },
+          { label: 'Estimated Stock Value', value: formatCurrency(totalValue), icon: '💰', color: 'bg-emerald-50 text-emerald-700' },
           { label: 'Unique Products', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: any) => s.productId)).size, icon: '🏷️', color: 'bg-purple-50 text-purple-700' },
           { label: 'Active Locations', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: any) => s.locationId)).size, icon: '🏭', color: 'bg-amber-50 text-amber-700' },
         ].map(s => (
@@ -96,11 +96,11 @@ export default function ReportsPage() {
                       <td className="font-mono font-bold text-indigo-700">{s.quantity.toLocaleString()}</td>
                       <td className="text-sm text-slate-500">{s.product.unit}</td>
                       <td className="text-sm text-slate-600">
-                        {s.product.costPrice ? `Rs. ${s.product.costPrice.toLocaleString()}` : '—'}
+                        {s.product.costPrice ? formatCurrency(s.product.costPrice) : '—'}
                       </td>
                       <td className="font-medium text-emerald-700">
                         {s.product.costPrice
-                          ? `Rs. ${(s.quantity * s.product.costPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                          ? formatCurrency(s.quantity * s.product.costPrice)
                           : '—'
                         }
                       </td>

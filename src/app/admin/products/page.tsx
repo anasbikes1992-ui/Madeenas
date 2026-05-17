@@ -101,8 +101,19 @@ export default function ProductsPage() {
       const fd = new FormData()
       fd.append('file', file)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.url) setImageFiles(prev => [...prev, data.url])
+      const payload = await res.json()
+      const url = payload?.data?.url || payload?.url
+
+      if (!res.ok) {
+        showToast(payload?.error?.message || 'Image upload failed', 'error')
+        continue
+      }
+
+      if (url) {
+        setImageFiles(prev => [...prev, url])
+      } else {
+        showToast('Image upload failed', 'error')
+      }
     }
   }
 

@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { format, subDays, startOfDay } from 'date-fns'
+import { format, subDays } from 'date-fns'
+import { formatCurrency } from '@/lib/utils'
 
 interface KPIData {
   revenue: { date: string; amount: number; byChannel: Record<string, number> }[]
@@ -13,6 +14,15 @@ interface KPIData {
 }
 
 const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6']
+
+function formatCompactCurrency(amount: number) {
+  return new Intl.NumberFormat('en-LK', {
+    style: 'currency',
+    currency: 'LKR',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(amount)
+}
 
 export default function KPIDashboardPage() {
   const [kpiData, setKPIData] = useState<KPIData | null>(null)
@@ -114,7 +124,7 @@ export default function KPIDashboardPage() {
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-600">
           <div className="text-sm text-gray-600 font-medium">Total Revenue</div>
           <div className="text-3xl font-bold mt-2">
-            ₹{(kpiData.revenue.reduce((sum, d) => sum + d.amount, 0) / 100000).toFixed(1)}L
+            {formatCompactCurrency(kpiData.revenue.reduce((sum, d) => sum + d.amount, 0))}
           </div>
           <div className="text-xs text-green-600 mt-2">↑ 12% from last period</div>
         </div>
@@ -156,7 +166,7 @@ export default function KPIDashboardPage() {
               <YAxis />
               <Tooltip formatter={(value: unknown) => {
                 const v = typeof value === 'number' ? value : 0
-                return `₹${v.toLocaleString()}`
+                return formatCurrency(v)
               }} />
               <Legend />
               <Line type="monotone" dataKey="amount" stroke="#6366f1" name="Total Revenue" strokeWidth={2} />
@@ -244,7 +254,7 @@ export default function KPIDashboardPage() {
               {kpiData.topSKUs.map((sku, idx) => (
                 <tr key={idx} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium">{sku.sku}</td>
-                  <td className="px-4 py-2 text-right">₹{(sku.revenue / 1000).toFixed(0)}K</td>
+                  <td className="px-4 py-2 text-right">{formatCompactCurrency(sku.revenue)}</td>
                   <td className="px-4 py-2 text-right">{sku.quantity_sold.toLocaleString()}</td>
                   <td className="px-4 py-2 text-right font-semibold text-green-600">{sku.margin_percent}%</td>
                 </tr>
@@ -257,7 +267,7 @@ export default function KPIDashboardPage() {
       {/* Alerts */}
       <div className="bg-amber-50 border-l-4 border-amber-500 rounded p-4">
         <div className="flex">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <svg className="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
+import { formatCurrency } from '@/lib/utils'
 
 export default function FinanceReviewsPage() {
   const [reviews, setReviews] = useState<any[]>([])
@@ -83,9 +84,9 @@ export default function FinanceReviewsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-xs text-slate-500 flex items-center gap-1">
-                      <span className="truncate max-w-[100px]">{r.stockOut.fromLocation.name}</span>
+                      <span className="max-w-25 truncate">{r.stockOut.fromLocation.name}</span>
                       <span>→</span>
-                      <span className="truncate max-w-[100px] text-indigo-600">{r.stockOut.toLocation?.name || 'Customer'}</span>
+                      <span className="max-w-25 truncate text-indigo-600">{r.stockOut.toLocation?.name || 'Customer'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -105,7 +106,7 @@ export default function FinanceReviewsPage() {
                     {r.status === 'MATCHED' && (
                       <div className="text-xs text-slate-400">
                         Inv: {r.externalInvoice || '—'}<br/>
-                        ₹{r.externalAmount || '—'}
+                        {r.externalAmount != null ? formatCurrency(Number(r.externalAmount)) : '—'}
                       </div>
                     )}
                   </td>
@@ -146,7 +147,7 @@ export default function FinanceReviewsPage() {
                 />
               </div>
               <div className="form-group">
-                <label className="label">Amount in Tally (₹)</label>
+                <label className="label">Amount in Tally (LKR)</label>
                 <input 
                   type="number" 
                   step="0.01" 

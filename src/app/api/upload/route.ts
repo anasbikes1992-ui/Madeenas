@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
   const file = formData.get('file') as File
   if (!file) return fail('No file provided', 400, 'VALIDATION_ERROR')
 
-  const maxBytes = 5 * 1024 * 1024
+  const maxBytes = 10 * 1024 * 1024
   if (file.size > maxBytes) {
-    return fail('File too large (max 5MB)', 400, 'FILE_TOO_LARGE')
+    return fail('File too large (max 10MB)', 400, 'FILE_TOO_LARGE')
   }
 
   const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])

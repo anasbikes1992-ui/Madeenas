@@ -51,14 +51,23 @@ export async function POST(request: NextRequest) {
   const { productId, fromLocationId, toLocationId, quantityRequested, note, referenceInvoice } =
     parsed.data
 
+  if (!toLocationId) {
+    return fail('Destination location is required', 400, 'VALIDATION_ERROR')
+  }
+
   // Verify product and location exist
-  const [product, fromLocation] = await Promise.all([
+  const [product, fromLocation, toLocation] = await Promise.all([
     prisma.product.findUnique({ where: { id: productId } }),
     prisma.location.findUnique({ where: { id: fromLocationId } }),
+    prisma.location.findUnique({ where: { id: toLocationId } }),
   ])
 
   if (!product || !product.isActive) return fail('Product not found', 404, 'NOT_FOUND')
   if (!fromLocation || !fromLocation.isActive) return fail('From-location not found', 404, 'NOT_FOUND')
+  if (!toLocation || !toLocation.isActive) return fail('To-location not found', 404, 'NOT_FOUND')
+  if (fromLocationId === toLocationId) {
+    return fail('Source and destination locations must be different', 400, 'VALIDATION_ERROR')
+  }
 
   // Check available stock
   const stock = await prisma.stock.findUnique({
@@ -77,7 +86,7 @@ export async function POST(request: NextRequest) {
     data: {
       productId,
       fromLocationId,
-      toLocationId: toLocationId ?? null,
+      toLocationId,
       requestedBy: user.sub!,
       quantityRequested,
       note: note ?? null,

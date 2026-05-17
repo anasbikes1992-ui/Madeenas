@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { CAN_REQUEST_STOCK } from '@/lib/constants'
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   const role = session.user.role as string
   const userLocationId = session.user.locationId as string | null
 
-  const where: any = {}
+  const where: Prisma.StockOutRequestWhereInput = {}
   if (status) {
     if (status.includes(',')) {
       where.status = { in: status.split(',') }
@@ -86,11 +87,52 @@ export async function POST(request: NextRequest) {
   }
   const b = parsed.data
 
-  if ((role === 'SHOP_STAFF' || role === 'STORE_KEEPER') && session.user.locationId) {
-    const userLocationId = session.user.locationId as string
-    if (b.fromLocationId !== userLocationId) {
-      return NextResponse.json({ error: 'You can only request stock from your assigned location' }, { status: 403 })
+  const userLocationId = session.user.locationId as string | null
+  let effectiveToLocationId = b.toLocationId ?? null
+
+  if (!effectiveToLocationId) {
+    return NextResponse.json({ error: 'Destination location is required' }, { status: 400 })
+  }
+
+  if (role === 'SHOP_STAFF') {
+    if (!userLocationId) {
+      return NextResponse.json({ error: 'Your account is not assigned to a shop location' }, { status: 400 })
     }
+    effectiveToLocationId = userLocationId
+
+    const sourceLocation = await prisma.location.findUnique({
+      where: { id: b.fromLocationId },
+      select: { id: true, type: true, name: true },
+    })
+
+    if (!sourceLocation) {
+      return NextResponse.json({ error: 'Selected warehouse was not found' }, { status: 400 })
+    }
+
+    if (sourceLocation.type !== 'WAREHOUSE') {
+      return NextResponse.json({ error: 'Shop requests must be fulfilled from a warehouse location' }, { status: 400 })
+    }
+
+    if (sourceLocation.id === effectiveToLocationId) {
+      return NextResponse.json({ error: 'Source and destination locations must be different' }, { status: 400 })
+    }
+  }
+
+  if (effectiveToLocationId && b.fromLocationId === effectiveToLocationId) {
+    return NextResponse.json({ error: 'Source and destination locations must be different' }, { status: 400 })
+  }
+
+  const [fromLocation, toLocation] = await Promise.all([
+    prisma.location.findUnique({ where: { id: b.fromLocationId }, select: { id: true, isActive: true } }),
+    prisma.location.findUnique({ where: { id: effectiveToLocationId }, select: { id: true, isActive: true } }),
+  ])
+
+  if (!fromLocation || !fromLocation.isActive) {
+    return NextResponse.json({ error: 'Source location not found' }, { status: 400 })
+  }
+
+  if (!toLocation || !toLocation.isActive) {
+    return NextResponse.json({ error: 'Destination location not found' }, { status: 400 })
   }
 
   // Check available stock
@@ -111,7 +153,7 @@ export async function POST(request: NextRequest) {
     data: {
       productId: b.productId,
       fromLocationId: b.fromLocationId,
-      toLocationId: b.toLocationId ?? null,
+      toLocationId: effectiveToLocationId,
       requestedBy: session.user.id as string,
       quantityRequested: b.quantityRequested,
       referenceInvoice: b.referenceInvoice ?? undefined,

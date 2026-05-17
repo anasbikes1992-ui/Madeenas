@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 type CustomerOrder = {
   id: string
@@ -268,7 +268,7 @@ export default function CustomerOrdersPage() {
                   <td className="py-3 pr-4">
                     {o.quantity} {o.product.unit}
                   </td>
-                  <td className="py-3 pr-4">{o.quotedPrice != null ? `Rs. ${o.quotedPrice}` : '—'}</td>
+                  <td className="py-3 pr-4">{o.quotedPrice != null ? formatCurrency(o.quotedPrice) : '—'}</td>
                   <td className="py-3 pr-4">
                     <span className={`badge ${STATUS_BADGE[o.status] || 'badge-gray'}`}>{o.status}</span>
                   </td>
@@ -363,7 +363,7 @@ export default function CustomerOrdersPage() {
               <div className="rounded-lg bg-green-50 border border-green-200 p-4 mb-4">
                 <p className="text-sm font-semibold text-green-900 mb-1">✓ Order Fulfilled</p>
                 <p className="text-xs text-green-700">Receipt: {fulfilledSale.receiptNo}</p>
-                <p className="text-xs text-green-700">Amount: Rs. {fulfilledSale.totalAmount}</p>
+                <p className="text-xs text-green-700">Amount: {formatCurrency(fulfilledSale.totalAmount)}</p>
                 <p className="text-xs text-green-600">Date: {new Date(fulfilledSale.createdAt).toLocaleString()}</p>
               </div>
             )}

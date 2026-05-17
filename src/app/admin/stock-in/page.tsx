@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function StockInPage() {
   const emptyForm = { productId: '', locationId: '', quantity: '', batchNumber: '', supplierId: '', costPrice: '', note: '' }
@@ -108,7 +108,7 @@ export default function StockInPage() {
                 </td>
                 <td><span className="font-bold text-emerald-600">+{e.quantity} {e.product.unit}</span></td>
                 <td>{e.batchNumber ? <code className="text-xs bg-slate-100 px-2 py-0.5 rounded">{e.batchNumber}</code> : '—'}</td>
-                <td>{e.costPrice ? `Rs. ${e.costPrice.toLocaleString()}` : '—'}</td>
+                <td>{e.costPrice ? formatCurrency(e.costPrice) : '—'}</td>
                 <td className="text-sm text-slate-600">{e.supplier?.name || '—'}</td>
                 <td className="text-sm text-slate-600">{e.user?.name}</td>
                 <td className="text-sm text-slate-500">{formatDate(e.createdAt)}</td>

@@ -29,7 +29,7 @@ export const CAN_REQUEST_STOCK = [
 export const CAN_APPROVE_STOCK = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
 
 // Which roles can add stock-in
-export const CAN_ADD_STOCK_IN = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER']
+export const CAN_ADD_STOCK_IN = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
 
 // Finance department roles
 export const FINANCE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'FINANCE']

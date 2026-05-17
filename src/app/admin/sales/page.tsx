@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function SalesHistoryPage() {
   const [sales, setSales] = useState<any[]>([])
@@ -46,7 +46,7 @@ export default function SalesHistoryPage() {
             {[
               ['Transactions', String(sales.length)],
               ['Cash count', String(summary.cashCount)],
-              ['Avg ticket', `Rs. ${summary.avgTicket.toLocaleString(undefined, { maximumFractionDigits: 0 })}`],
+              ['Avg ticket', formatCurrency(summary.avgTicket)],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
@@ -105,7 +105,7 @@ export default function SalesHistoryPage() {
                   </div>
                 </td>
                 <td className="font-bold text-emerald-600">
-                  Rs. {(Number(sale.totalAmount) || 0).toLocaleString()}
+                  {formatCurrency(Number(sale.totalAmount) || 0)}
                 </td>
                 <td>
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${

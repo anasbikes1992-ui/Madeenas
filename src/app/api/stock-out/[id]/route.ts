@@ -168,6 +168,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         type: 'WARNING',
         link: '/finance/dashboard',
       })
+
+      if (existing.toLocationId) {
+        const destinationUsers = await prisma.user.findMany({
+          where: {
+            locationId: existing.toLocationId,
+            isActive: true,
+          },
+          select: { id: true },
+        })
+
+        if (destinationUsers.length > 0) {
+          await prisma.notification.createMany({
+            data: destinationUsers.map((user) => ({
+              userId: user.id,
+              title: 'Goods Dispatched 🚚',
+              message: `${existing.product.name} has been dispatched from ${existing.fromLocation.name}${existing.toLocation?.name ? ` to ${existing.toLocation.name}` : ''}. Please acknowledge receipt.`,
+              type: 'INFO',
+              link: '/admin/my-requests',
+            })),
+          })
+        }
+      }
+
       return NextResponse.json(updated)
     }
 
@@ -206,6 +229,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         entityId: id,
         details: `Acknowledged receipt of ${qty} ${existing.product.unit}`,
       })
+
+      await createNotification({
+        title: 'Stock Transfer Acknowledged ✅',
+        message: `${existing.product.name} transfer${existing.toLocation?.name ? ` to ${existing.toLocation.name}` : ''} has been acknowledged as received.`,
+        type: 'SUCCESS',
+        link: '/admin/stock-out',
+      })
+
       return NextResponse.json(updated)
     }
 

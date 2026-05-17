@@ -1,19 +1,57 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { generateSKU } from '@/lib/utils'
+import { useSession } from 'next-auth/react'
+
+interface ProductStock {
+  locationId: string
+  quantity: number
+}
+
+interface ProductOption {
+  id: string
+  name: string
+  sku: string
+  unit: string
+  category?: { name?: string | null } | null
+  stocks?: ProductStock[]
+}
+
+interface LocationOption {
+  id: string
+  name: string
+  type: string
+}
+
+interface RequestFormState {
+  productId: string
+  fromLocationId: string
+  toLocationId: string
+  quantityRequested: string
+  referenceInvoice: string
+  invoiceDate: string
+  note: string
+}
 
 export default function NewRequestPage() {
-  const [products, setProducts] = useState<any[]>([])
-  const [locations, setLocations] = useState<any[]>([])
-  const [form, setForm] = useState<any>({
+  const { data: session } = useSession()
+  const [products, setProducts] = useState<ProductOption[]>([])
+  const [locations, setLocations] = useState<LocationOption[]>([])
+  const [form, setForm] = useState<RequestFormState>({
     productId: '', fromLocationId: '', toLocationId: '',
     quantityRequested: '', referenceInvoice: '', invoiceDate: '', note: ''
   })
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [selectedProduct, setSelectedProduct] = useState<ProductOption | null>(null)
   const [stockLevel, setStockLevel] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+
+  const role = session?.user?.role || ''
+  const userLocationId = session?.user?.locationId || ''
+  const isShopRequester = role === 'SHOP_STAFF' && Boolean(userLocationId)
+  const warehouseLocations = locations.filter((location) => location.type === 'WAREHOUSE')
+  const effectiveToLocationId = isShopRequester ? userLocationId : form.toLocationId
+  const requestDestination = locations.find((location) => location.id === effectiveToLocationId)
 
   useEffect(() => {
     fetch('/api/products?limit=200').then(r => r.json()).then(d => setProducts(d.products || []))
@@ -21,16 +59,16 @@ export default function NewRequestPage() {
   }, [])
 
   function onProductChange(productId: string) {
-    const p = products.find((x: any) => x.id === productId)
-    setSelectedProduct(p)
-    setForm((f: any) => ({ ...f, productId, fromLocationId: '' }))
+    const product = products.find((option) => option.id === productId) ?? null
+    setSelectedProduct(product)
+    setForm((currentForm) => ({ ...currentForm, productId, fromLocationId: '' }))
     setStockLevel(null)
   }
 
   function onLocationChange(locationId: string) {
-    setForm((f: any) => ({ ...f, fromLocationId: locationId }))
+    setForm((currentForm) => ({ ...currentForm, fromLocationId: locationId }))
     if (selectedProduct) {
-      const stock = selectedProduct.stocks?.find((s: any) => s.locationId === locationId)
+      const stock = selectedProduct.stocks?.find((entry) => entry.locationId === locationId)
       setStockLevel(stock?.quantity ?? 0)
     }
   }
@@ -39,10 +77,16 @@ export default function NewRequestPage() {
     e.preventDefault()
     setError('')
     setSaving(true)
+
+    const payload = {
+      ...form,
+      toLocationId: effectiveToLocationId || undefined,
+    }
+
     const res = await fetch('/api/stock-out', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     })
     setSaving(false)
     if (res.ok) {
@@ -70,8 +114,12 @@ export default function NewRequestPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">New Stock Request</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Request goods from a warehouse or shop location</p>
+        <h1 className="text-2xl font-bold text-slate-900">New Stock Movement Request</h1>
+        <p className="text-slate-500 text-sm mt-0.5">
+          {isShopRequester
+            ? 'Request stock from a warehouse to your assigned shop. Warehouse staff dispatch it, then your shop acknowledges receipt.'
+            : 'Create a stock movement request between warehouse and shop locations.'}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-5">
@@ -80,8 +128,8 @@ export default function NewRequestPage() {
           <label className="label">Product *</label>
           <select required id="product-select" aria-label="Select product" className="input" value={form.productId} onChange={e => onProductChange(e.target.value)}>
             <option value="">Select a product</option>
-            {products.map((p: any) => (
-              <option key={p.id} value={p.id}>{p.name} — {p.sku}</option>
+            {products.map((product) => (
+              <option key={product.id} value={product.id}>{product.name} — {product.sku}</option>
             ))}
           </select>
           {selectedProduct && (
@@ -96,11 +144,11 @@ export default function NewRequestPage() {
 
         {/* From Location */}
         <div className="form-group">
-          <label className="label">From Location (Source) *</label>
+          <label className="label">{isShopRequester ? 'Fulfill From Warehouse *' : 'From Location (Source) *'}</label>
           <select required id="from-location" aria-label="Source location" className="input" value={form.fromLocationId} onChange={e => onLocationChange(e.target.value)}>
-            <option value="">Select source location</option>
-            {locations.map((l: any) => (
-              <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>
+            <option value="">{isShopRequester ? 'Select warehouse' : 'Select source location'}</option>
+            {(isShopRequester ? warehouseLocations : locations).map((location) => (
+              <option key={location.id} value={location.id}>[{location.type}] {location.name}</option>
             ))}
           </select>
           {stockLevel !== null && (
@@ -111,15 +159,25 @@ export default function NewRequestPage() {
         </div>
 
         {/* To Location */}
-        <div className="form-group">
-          <label className="label">Destination (optional)</label>
-          <select id="to-location" aria-label="Destination location (optional)" className="input" value={form.toLocationId} onChange={e => setForm({ ...form, toLocationId: e.target.value })}>
-            <option value="">Select destination (optional)</option>
-            {locations.filter(l => l.id !== form.fromLocationId).map((l: any) => (
-              <option key={l.id} value={l.id}>[{l.type}] {l.name}</option>
-            ))}
-          </select>
-        </div>
+        {isShopRequester ? (
+          <div className="form-group">
+            <label className="label">Requesting Location</label>
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+              <div className="font-semibold">{requestDestination?.name || session?.user?.locationName || 'Your assigned shop'}</div>
+              <div className="mt-1 text-indigo-700">This request will be delivered here and must be acknowledged by your shop account.</div>
+            </div>
+          </div>
+        ) : (
+          <div className="form-group">
+            <label className="label">Destination (optional)</label>
+            <select id="to-location" aria-label="Destination location (optional)" className="input" value={form.toLocationId} onChange={e => setForm({ ...form, toLocationId: e.target.value })}>
+              <option value="">Select destination (optional)</option>
+              {locations.filter((location) => location.id !== form.fromLocationId).map((location) => (
+                <option key={location.id} value={location.id}>[{location.type}] {location.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           {/* Quantity */}
@@ -186,7 +244,7 @@ export default function NewRequestPage() {
         )}
 
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+          <button type="submit" disabled={saving || !form.fromLocationId} className="btn-primary flex-1 justify-center">
             {saving ? 'Submitting…' : '📤 Submit Request'}
           </button>
           <a href="/admin/stock-out" className="btn-secondary">Cancel</a>
