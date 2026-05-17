@@ -169,9 +169,9 @@ export default function NewRequestPage() {
           </div>
         ) : (
           <div className="form-group">
-            <label className="label">Destination (optional)</label>
-            <select id="to-location" aria-label="Destination location (optional)" className="input" value={form.toLocationId} onChange={e => setForm({ ...form, toLocationId: e.target.value })}>
-              <option value="">Select destination (optional)</option>
+            <label className="label">Destination Location *</label>
+            <select required id="to-location" aria-label="Destination location" className="input" value={form.toLocationId} onChange={e => setForm({ ...form, toLocationId: e.target.value })}>
+              <option value="">Select destination location</option>
               {locations.filter((location) => location.id !== form.fromLocationId).map((location) => (
                 <option key={location.id} value={location.id}>[{location.type}] {location.name}</option>
               ))}
@@ -244,7 +244,11 @@ export default function NewRequestPage() {
         )}
 
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving || !form.fromLocationId} className="btn-primary flex-1 justify-center">
+          <button
+            type="submit"
+            disabled={saving || !form.fromLocationId || (!isShopRequester && !form.toLocationId)}
+            className="btn-primary flex-1 justify-center"
+          >
             {saving ? 'Submitting…' : '📤 Submit Request'}
           </button>
           <a href="/admin/stock-out" className="btn-secondary">Cancel</a>

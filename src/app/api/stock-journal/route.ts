@@ -13,7 +13,7 @@ type JournalEntry = {
   fromLocation: string | null
   toLocation: string | null
   quantity: number
-  date: Date
+  date: string
   actor: string
   note: string | null
 }
@@ -61,13 +61,15 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
       take: limit,
     }),
-    prisma.auditLog.findMany({
+    prisma.stockAdjustment.findMany({
       where: {
-        action: 'STOCK_ADJUSTMENT',
-        entity: 'Stock',
+        ...(productId ? { productId } : {}),
+        ...(locationId ? { locationId } : {}),
       },
       include: {
-        user: { select: { name: true } },
+        adjustedByUser: { select: { name: true } },
+        product: { select: { id: true, name: true, unit: true } },
+        location: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
       fromLocation: null,
       toLocation: entry.location.name,
       quantity: entry.quantity,
-      date: entry.createdAt,
+      date: entry.createdAt.toISOString(),
       actor: entry.user.name,
       note: entry.note ?? null,
     })),
@@ -97,34 +99,26 @@ export async function GET(request: NextRequest) {
       fromLocation: entry.fromLocation.name,
       toLocation: entry.toLocation?.name ?? null,
       quantity: -(entry.quantityApproved || entry.quantityRequested),
-      date: entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt,
+      date: (entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt).toISOString(),
       actor: entry.requestedByUser.name,
       note: entry.note ?? null,
     })),
-    ...adjustments
-      .map((entry) => {
-        const matched = /Adjusted\s+(.*?)\s+at\s+(.*?)\s+\|.*?Delta:\s+(-?\d+(?:\.\d+)?)\s+(.*?)\s+/i.exec(entry.details || '')
-        if (!matched) return null
-
-        const [, productName, locName, deltaValue, unit] = matched
-        return {
-          id: entry.id,
-          type: 'STOCK_ADJUSTMENT' as const,
-          productId: 'unknown',
-          productName,
-          unit,
-          fromLocation: locName,
-          toLocation: locName,
-          quantity: Number(deltaValue),
-          date: entry.createdAt,
-          actor: entry.user.name,
-          note: entry.details ?? null,
-        }
-      })
-      .filter((item): item is JournalEntry => item !== null),
+    ...adjustments.map((entry) => ({
+      id: entry.id,
+      type: 'STOCK_ADJUSTMENT' as const,
+      productId: entry.product.id,
+      productName: entry.product.name,
+      unit: entry.product.unit,
+      fromLocation: entry.location.name,
+      toLocation: entry.location.name,
+      quantity: entry.delta,
+      date: entry.createdAt.toISOString(),
+      actor: entry.adjustedByUser.name,
+      note: entry.note || entry.reason || null,
+    })),
   ]
 
-  entries.sort((a, b) => b.date.getTime() - a.date.getTime())
+  entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return NextResponse.json({ entries: entries.slice(0, limit) })
 }

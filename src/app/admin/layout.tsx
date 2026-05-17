@@ -18,7 +18,9 @@ const navItems = [
     items: [
       { href: '/admin/products', label: 'Products', icon: '📦', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER'] },
       { href: '/admin/inventory', label: 'Inventory Matrix', icon: '📊', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
-      { href: '/admin/stock-in', label: 'Stock In', icon: '⬇️', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER'] },
+      { href: '/admin/stock-in', label: 'Stock In', icon: '⬇️', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/stock-adjustments', label: 'Stock Adjustments', icon: '⚖️', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/stock-journal', label: 'Stock Journal', icon: '📜', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
     ]
   },
   {
@@ -135,7 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   key={item.href}
                   href={item.href}
                   title={!sidebarOpen ? item.label : undefined}
-                  className={`sidebar-item min-h-[44px] ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
+                  className={`sidebar-item min-h-11 ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
                 >
                   <span className="text-base shrink-0">{item.icon}</span>
                   {sidebarOpen && <span className="truncate">{item.label}</span>}
@@ -201,7 +203,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               onClick={() => setMobileOpen(o => !o)}
               aria-label="Open navigation"
-              className="lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
+              className="lg:hidden min-h-11 min-w-11 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -212,7 +214,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onClick={() => setSidebarOpen(o => !o)}
               title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
               aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="hidden lg:flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
+              className="hidden lg:flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100 text-slate-500 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -231,10 +233,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationBell />
-            <a href="/gallery" target="_blank" className="btn-secondary btn-sm hidden sm:flex min-h-[44px] items-center">
+            <a href="/gallery" target="_blank" className="btn-secondary btn-sm hidden sm:flex min-h-11 items-center">
               🖼️ Gallery
             </a>
-            <a href="/admin/new-request" className="btn-primary min-h-[44px] px-4 py-2 text-sm sm:text-base flex items-center whitespace-nowrap">
+            <a href="/admin/new-request" className="btn-primary min-h-11 px-4 py-2 text-sm sm:text-base flex items-center whitespace-nowrap">
               + New Request
             </a>
           </div>

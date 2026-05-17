@@ -24,14 +24,18 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25', 10)))
+  const productId = searchParams.get('productId') || undefined
+  const locationId = searchParams.get('locationId') || undefined
 
-  const adjustments = await prisma.auditLog.findMany({
+  const adjustments = await prisma.stockAdjustment.findMany({
     where: {
-      action: 'STOCK_ADJUSTMENT',
-      entity: 'Stock',
+      ...(productId ? { productId } : {}),
+      ...(locationId ? { locationId } : {}),
     },
     include: {
-      user: { select: { id: true, name: true, role: true } },
+      adjustedByUser: { select: { id: true, name: true, role: true } },
+      product: { select: { id: true, name: true, sku: true, unit: true } },
+      location: { select: { id: true, name: true, type: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -73,14 +77,31 @@ export async function POST(request: NextRequest) {
   const previousQuantity = currentStock?.quantity ?? 0
   const delta = countedQuantity - previousQuantity
 
-  const updated = await prisma.stock.upsert({
-    where: { productId_locationId: { productId, locationId } },
-    update: { quantity: countedQuantity },
-    create: { productId, locationId, quantity: countedQuantity },
-    include: {
-      product: { select: { id: true, name: true, unit: true } },
-      location: { select: { id: true, name: true } },
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const stockRecord = await tx.stock.upsert({
+      where: { productId_locationId: { productId, locationId } },
+      update: { quantity: countedQuantity },
+      create: { productId, locationId, quantity: countedQuantity },
+      include: {
+        product: { select: { id: true, name: true, unit: true } },
+        location: { select: { id: true, name: true } },
+      },
+    })
+
+    await tx.stockAdjustment.create({
+      data: {
+        productId,
+        locationId,
+        previousQuantity,
+        countedQuantity,
+        delta,
+        reason: reason ?? null,
+        note: note ?? null,
+        adjustedBy: session.user.id,
+      },
+    })
+
+    return stockRecord
   })
 
   const direction = delta > 0 ? 'increase' : delta < 0 ? 'decrease' : 'no change'

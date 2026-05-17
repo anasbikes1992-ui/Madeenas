@@ -33,6 +33,7 @@ model User {
 
   // Relations
   stockIns        StockIn[]
+  stockAdjustments StockAdjustment[]
   stockOutRequests StockOutRequest[] @relation("RequestedBy")
   approvedRequests StockOutRequest[] @relation("ApprovedBy")
   customerOrders  CustomerOrder[]
@@ -99,6 +100,7 @@ model Product {
 
   stocks          Stock[]
   stockIns        StockIn[]
+  stockAdjustments StockAdjustment[]
   stockOutRequests StockOutRequest[]
   saleItems       SaleItem[]
   cartItems       CartItem[]
@@ -118,6 +120,7 @@ model Location {
   users            User[]
   stocks           Stock[]
   stockInsReceived StockIn[]
+  stockAdjustments StockAdjustment[]
   stockOutFrom     StockOutRequest[] @relation("FromLocation")
   stockOutTo       StockOutRequest[] @relation("ToLocation")
   sales            Sale[]
@@ -150,6 +153,25 @@ model StockIn {
   receivedBy  String
   user        User     @relation(fields: [receivedBy], references: [id])
   createdAt   DateTime @default(now())
+}
+
+model StockAdjustment {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id])
+  locationId       String
+  location         Location @relation(fields: [locationId], references: [id])
+  previousQuantity Float
+  countedQuantity  Float
+  delta            Float
+  reason           String?
+  note             String?
+  adjustedBy       String
+  adjustedByUser   User     @relation(fields: [adjustedBy], references: [id])
+  createdAt        DateTime @default(now())
+
+  @@index([productId, locationId, createdAt])
+  @@index([adjustedBy, createdAt])
 }
 
 model StockOutRequest {

@@ -40,19 +40,30 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
+      if (existing.status !== 'PENDING') {
+        return NextResponse.json({ error: 'Only pending requests can be approved' }, { status: 400 })
+      }
       const qtyApproved = parseFloat(String(body.quantityApproved ?? existing.quantityRequested))
-      const updated = await prisma.$transaction((tx) =>
-        tx.stockOutRequest.update({
-          where: { id },
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.stockOutRequest.updateMany({
+          where: { id, status: 'PENDING' },
           data: {
             status: 'APPROVED',
             quantityApproved: qtyApproved,
             approvedBy: session.user.id,
             approvedAt: new Date(),
           },
-          include: includeRelations,
         })
-      )
+
+        if (result.count !== 1) {
+          throw new Error('STATUS_CONFLICT:approve')
+        }
+
+        return tx.stockOutRequest.findUnique({ where: { id }, include: includeRelations })
+      })
+      if (!updated) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
       await logActivity({
         userId: session.user.id,
         action: 'APPROVE',
@@ -74,18 +85,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      const updated = await prisma.$transaction((tx) =>
-        tx.stockOutRequest.update({
-          where: { id },
+      if (existing.status !== 'PENDING') {
+        return NextResponse.json({ error: 'Only pending requests can be rejected' }, { status: 400 })
+      }
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.stockOutRequest.updateMany({
+          where: { id, status: 'PENDING' },
           data: {
             status: 'REJECTED',
             rejectionReason: body.rejectionReason,
             approvedBy: session.user.id,
             approvedAt: new Date(),
           },
-          include: includeRelations,
         })
-      )
+
+        if (result.count !== 1) {
+          throw new Error('STATUS_CONFLICT:reject')
+        }
+
+        return tx.stockOutRequest.findUnique({ where: { id }, include: includeRelations })
+      })
+      if (!updated) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
       await logActivity({
         userId: session.user.id,
         action: 'REJECT',
@@ -147,12 +169,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           })
         }
 
-        return tx.stockOutRequest.update({
-          where: { id },
+        const result = await tx.stockOutRequest.updateMany({
+          where: { id, status: 'APPROVED' },
           data: { status: 'DISPATCHED', dispatchedAt: new Date() },
-          include: includeRelations,
         })
+
+        if (result.count !== 1) {
+          throw new Error('STATUS_CONFLICT:dispatch')
+        }
+
+        return tx.stockOutRequest.findUnique({ where: { id }, include: includeRelations })
       })
+      if (!updated) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
 
       await logActivity({
         userId: session.user.id,
@@ -215,12 +245,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             update: { quantity: { increment: qty } },
           })
         }
-        return tx.stockOutRequest.update({
-          where: { id },
+        const result = await tx.stockOutRequest.updateMany({
+          where: { id, status: 'DISPATCHED' },
           data: { status: 'ACKNOWLEDGED', acknowledgedAt: new Date() },
-          include: includeRelations,
         })
+
+        if (result.count !== 1) {
+          throw new Error('STATUS_CONFLICT:acknowledge')
+        }
+
+        return tx.stockOutRequest.findUnique({ where: { id }, include: includeRelations })
       })
+      if (!updated) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
 
       await logActivity({
         userId: session.user.id,
@@ -247,13 +285,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (existing.status !== 'PENDING') {
         return NextResponse.json({ error: 'Can only cancel pending requests' }, { status: 400 })
       }
-      const updated = await prisma.$transaction((tx) =>
-        tx.stockOutRequest.update({
-          where: { id },
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.stockOutRequest.updateMany({
+          where: { id, status: 'PENDING' },
           data: { status: 'CANCELLED' },
-          include: includeRelations,
         })
-      )
+
+        if (result.count !== 1) {
+          throw new Error('STATUS_CONFLICT:cancel')
+        }
+
+        return tx.stockOutRequest.findUnique({ where: { id }, include: includeRelations })
+      })
+      if (!updated) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
       return NextResponse.json(updated)
     }
 
@@ -265,6 +311,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json(
         { error: `Insufficient stock at ${locName}. Available: ${available}` },
         { status: 400 }
+      )
+    }
+    if (message.startsWith('STATUS_CONFLICT:')) {
+      return NextResponse.json(
+        { error: 'Request state changed by another user. Refresh and retry.' },
+        { status: 409 }
       )
     }
     console.error('stock-out PATCH:', err)

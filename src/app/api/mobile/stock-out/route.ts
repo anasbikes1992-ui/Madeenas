@@ -21,7 +21,7 @@ async function resolveUser(request: NextRequest) {
 const stockOutSchema = z.object({
   productId: z.string().min(1),
   fromLocationId: z.string().min(1),
-  toLocationId: z.string().optional(),
+  toLocationId: z.string().min(1),
   quantityRequested: z.number().positive(),
   note: z.string().optional(),
   referenceInvoice: z.string().optional(),
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   if (!ALLOWED_ROLES.has(role)) {
     return fail('You do not have permission to create stock-out requests', 403, 'FORBIDDEN')
   }
+  const userLocationId = user.locationId ?? null
 
   let body: unknown
   try {
@@ -51,21 +52,41 @@ export async function POST(request: NextRequest) {
   const { productId, fromLocationId, toLocationId, quantityRequested, note, referenceInvoice } =
     parsed.data
 
-  if (!toLocationId) {
-    return fail('Destination location is required', 400, 'VALIDATION_ERROR')
+  let effectiveToLocationId = toLocationId
+
+  if (role === 'SHOP_STAFF') {
+    if (!userLocationId) {
+      return fail('Your account is not assigned to a shop location', 400, 'VALIDATION_ERROR')
+    }
+    effectiveToLocationId = userLocationId
+
+    const sourceLocation = await prisma.location.findUnique({
+      where: { id: fromLocationId },
+      select: { id: true, type: true },
+    })
+
+    if (!sourceLocation) {
+      return fail('From-location not found', 404, 'NOT_FOUND')
+    }
+    if (sourceLocation.type !== 'WAREHOUSE') {
+      return fail('Shop requests must be fulfilled from a warehouse location', 400, 'VALIDATION_ERROR')
+    }
+    if (sourceLocation.id === effectiveToLocationId) {
+      return fail('Source and destination locations must be different', 400, 'VALIDATION_ERROR')
+    }
   }
 
   // Verify product and location exist
   const [product, fromLocation, toLocation] = await Promise.all([
     prisma.product.findUnique({ where: { id: productId } }),
     prisma.location.findUnique({ where: { id: fromLocationId } }),
-    prisma.location.findUnique({ where: { id: toLocationId } }),
+    prisma.location.findUnique({ where: { id: effectiveToLocationId } }),
   ])
 
   if (!product || !product.isActive) return fail('Product not found', 404, 'NOT_FOUND')
   if (!fromLocation || !fromLocation.isActive) return fail('From-location not found', 404, 'NOT_FOUND')
   if (!toLocation || !toLocation.isActive) return fail('To-location not found', 404, 'NOT_FOUND')
-  if (fromLocationId === toLocationId) {
+  if (fromLocationId === effectiveToLocationId) {
     return fail('Source and destination locations must be different', 400, 'VALIDATION_ERROR')
   }
 
@@ -86,7 +107,7 @@ export async function POST(request: NextRequest) {
     data: {
       productId,
       fromLocationId,
-      toLocationId,
+      toLocationId: effectiveToLocationId,
       requestedBy: user.sub!,
       quantityRequested,
       note: note ?? null,
@@ -125,9 +146,22 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status') ?? ''
   const mine = searchParams.get('mine') === 'true'
   const canViewAll = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)
+  const userLocationId = user.locationId ?? null
 
   const where: Record<string, unknown> = {}
-  if (mine || !canViewAll) where.requestedBy = user.sub
+  if (mine) {
+    where.requestedBy = user.sub
+  } else if (!canViewAll) {
+    if (!userLocationId) {
+      where.requestedBy = user.sub
+    } else {
+      where.OR = [
+        { requestedBy: user.sub },
+        { fromLocationId: userLocationId },
+        { toLocationId: userLocationId },
+      ]
+    }
+  }
   if (status) where.status = status
 
   const [requests, total] = await Promise.all([
