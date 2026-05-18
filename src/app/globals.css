@@ -98,7 +98,7 @@
 
   /* Sidebar */
   .sidebar {
-    @apply fixed inset-y-0 left-0 z-50 w-64 border-r border-white/10 bg-linear-to-b from-slate-950 via-slate-900 to-navy-950 shadow-[0_24px_80px_rgba(2,6,23,0.35)] transform transition-transform duration-300 ease-in-out;
+    @apply fixed inset-y-0 left-0 z-50 w-64 border-r border-white/10 bg-linear-to-b from-slate-950 via-slate-900 to-slate-800 shadow-[0_24px_80px_rgba(2,6,23,0.35)] transform transition-transform duration-300 ease-in-out;
   }
   .sidebar-item {
     @apply flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 transition-all duration-150 hover:bg-white/10 hover:text-white;
@@ -109,7 +109,7 @@
 
   /* Cards */
   .card {
-    @apply surface-card p-6;
+    @apply rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)];
   }
   .card-hover {
     @apply transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_22px_70px_rgba(15,23,42,0.12)];
@@ -120,19 +120,19 @@
     @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
   .btn-primary {
-    @apply btn bg-navy-700 text-white shadow-[0_16px_34px_rgba(30,64,175,0.2)] hover:bg-navy-800 hover:-translate-y-0.5 focus:ring-navy-300;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-indigo-700 text-white shadow-[0_16px_34px_rgba(30,64,175,0.2)] hover:bg-indigo-800 hover:-translate-y-0.5 focus:ring-indigo-300;
   }
   .btn-secondary {
-    @apply btn border border-slate-200 bg-white text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:border-slate-300 hover:bg-slate-50 focus:ring-slate-300;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 border border-slate-200 bg-white text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:border-slate-300 hover:bg-slate-50 focus:ring-slate-300;
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-300;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-red-600 text-white hover:bg-red-700 focus:ring-red-300;
   }
   .btn-success {
-    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-300;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-300;
   }
   .btn-warning {
-    @apply btn bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-300;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-300;
   }
   .btn-sm {
     @apply px-3 py-2 text-xs;
@@ -143,7 +143,7 @@
 
   /* Form inputs */
   .input {
-    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-navy-300;
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-300;
   }
   .label {
     @apply mb-1.5 block text-sm font-medium text-slate-700;
@@ -156,14 +156,14 @@
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
   }
-  .badge-amber { @apply badge bg-amber-100 text-amber-800; }
-  .badge-blue { @apply badge bg-blue-100 text-blue-800; }
-  .badge-indigo { @apply badge bg-indigo-100 text-indigo-800; }
-  .badge-green { @apply badge bg-emerald-100 text-emerald-800; }
-  .badge-red { @apply badge bg-red-100 text-red-800; }
-  .badge-gray { @apply badge bg-slate-100 text-slate-600; }
-  .badge-purple { @apply badge bg-purple-100 text-purple-800; }
-  .badge-teal { @apply badge bg-teal-100 text-teal-800; }
+  .badge-amber { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-800; }
+  .badge-blue { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-800; }
+  .badge-indigo { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800; }
+  .badge-green { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800; }
+  .badge-red { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-red-100 text-red-800; }
+  .badge-gray { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600; }
+  .badge-purple { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-purple-100 text-purple-800; }
+  .badge-teal { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-teal-100 text-teal-800; }
 
   /* Table */
   .table-container {
@@ -187,7 +187,7 @@
 
   /* Stat cards */
   .stat-card {
-    @apply surface-card flex items-start gap-4 p-6;
+    @apply flex items-start gap-4 rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)];
   }
   .stat-icon {
     @apply shrink-0 rounded-xl p-3;
@@ -237,7 +237,7 @@
     @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium shadow-[0_18px_60px_rgba(15,23,42,0.14)];
     animation: fadeIn 0.3s ease-in-out;
   }
-  .toast-success { @apply toast border-emerald-200 bg-emerald-50 text-emerald-900; animation: fadeIn 0.3s ease-in-out; }
-  .toast-error { @apply toast border-red-200 bg-red-50 text-red-900; animation: fadeIn 0.3s ease-in-out; }
-  .toast-info { @apply toast border-indigo-200 bg-indigo-50 text-indigo-900; animation: fadeIn 0.3s ease-in-out; }
+  .toast-success { @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; animation: fadeIn 0.3s ease-in-out; }
+  .toast-error { @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; animation: fadeIn 0.3s ease-in-out; }
+  .toast-info { @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 text-sm font-medium text-indigo-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; animation: fadeIn 0.3s ease-in-out; }
 }
