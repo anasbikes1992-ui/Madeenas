@@ -72,11 +72,12 @@ export async function getCartWithTotals(customerId: string, taxRate = 18) {
     })),
     taxRate
   );
+  const { items: _lineItems, ...totalsWithoutItems } = totals
   
   return {
     ...cart,
     items,
-    ...totals,
+    ...totalsWithoutItems,
   };
 }
 

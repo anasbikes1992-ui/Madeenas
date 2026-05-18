@@ -20,7 +20,7 @@ describe('customerOrderAdminUpdateSchema', () => {
     expect(customerOrderAdminUpdateSchema.safeParse({}).success).toBe(false)
   })
   it('accepts status only', () => {
-    expect(customerOrderAdminUpdateSchema.safeParse({ status: 'QUOTED' }).success).toBe(true)
+    expect(customerOrderAdminUpdateSchema.safeParse({ status: 'APPROVED' }).success).toBe(true)
   })
 })
 

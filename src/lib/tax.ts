@@ -332,7 +332,7 @@ export const prepareCheckoutData = prepareSaleData;
 // EXPORTS
 // =============================================================================
 
-export default {
+const taxUtils = {
   TAX_CONFIG,
   calculateTax,
   calculateGrandTotal,
@@ -349,3 +349,5 @@ export default {
   prepareSaleData,
   prepareCheckoutData,
 };
+
+export default taxUtils;

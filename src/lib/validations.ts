@@ -47,15 +47,22 @@ export const productUpdateSchema = productCreateSchema.partial().extend({
   isActive: z.boolean().optional(),
 })
 
-export const customerOrderStatusSchema = z.enum(['NEW', 'REVIEWED', 'QUOTED', 'CONFIRMED', 'CLOSED'])
+export const customerOrderStatusSchema = z.enum([
+  'PENDING',
+  'APPROVED',
+  'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED',
+  'REFUNDED',
+])
 
 export const customerOrderAdminUpdateSchema = z
   .object({
     status: customerOrderStatusSchema.optional(),
-    quotedPrice: z.coerce.number().nonnegative().optional().nullable(),
   })
-  .refine((d) => d.status !== undefined || d.quotedPrice !== undefined, {
-    message: 'Provide at least status or quotedPrice',
+  .refine((d) => d.status !== undefined, {
+    message: 'Provide status',
     path: ['status'],
   })
 

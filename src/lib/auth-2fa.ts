@@ -3,16 +3,11 @@
  * TOTP-based authentication using Google Authenticator/Authy compatible tokens
  */
 
-import { TOTP } from 'otplib'
+import { generateSecret, generateURI, verify } from 'otplib'
 import QRCode from 'qrcode'
 import { prisma } from '@/lib/db'
 
 const APP_NAME = 'Madeena Textiles'
-
-// Configure TOTP
-TOTP.options = {
-  window: 1, // Allow 30s time drift
-}
 
 export interface Setup2FAResult {
   secret: string
@@ -29,8 +24,12 @@ export interface Verify2FAResult {
  * Generate 2FA secret and QR code for user enrollment
  */
 export async function setup2FA(userId: string, userEmail: string): Promise<Setup2FAResult> {
-  const secret = TOTP.generateSecret()
-  const otpauth = `otpauth://totp/${APP_NAME}:${userEmail}?secret=${secret}&issuer=${APP_NAME}`
+  const secret = generateSecret()
+  const otpauth = generateURI({
+    issuer: APP_NAME,
+    label: userEmail,
+    secret,
+  })
 
   // Generate QR code as data URL
   const qrCode = await QRCode.toDataURL(otpauth)
@@ -86,10 +85,11 @@ export async function verify2FASetup(
     }
   }
 
-  const isValid = TOTP.verify({
+  const isValid = (await verify({
     token,
     secret: user.twoFactorSecret,
-  })
+    epochTolerance: 30,
+  })).valid
 
   if (!isValid) {
     return {
@@ -131,10 +131,11 @@ export async function verify2FALogin(userId: string, token: string): Promise<Ver
   }
 
   // Try TOTP token first
-  const isValidToken = TOTP.verify({
+  const isValidToken = (await verify({
     token,
     secret: user.twoFactorSecret,
-  })
+    epochTolerance: 30,
+  })).valid
 
   if (isValidToken) {
     return {
@@ -194,10 +195,11 @@ export async function disable2FA(userId: string, token: string): Promise<Verify2
   }
 
   // Verify token before disabling
-  const isValid = TOTP.verify({
+  const isValid = (await verify({
     token,
     secret: user.twoFactorSecret,
-  })
+    epochTolerance: 30,
+  })).valid
 
   if (!isValid) {
     return {
@@ -272,10 +274,11 @@ export async function regenerateBackupCodes(
   }
 
   // Verify current token
-  const isValid = TOTP.verify({
+  const isValid = (await verify({
     token: verificationToken,
     secret: user.twoFactorSecret,
-  })
+    epochTolerance: 30,
+  })).valid
 
   if (!isValid) {
     return {

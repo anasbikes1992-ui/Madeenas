@@ -16,7 +16,7 @@ const FINANCE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'FINANCE']
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -27,6 +27,7 @@ export async function PATCH(
     const isAdmin = ADMIN_ROLES.includes(session.user.role)
     const isFinance = FINANCE_ROLES.includes(session.user.role)
 
+    const { id } = await params
     const body = await request.json()
     const { action } = body
 
@@ -38,7 +39,7 @@ export async function PATCH(
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
         result = await approveReturn(
-          params.id,
+          id,
           session.user.id,
           body.adjustedRefundAmount,
           body.adminNote
@@ -55,7 +56,7 @@ export async function PATCH(
             { status: 400 }
           )
         }
-        result = await rejectReturn(params.id, session.user.id, body.rejectionReason)
+        result = await rejectReturn(id, session.user.id, body.rejectionReason)
         break
 
       case 'mark_received':
@@ -63,7 +64,7 @@ export async function PATCH(
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
         result = await markItemsReceived(
-          params.id,
+          id,
           session.user.id,
           body.inspectionNote,
           body.condition
@@ -81,7 +82,7 @@ export async function PATCH(
           )
         }
         result = await processRefund(
-          params.id,
+          id,
           session.user.id,
           body.refundMethod,
           body.transactionReference

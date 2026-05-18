@@ -2,28 +2,71 @@
 import { useEffect, useState } from 'react'
 import { formatCurrency } from '@/lib/utils'
 
+interface ReportProduct {
+  name: string
+  category?: { name?: string | null } | null
+  costPrice?: number | null
+  unit?: string | null
+}
+
+interface ReportLocation {
+  name: string
+}
+
+interface InventoryMatrixRow {
+  productId: string
+  locationId: string
+  quantity: number
+  product: ReportProduct
+  location: ReportLocation
+}
+
+interface InventoryResponse {
+  inventoryMatrix?: InventoryMatrixRow[]
+}
+
+interface MovementResponse {
+  movements?: Array<Record<string, unknown>>
+}
+
+interface ReportsData {
+  inventory: InventoryResponse
+  movement: MovementResponse
+}
+
 export default function ReportsPage() {
   const [period, setPeriod] = useState('30')
-  const [inventoryData, setInventoryData] = useState<any>(null)
+  const [inventoryData, setInventoryData] = useState<ReportsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      fetch(`/api/reports?type=inventory`).then(r => r.json()),
-      fetch(`/api/reports?type=movement&days=${period}`).then(r => r.json()),
-    ]).then(([inv, mov]) => {
-      setInventoryData({ inventory: inv, movement: mov })
-      setLoading(false)
-    })
+    async function loadReports() {
+      try {
+        const [inv, mov] = await Promise.all([
+          fetch(`/api/reports?type=inventory`).then(r => r.json()),
+          fetch(`/api/reports?type=movement&days=${period}`).then(r => r.json()),
+        ])
+        setInventoryData({
+          inventory: inv as InventoryResponse,
+          movement: mov as MovementResponse,
+        })
+      } catch (error) {
+        console.error('Failed to load reports:', error)
+        setInventoryData(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadReports()
   }, [period])
 
   const totalValue = inventoryData?.inventory?.inventoryMatrix?.reduce(
-    (sum: number, s: any) => sum + (s.quantity * (s.product?.costPrice || 0)), 0
+    (sum: number, s: InventoryMatrixRow) => sum + (s.quantity * (s.product?.costPrice || 0)), 0
   ) || 0
 
   const totalUnits = inventoryData?.inventory?.inventoryMatrix?.reduce(
-    (sum: number, s: any) => sum + s.quantity, 0
+    (sum: number, s: InventoryMatrixRow) => sum + s.quantity, 0
   ) || 0
 
   return (
@@ -33,7 +76,16 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>
           <p className="text-sm text-slate-500">Stock movement and inventory overview</p>
         </div>
-        <select id="period-filter" aria-label="Report period" value={period} onChange={e => setPeriod(e.target.value)} className="input max-w-xs">
+        <select
+          id="period-filter"
+          aria-label="Report period"
+          value={period}
+          onChange={(e) => {
+            setLoading(true)
+            setPeriod(e.target.value)
+          }}
+          className="input max-w-xs"
+        >
           <option value="7">Last 7 days</option>
           <option value="30">Last 30 days</option>
           <option value="90">Last 90 days</option>
@@ -45,8 +97,8 @@ export default function ReportsPage() {
         {[
           { label: 'Total Stock Units', value: totalUnits.toLocaleString(), icon: '📦', color: 'bg-indigo-50 text-indigo-700' },
           { label: 'Estimated Stock Value', value: formatCurrency(totalValue), icon: '💰', color: 'bg-emerald-50 text-emerald-700' },
-          { label: 'Unique Products', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: any) => s.productId)).size, icon: '🏷️', color: 'bg-purple-50 text-purple-700' },
-          { label: 'Active Locations', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: any) => s.locationId)).size, icon: '🏭', color: 'bg-amber-50 text-amber-700' },
+          { label: 'Unique Products', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.productId)).size, icon: '🏷️', color: 'bg-purple-50 text-purple-700' },
+          { label: 'Active Locations', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.locationId)).size, icon: '🏭', color: 'bg-amber-50 text-amber-700' },
         ].map(s => (
           <div key={s.label} className="card">
             <div className="flex items-center gap-3">
@@ -83,10 +135,10 @@ export default function ReportsPage() {
               </thead>
               <tbody>
                 {inventoryData?.inventory?.inventoryMatrix
-                  ?.filter((s: any) => s.quantity > 0)
-                  .sort((a: any, b: any) => b.quantity - a.quantity)
+                  ?.filter((s: InventoryMatrixRow) => s.quantity > 0)
+                  .sort((a: InventoryMatrixRow, b: InventoryMatrixRow) => b.quantity - a.quantity)
                   .slice(0, 50)
-                  .map((s: any) => (
+                  .map((s: InventoryMatrixRow) => (
                     <tr key={`${s.productId}-${s.locationId}`}>
                       <td className="font-medium text-sm text-slate-900">{s.product.name}</td>
                       <td>

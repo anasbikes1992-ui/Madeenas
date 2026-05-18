@@ -26,6 +26,9 @@ export async function GET(request: NextRequest) {
   
   // Shop staff only see their own location's sales
   if (role === 'SHOP_STAFF' || role === 'STORE_KEEPER') {
+    if (!session.user.locationId) {
+      return NextResponse.json({ error: 'Location not configured for current user' }, { status: 400 })
+    }
     where.locationId = session.user.locationId
   }
 

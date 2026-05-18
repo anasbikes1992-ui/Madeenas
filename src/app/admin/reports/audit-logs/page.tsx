@@ -2,21 +2,54 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 
+interface AuditLogUser {
+  name: string
+  role: string
+}
+
+interface AuditLog {
+  id: string
+  user: AuditLogUser
+  action: string
+  entity: string
+  entityId: string | null
+  details: string | null
+  createdAt: string
+}
+
+interface AuditLogsPagination {
+  page: number
+  totalPages: number
+}
+
+interface AuditLogsResponse {
+  logs?: AuditLog[]
+  pagination?: AuditLogsPagination
+}
+
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<any[]>([])
+  const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [pagination, setPagination] = useState<any>({ page: 1, totalPages: 1 })
+  const [pagination, setPagination] = useState<AuditLogsPagination>({ page: 1, totalPages: 1 })
 
   async function loadLogs(page = 1) {
-    setLoading(true)
-    const res = await fetch(`/api/audit-logs?page=${page}`)
-    const data = await res.json()
-    setLogs(data.logs || [])
-    setPagination(data.pagination)
-    setLoading(false)
+    try {
+      const res = await fetch(`/api/audit-logs?page=${page}`)
+      const data = (await res.json()) as AuditLogsResponse
+      setLogs(data.logs || [])
+      setPagination(data.pagination || { page: 1, totalPages: 1 })
+    } catch (error) {
+      console.error('Failed to load audit logs:', error)
+      setLogs([])
+      setPagination({ page: 1, totalPages: 1 })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { loadLogs() }, [])
+  useEffect(() => {
+    void loadLogs()
+  }, [])
 
   const getActionColor = (action: string) => {
     const a = action.toLowerCase()
@@ -54,7 +87,7 @@ export default function AuditLogsPage() {
               ))
             ) : logs.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-12 text-slate-400">No logs found</td></tr>
-            ) : logs.map((log: any) => (
+            ) : logs.map((log) => (
               <tr key={log.id}>
                 <td>
                   <div className="text-sm font-medium text-slate-900">{log.user.name}</div>
@@ -65,11 +98,11 @@ export default function AuditLogsPage() {
                 </td>
                 <td className="text-sm text-slate-700">{log.entity}</td>
                 <td><code className="text-xs bg-slate-100 px-2 py-0.5 rounded">{log.entityId || '—'}</code></td>
-                <td className="max-w-xs truncate text-xs text-slate-600" title={log.details}>
+                <td className="max-w-xs truncate text-xs text-slate-600" title={log.details ?? undefined}>
                   {log.details || '—'}
                 </td>
                 <td className="text-xs text-slate-500">
-                  {formatDate(log.createdAt, { dateStyle: 'medium', timeStyle: 'short' } as any)}
+                  {formatDate(log.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
                 </td>
               </tr>
             ))}
@@ -85,14 +118,20 @@ export default function AuditLogsPage() {
         <div className="flex gap-2">
           <button 
             disabled={pagination.page <= 1} 
-            onClick={() => loadLogs(pagination.page - 1)}
+            onClick={() => {
+              setLoading(true)
+              void loadLogs(pagination.page - 1)
+            }}
             className="btn-secondary btn-sm disabled:opacity-50"
           >
             Previous
           </button>
           <button 
             disabled={pagination.page >= pagination.totalPages} 
-            onClick={() => loadLogs(pagination.page + 1)}
+            onClick={() => {
+              setLoading(true)
+              void loadLogs(pagination.page + 1)
+            }}
             className="btn-secondary btn-sm disabled:opacity-50"
           >
             Next

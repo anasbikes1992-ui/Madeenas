@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface Location {
   id: string
@@ -8,30 +8,30 @@ interface Location {
   type: string
   address?: string
   isActive: boolean
-  stocks?: any[]
+  stocks?: Array<Record<string, unknown>>
 }
 
 export default function LocationsDebugPage() {
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadLocations()
-  }, [])
-
-  async function loadLocations() {
+  const loadLocations = useCallback(async () => {
     try {
       const response = await fetch('/api/locations')
       if (response.ok) {
         const data = await response.json()
-        setLocations(Array.isArray(data) ? data : [])
+        setLocations(Array.isArray(data) ? (data as Location[]) : [])
       }
     } catch (error) {
       console.error('Failed to load locations:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    void loadLocations()
+  }, [loadLocations])
 
   if (loading) {
     return (

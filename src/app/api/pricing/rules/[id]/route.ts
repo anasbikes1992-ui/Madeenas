@@ -10,7 +10,7 @@ const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -18,8 +18,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { id } = await params
     const body = await request.json()
-    const rule = await updatePriceRule(params.id, body)
+    const rule = await updatePriceRule(id, body)
 
     return NextResponse.json({
       success: true,
@@ -43,7 +44,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -51,7 +52,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await deletePriceRule(params.id)
+    const { id } = await params
+    await deletePriceRule(id)
 
     return NextResponse.json({
       success: true,

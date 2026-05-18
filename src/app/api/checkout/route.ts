@@ -35,30 +35,33 @@ export async function POST(request: NextRequest) {
     const checkoutData = validation.data
     const taxRate = checkoutData.taxRate || 18
 
-    // Validate stock availability if locationId provided
-    if (checkoutData.locationId) {
-      const stockValidation = await cartService.validateCartStock(
-        user.id,
-        checkoutData.locationId
+    // Checkout stock validation uses the customer's assigned location.
+    if (!user.locationId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Customer location is not configured. Please contact support.',
+        },
+        { status: 400 }
       )
+    }
 
-      if (!stockValidation.valid) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Insufficient stock for some items',
-            details: stockValidation.errors,
-          },
-          { status: 400 }
-        )
-      }
+    const stockValidation = await cartService.validateCartStock(user.id, user.locationId)
+    if (!stockValidation.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Insufficient stock for some items',
+          details: stockValidation.errors,
+        },
+        { status: 400 }
+      )
     }
 
     // Create order from cart
     const order = await ordersService.createOrderFromCart(
       user.id,
       {
-        items: checkoutData.items,
         shippingAddress: checkoutData.shippingAddress,
         billingAddress: checkoutData.billingAddress,
         phoneNumber: checkoutData.phoneNumber,

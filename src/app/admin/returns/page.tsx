@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PremiumCard } from '@/components/ui/PremiumCard'
 import { GoldButton } from '@/components/ui/GoldButton'
 import { NavyButton } from '@/components/ui/NavyButton'
@@ -40,7 +40,6 @@ const statusColors = {
 
 export default function AdminReturnsPage() {
   const [returns, setReturns] = useState<Return[]>([])
-  const [filteredReturns, setFilteredReturns] = useState<Return[]>([])
   const [selectedReturn, setSelectedReturn] = useState<Return | null>(null)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
@@ -60,37 +59,43 @@ export default function AdminReturnsPage() {
   const [refundMethod, setRefundMethod] = useState('ORIGINAL_METHOD')
   const [transactionRef, setTransactionRef] = useState('')
 
-  useEffect(() => {
-    fetchReturns()
-  }, [])
-
-  useEffect(() => {
-    if (statusFilter === 'ALL') {
-      setFilteredReturns(returns)
-    } else {
-      setFilteredReturns(returns.filter((r) => r.status === statusFilter))
-    }
-  }, [statusFilter, returns])
-
-  const fetchReturns = async () => {
+  const fetchReturns = useCallback(async () => {
     try {
       const response = await fetch('/api/returns')
       const data = await response.json()
       if (data.success) {
-        setReturns(data.returns)
-        setFilteredReturns(data.returns)
+        setReturns(data.returns as Return[])
       }
     } catch (error) {
       console.error('Failed to fetch returns:', error)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    void fetchReturns()
+  }, [fetchReturns])
+
+  const filteredReturns = useMemo(() => {
+    if (statusFilter === 'ALL') return returns
+    return returns.filter((r) => r.status === statusFilter)
+  }, [statusFilter, returns])
+
+  interface ReturnActionPayload {
+    adjustedRefundAmount?: number
+    adminNote?: string
+    rejectionReason?: string
+    condition?: string
+    inspectionNote?: string
+    refundMethod?: string
+    transactionReference?: string
   }
 
   const handleAction = async (
     returnId: string,
     action: string,
-    payload: any
+    payload: ReturnActionPayload
   ) => {
     setActionLoading(true)
     try {
@@ -103,7 +108,7 @@ export default function AdminReturnsPage() {
       const data = await response.json()
       if (data.success) {
         alert('Action completed successfully!')
-        fetchReturns()
+        void fetchReturns()
         setSelectedReturn(null)
         closeAllModals()
       } else {
@@ -354,7 +359,7 @@ export default function AdminReturnsPage() {
               {selectedReturn.customerNote && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm font-medium text-navy-700 mb-2">
-                    Customer's Note:
+                    Customer&apos;s Note:
                   </p>
                   <p className="text-navy-600">{selectedReturn.customerNote}</p>
                 </div>

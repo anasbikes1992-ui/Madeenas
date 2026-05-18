@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       fromLocation: entry.fromLocation.name,
       toLocation: entry.toLocation?.name ?? null,
       quantity: -(entry.quantityApproved || entry.quantityRequested),
-      date: (entry.receivedAt || entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt).toISOString(),
+      date: (entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt).toISOString(),
       actor: entry.requestedByUser.name,
       note: entry.note ?? null,
     })),

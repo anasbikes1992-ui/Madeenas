@@ -6,7 +6,7 @@ import { GoldButton } from '@/components/ui/GoldButton'
 import { NavyButton } from '@/components/ui/NavyButton'
 import { PremiumCard } from '@/components/ui/PremiumCard'
 
-const EASE = [0.22, 1, 0.36, 1]
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1]
 
 const pageIn = {
   hidden: { opacity: 0, y: 28 },

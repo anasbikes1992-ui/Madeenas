@@ -1,23 +1,12 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SHOP_STAFF'])
-
-async function resolveUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
-  if (!token) return null
-  try {
-    return await verifyMobileToken(token)
-  } catch {
-    return null
-  }
-}
 
 const saleItemSchema = z.object({
   productId: z.string().min(1),
@@ -38,7 +27,7 @@ const saleSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const user = await resolveUser(request)
+  const user = await getMobileUser(request)
   if (!user) return fail('Unauthorized', 401, 'UNAUTHORIZED')
 
   const role = (user.role ?? '').toUpperCase()
@@ -173,7 +162,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await resolveUser(request)
+  const user = await getMobileUser(request)
   if (!user) return fail('Unauthorized', 401, 'UNAUTHORIZED')
 
   const role = (user.role ?? '').toUpperCase()

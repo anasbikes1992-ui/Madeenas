@@ -1,23 +1,12 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileUser } from '@/lib/get-mobile-user'
 
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'FINANCE'])
 
-async function resolveUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
-  if (!token) return null
-  try {
-    return await verifyMobileToken(token)
-  } catch {
-    return null
-  }
-}
-
 export async function GET(request: NextRequest) {
-  const user = await resolveUser(request)
+  const user = await getMobileUser(request)
   if (!user) return fail('Unauthorized', 401, 'UNAUTHORIZED')
 
   const role = (user.role ?? '').toUpperCase()

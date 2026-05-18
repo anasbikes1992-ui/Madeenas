@@ -6,7 +6,7 @@ import { PremiumCard } from '@/components/ui/PremiumCard'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 
-const EASE = [0.22, 1, 0.36, 1]
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1]
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 32 },
@@ -268,12 +268,12 @@ export default function HomePage() {
               variants={fadeInUp}
               className="flex flex-col sm:flex-row items-center justify-center gap-4"
             >
-              <GoldButton href="/customer/products" size="lg">
-                Browse Products
-              </GoldButton>
-              <NavyButton href="/customer/signup" size="lg">
-                Create Customer Account
-              </NavyButton>
+              <Link href="/customer/products">
+                <GoldButton size="lg">Browse Products</GoldButton>
+              </Link>
+              <Link href="/customer/signup">
+                <NavyButton size="lg">Create Customer Account</NavyButton>
+              </Link>
             </motion.div>
           </motion.div>
         </div>

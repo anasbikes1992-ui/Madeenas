@@ -3,8 +3,34 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
+interface SaleItem {
+  id: string
+  quantity: number
+  product: {
+    name: string
+    unit: string
+  }
+}
+
+interface SaleRecord {
+  id: string
+  receiptNo: string
+  createdAt: string
+  location: { name: string }
+  customerName?: string | null
+  customerPhone?: string | null
+  items: SaleItem[]
+  totalAmount: number | string
+  paymentMode: 'CASH' | 'CARD' | 'BANK_TRANSFER' | string
+  soldBy: { name: string }
+}
+
+interface SalesResponse {
+  sales?: SaleRecord[]
+}
+
 export default function SalesHistoryPage() {
-  const [sales, setSales] = useState<any[]>([])
+  const [sales, setSales] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   const summary = useMemo(() => {
@@ -22,7 +48,7 @@ export default function SalesHistoryPage() {
   useEffect(() => {
     fetch('/api/sales')
       .then(r => r.json())
-      .then(data => {
+      .then((data: SalesResponse) => {
         setSales(data.sales || [])
         setLoading(false)
       })
@@ -97,7 +123,7 @@ export default function SalesHistoryPage() {
                 </td>
                 <td>
                   <div className="space-y-1">
-                    {sale.items.map((item: any) => (
+                    {sale.items.map((item: SaleItem) => (
                       <div key={item.id} className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block mr-1 mb-1 border border-slate-100">
                         {item.product.name} ({item.quantity} {item.product.unit})
                       </div>

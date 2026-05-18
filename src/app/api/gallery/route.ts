@@ -6,6 +6,7 @@ import { createNotification } from '@/lib/audit'
 import { limitRequestsAsync } from '@/lib/rate-limit'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 
 const batchOrderSchema = z.object({
   customerName: z.string().trim().min(2).max(120),
@@ -24,6 +25,65 @@ const batchOrderSchema = z.object({
     .min(1)
     .max(30),
 })
+
+async function ensureCustomerUser(name: string, email: string, phone: string | null) {
+  const existingUser = await prisma.user.findUnique({ where: { email } })
+  if (existingUser) {
+    if (existingUser.name !== name) {
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { name },
+      })
+    }
+    if (phone) {
+      await prisma.customer.upsert({
+        where: { phone },
+        update: { name, email },
+        create: { name, email, phone },
+      })
+    }
+    return existingUser.id
+  }
+
+  const password = `Temp#${Date.now()}${Math.floor(Math.random() * 1000)}`
+  const passwordHash = await bcrypt.hash(password, 10)
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: passwordHash,
+      role: 'CUSTOMER',
+      isActive: true,
+    },
+  })
+
+  if (phone) {
+    await prisma.customer.upsert({
+      where: { phone },
+      update: { name, email },
+      create: { name, email, phone },
+    })
+  }
+
+  return user.id
+}
+
+async function generateOrderNumber() {
+  const year = new Date().getFullYear()
+  const prefix = `ORD-${year}`
+  const lastOrder = await prisma.customerOrder.findFirst({
+    where: { orderNumber: { startsWith: prefix } },
+    orderBy: { orderNumber: 'desc' },
+  })
+
+  let sequence = 1
+  if (lastOrder) {
+    const lastSequence = parseInt(lastOrder.orderNumber.split('-')[2] || '0', 10)
+    if (!Number.isNaN(lastSequence)) sequence = lastSequence + 1
+  }
+
+  return `${prefix}-${String(sequence).padStart(4, '0')}`
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -96,13 +156,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (parsedBatch.success) {
+      const customerId =
+        session?.user?.role === 'CUSTOMER'
+          ? (session.user.id as string)
+          : await ensureCustomerUser(
+              parsedBatch.data.customerName,
+              parsedBatch.data.customerEmail,
+              parsedBatch.data.customerPhone,
+            )
+
       const productIds = Array.from(new Set(parsedBatch.data.items.map((item) => item.productId)))
       const products = await prisma.product.findMany({
         where: {
           id: { in: productIds },
           isActive: true,
         },
-        include: { category: true },
+        select: { id: true, name: true, unit: true, costPrice: true },
       })
 
       if (products.length !== productIds.length) {
@@ -110,55 +179,97 @@ export async function POST(request: NextRequest) {
       }
 
       const productMap = new Map(products.map((product) => [product.id, product]))
-
-      const createdOrders = await prisma.$transaction(async (tx) => {
-        const orders = [] as Awaited<ReturnType<typeof tx.customerOrder.create>>[]
-        for (const item of parsedBatch.data.items) {
-          const order = await tx.customerOrder.create({
-            data: {
-              productId: item.productId,
-              customerId: session?.user?.role === 'CUSTOMER' ? (session.user.id as string) : null,
-              customerName: parsedBatch.data.customerName,
-              customerEmail: parsedBatch.data.customerEmail,
-              customerPhone: parsedBatch.data.customerPhone,
-              quantity: item.quantity,
-              colorPreference: item.colorPreference,
-              note: item.note,
-            },
-          })
-          orders.push(order)
+      const taxRate = 18
+      const lineItems = parsedBatch.data.items.map((item) => {
+        const product = productMap.get(item.productId)
+        if (!product) {
+          throw new Error('One or more products are not available')
         }
-        return orders
+        const unitPrice = product.costPrice && product.costPrice > 0 ? product.costPrice * 1.25 : 1
+        const subTotal = unitPrice * item.quantity
+        const taxAmount = (subTotal * taxRate) / 100
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          subTotal,
+          taxRate,
+          taxAmount,
+          total: subTotal + taxAmount,
+          product,
+          colorPreference: item.colorPreference,
+          note: item.note,
+        }
+      })
+
+      const subTotal = lineItems.reduce((sum, item) => sum + item.subTotal, 0)
+      const taxAmount = lineItems.reduce((sum, item) => sum + item.taxAmount, 0)
+      const grandTotal = subTotal + taxAmount
+
+      const order = await prisma.customerOrder.create({
+        data: {
+          orderNumber: await generateOrderNumber(),
+          customerId,
+          status: 'PENDING',
+          subTotal,
+          taxRate,
+          taxAmount,
+          grandTotal,
+          shippingAddress: 'Address will be confirmed with customer',
+          billingAddress: null,
+          phoneNumber: parsedBatch.data.customerPhone ?? 'UNKNOWN',
+          note: lineItems
+            .map((item) => {
+              const extra = [item.colorPreference ? `color=${item.colorPreference}` : null, item.note]
+                .filter(Boolean)
+                .join(', ')
+              return extra ? `${item.product.name}: ${extra}` : null
+            })
+            .filter(Boolean)
+            .join('\n') || null,
+          items: {
+            create: lineItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              subTotal: item.subTotal,
+              taxRate: item.taxRate,
+              taxAmount: item.taxAmount,
+              total: item.total,
+            })),
+          },
+        },
+        include: {
+          items: true,
+        },
       })
 
       await createNotification({
         role: 'ADMIN',
         title: 'New customer cart order request',
-        message: `${parsedBatch.data.customerName} submitted ${createdOrders.length} order request(s) from storefront cart.`,
+        message: `${parsedBatch.data.customerName} submitted ${lineItems.length} item(s) from storefront cart.`,
         type: 'INFO',
         link: '/admin/customer-orders',
       })
 
       const notifications = await Promise.all(
-        createdOrders.map((order) => {
-          const product = productMap.get(order.productId)
-          if (!product) return Promise.resolve([])
-          return sendOrderWhatsAppNotifications({
+        lineItems.map((item) =>
+          sendOrderWhatsAppNotifications({
             orderId: order.id,
-            productName: product.name,
-            quantity: order.quantity,
-            customerName: order.customerName,
-            customerEmail: order.customerEmail,
-            customerPhone: order.customerPhone,
-            colorPreference: order.colorPreference,
-            note: order.note,
+            productName: item.product.name,
+            quantity: item.quantity,
+            customerName: parsedBatch.data.customerName,
+            customerEmail: parsedBatch.data.customerEmail,
+            customerPhone: parsedBatch.data.customerPhone,
+            colorPreference: item.colorPreference,
+            note: item.note,
           })
-        })
+        )
       )
 
       return NextResponse.json(
         {
-          orders: createdOrders,
+          order,
           notifications,
         },
         { status: 201 }
@@ -175,8 +286,11 @@ export async function POST(request: NextRequest) {
         id: parsed.productId,
         isActive: true,
       },
-      include: {
-        category: true,
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        costPrice: true,
       },
     })
 
@@ -184,23 +298,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
+    const customerId =
+      session?.user?.role === 'CUSTOMER'
+        ? (session.user.id as string)
+        : await ensureCustomerUser(parsed.customerName, parsed.customerEmail, parsed.customerPhone)
+    const unitPrice = product.costPrice && product.costPrice > 0 ? product.costPrice * 1.25 : 1
+    const subTotal = unitPrice * parsed.quantity
+    const taxRate = 18
+    const taxAmount = (subTotal * taxRate) / 100
+    const grandTotal = subTotal + taxAmount
+
     const order = await prisma.customerOrder.create({
       data: {
-        productId: parsed.productId,
-        customerId: session?.user?.role === 'CUSTOMER' ? (session.user.id as string) : null,
-        customerName: parsed.customerName,
-        customerEmail: parsed.customerEmail,
-        customerPhone: parsed.customerPhone,
-        quantity: parsed.quantity,
-        colorPreference: parsed.colorPreference,
+        orderNumber: await generateOrderNumber(),
+        customerId,
+        status: 'PENDING',
+        subTotal,
+        taxRate,
+        taxAmount,
+        grandTotal,
+        shippingAddress: 'Address will be confirmed with customer',
+        billingAddress: null,
+        phoneNumber: parsed.customerPhone ?? 'UNKNOWN',
         note: parsed.note,
+        items: {
+          create: [
+            {
+              productId: parsed.productId,
+              quantity: parsed.quantity,
+              unitPrice,
+              subTotal,
+              taxRate,
+              taxAmount,
+              total: grandTotal,
+            },
+          ],
+        },
       },
+      include: { items: true },
     })
 
     await createNotification({
       role: 'ADMIN',
       title: 'New customer order request',
-      message: `${order.customerName} requested ${order.quantity} ${product.unit} of ${product.name}.`,
+      message: `${parsed.customerName} requested ${parsed.quantity} ${product.unit} of ${product.name}.`,
       type: 'INFO',
       link: '/admin/customer-orders',
     })
@@ -208,12 +349,12 @@ export async function POST(request: NextRequest) {
     const notifications = await sendOrderWhatsAppNotifications({
       orderId: order.id,
       productName: product.name,
-      quantity: order.quantity,
-      customerName: order.customerName,
-      customerEmail: order.customerEmail,
-      customerPhone: order.customerPhone,
-      colorPreference: order.colorPreference,
-      note: order.note,
+      quantity: parsed.quantity,
+      customerName: parsed.customerName,
+      customerEmail: parsed.customerEmail,
+      customerPhone: parsed.customerPhone,
+      colorPreference: parsed.colorPreference,
+      note: parsed.note,
     })
 
     return NextResponse.json(

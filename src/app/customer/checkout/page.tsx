@@ -24,7 +24,7 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState({
     shippingAddress: '',
     billingAddress: '',
-    phoneNumber: session?.user?.phone || '',
+    phoneNumber: '',
     note: '',
   })
 
@@ -92,7 +92,7 @@ export default function CheckoutPage() {
       }
 
       toast.success('Order placed successfully!')
-      router.push(`/customer/orders/${data.order.id}`)
+      router.push(`/customer/orders/${data.data.id}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to place order')
     } finally {
@@ -156,7 +156,7 @@ export default function CheckoutPage() {
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="+251 9xx xxx xxx"
+                      placeholder="+94 7X XXX XXXX"
                     />
                   </div>
                 </div>

@@ -25,11 +25,12 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
-        continue-on-error: true
 
       - name: Check formatting with Prettier
         run: npx prettier --check .
-        continue-on-error: true
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
 
   test:
     runs-on: ubuntu-latest

@@ -1,9 +1,36 @@
 import { prisma } from '@/lib/db'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, OrderStatus } from '@prisma/client'
+
+const ORDER_STATUS_VALUES: OrderStatus[] = [
+  'PENDING',
+  'APPROVED',
+  'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED',
+  'REFUNDED',
+]
 
 const orderInclude = {
-  product: { include: { category: true } },
+  items: {
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          unit: true,
+          category: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  },
   customer: { select: { id: true, name: true, email: true } },
+  sale: { select: { receiptNo: true, createdAt: true, totalAmount: true } },
 } satisfies Prisma.CustomerOrderInclude
 
 export async function listCustomerOrders(params: {
@@ -13,7 +40,9 @@ export async function listCustomerOrders(params: {
 }) {
   const { status, page, limit } = params
   const where: Prisma.CustomerOrderWhereInput = {}
-  if (status) where.status = status
+  if (status && ORDER_STATUS_VALUES.includes(status as OrderStatus)) {
+    where.status = status as OrderStatus
+  }
 
   const [orders, total] = await Promise.all([
     prisma.customerOrder.findMany({
@@ -37,11 +66,10 @@ export async function getCustomerOrderById(id: string) {
 
 export async function updateCustomerOrder(
   id: string,
-  data: { status?: string; quotedPrice?: number | null }
+  data: { status?: OrderStatus }
 ) {
   const patch: Prisma.CustomerOrderUpdateInput = {}
   if (data.status !== undefined) patch.status = data.status
-  if (data.quotedPrice !== undefined) patch.quotedPrice = data.quotedPrice
 
   return prisma.customerOrder.update({
     where: { id },

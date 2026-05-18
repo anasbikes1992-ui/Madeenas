@@ -37,33 +37,58 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const order = await prisma.customerOrder.findUnique({
     where: { id },
-    include: { product: true },
+    include: {
+      items: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              unit: true,
+              costPrice: true,
+            },
+          },
+        },
+      },
+      customer: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+      sale: {
+        select: {
+          id: true,
+          receiptNo: true,
+          totalAmount: true,
+          createdAt: true,
+        },
+      },
+    },
   })
 
   if (!order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
-  if (order.status === 'CLOSED') {
-    return NextResponse.json({ error: 'Order already closed' }, { status: 400 })
-  }
-
-  // Idempotency check: Look for existing sale with this order reference
-  const existingSale = await prisma.sale.findFirst({
-    where: {
-      note: { contains: `customer order ${order.id}` },
-    },
-  })
-
-  if (existingSale) {
+  if (order.sale) {
     return NextResponse.json(
       {
         error: 'Order already fulfilled',
-        sale: existingSale,
+        sale: order.sale,
         order,
       },
       { status: 409 }
     )
+  }
+
+  if (['CANCELLED', 'REFUNDED'].includes(order.status)) {
+    return NextResponse.json({ error: 'Order cannot be fulfilled in its current status' }, { status: 400 })
+  }
+
+  if (order.items.length === 0) {
+    return NextResponse.json({ error: 'Order has no items to fulfill' }, { status: 400 })
   }
 
   const locationId = parsed.data.locationId || (session.user.locationId as string | null)
@@ -72,49 +97,62 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const paymentMode = parsed.data.paymentMode || 'CASH'
+  const taxRate = order.taxRate
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const stock = await tx.stock.findUnique({
-        where: {
-          productId_locationId: {
-            productId: order.productId,
-            locationId,
+      for (const item of order.items) {
+        const stock = await tx.stock.findUnique({
+          where: {
+            productId_locationId: {
+              productId: item.productId,
+              locationId,
+            },
           },
-        },
-      })
+        })
 
-      if (!stock || stock.quantity < order.quantity) {
-        throw new Error('Insufficient stock to fulfill this order')
+        if (!stock || stock.quantity < item.quantity) {
+          throw new Error(`Insufficient stock for ${item.product.name}`)
+        }
       }
 
       let customerId: string | null = null
-      if (order.customerPhone) {
+      if (order.phoneNumber && order.phoneNumber !== 'UNKNOWN') {
         const customer = await tx.customer.upsert({
-          where: { phone: order.customerPhone },
+          where: { phone: order.phoneNumber },
           update: {
-            name: order.customerName,
-            email: order.customerEmail,
+            name: order.customer.name,
+            email: order.customer.email,
           },
           create: {
-            name: order.customerName,
-            phone: order.customerPhone,
-            email: order.customerEmail,
+            name: order.customer.name,
+            phone: order.phoneNumber,
+            email: order.customer.email,
           },
         })
         customerId = customer.id
       }
 
-      const unitPrice =
-        parsed.data.unitPrice ?? order.quotedPrice ?? order.product.costPrice ?? 0
+      const lineItems = order.items.map((item) => {
+        const unitPrice = parsed.data.unitPrice ?? item.unitPrice ?? item.product.costPrice ?? 0
+        if (unitPrice <= 0) {
+          throw new Error(`Missing unit price for ${item.product.name}`)
+        }
+        const subTotal = unitPrice * item.quantity
+        const taxAmount = (subTotal * taxRate) / 100
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          subTotal,
+          taxRate,
+          taxAmount,
+          total: subTotal + taxAmount,
+        }
+      })
 
-      if (unitPrice <= 0) {
-        throw new Error('Quoted price or unit price is required before fulfillment')
-      }
-
-      const subTotal = unitPrice * order.quantity
-      const taxRate = 18
-      const taxAmount = (subTotal * taxRate) / 100
+      const subTotal = lineItems.reduce((sum, item) => sum + item.subTotal, 0)
+      const taxAmount = lineItems.reduce((sum, item) => sum + item.taxAmount, 0)
       const grandTotal = subTotal + taxAmount
       const receiptNo = await generateReceiptNo()
 
@@ -124,8 +162,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           locationId,
           soldById: session.user.id as string,
           customerId,
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
+          customerName: order.customer.name,
+          customerPhone: order.phoneNumber,
           totalAmount: grandTotal,
           subTotal,
           taxRate,
@@ -134,17 +172,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           paymentMode,
           note: parsed.data.note || `Fulfilled from customer order ${order.id}`,
           items: {
-            create: [
-              {
-                productId: order.productId,
-                quantity: order.quantity,
-                unitPrice,
-                subTotal: unitPrice * order.quantity,
-                taxRate,
-                taxAmount: ((unitPrice * order.quantity) * taxRate) / 100,
-                total: (unitPrice * order.quantity) + (((unitPrice * order.quantity) * taxRate) / 100),
-              },
-            ],
+            create: lineItems,
           },
         },
         include: {
@@ -152,23 +180,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
       })
 
-      await tx.stock.update({
-        where: {
-          productId_locationId: {
-            productId: order.productId,
-            locationId,
+      for (const item of lineItems) {
+        await tx.stock.update({
+          where: {
+            productId_locationId: {
+              productId: item.productId,
+              locationId,
+            },
           },
-        },
-        data: {
-          quantity: { decrement: order.quantity },
-        },
-      })
+          data: {
+            quantity: { decrement: item.quantity },
+          },
+        })
+      }
 
       const updatedOrder = await tx.customerOrder.update({
         where: { id: order.id },
         data: {
-          status: 'CLOSED',
-          quotedPrice: unitPrice,
+          status: 'DELIVERED',
+          saleId: sale.id,
+          fulfilledBy: session.user.id as string,
+          fulfilledAt: new Date(),
           note: order.note
             ? `${order.note}\n[Fulfilled as sale ${receiptNo}]`
             : `[Fulfilled as sale ${receiptNo}]`,

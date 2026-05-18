@@ -44,7 +44,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const updated = await updateCustomerOrder(id, {
       status: parsed.data.status,
-      quotedPrice: parsed.data.quotedPrice,
     })
 
     await logActivity({
@@ -52,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       action: 'UPDATE',
       entity: 'CustomerOrder',
       entityId: id,
-      details: `Status=${updated.status}, quotedPrice=${updated.quotedPrice ?? 'n/a'}`,
+      details: `Status=${updated.status}`,
     })
 
     return NextResponse.json(updated)

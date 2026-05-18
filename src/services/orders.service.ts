@@ -9,6 +9,10 @@ import { prepareSaleData, validateTaxCalculation } from '@/lib/tax';
 import type { Prisma, OrderStatus } from '@prisma/client';
 import type { CreateOrder } from '@/lib/validation';
 
+type CreateOrderFromCartInput = Omit<CreateOrder, 'items'> & {
+  items?: CreateOrder['items']
+}
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -82,7 +86,7 @@ async function generateOrderNumber(): Promise<string> {
  */
 export async function createOrderFromCart(
   customerId: string,
-  data: CreateOrder,
+  data: CreateOrderFromCartInput,
   taxRate = 18
 ) {
   // Get customer's cart

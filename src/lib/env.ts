@@ -88,6 +88,12 @@ if (data.NODE_ENV === 'production') {
       throw new Error('[env] RESEND_API_KEY must be set when BACKUP_ENABLED=true.')
     }
   }
+
+  if (!data.UPSTASH_REDIS_REST_URL || !data.UPSTASH_REDIS_REST_TOKEN) {
+    console.warn(
+      '[env] UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are not configured in production. Rate limiting will fall back to in-memory and may be ineffective on serverless.',
+    )
+  }
 }
 
 const publicSupabaseKey = data.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? data.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY

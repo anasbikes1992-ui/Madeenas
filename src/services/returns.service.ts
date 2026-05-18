@@ -240,6 +240,11 @@ export async function markItemsReceived(
       items: {
         include: { product: true },
       },
+      sale: {
+        select: {
+          locationId: true,
+        },
+      },
     },
   })
 
@@ -251,6 +256,11 @@ export async function markItemsReceived(
     throw new Error('Return must be approved before marking items as received')
   }
 
+  const saleLocationId = returnRequest.sale.locationId
+  if (!saleLocationId) {
+    throw new Error('Cannot restore stock: sale location is missing')
+  }
+
   // Restore stock if condition is acceptable
   if (condition === 'GOOD' || condition === 'ACCEPTABLE') {
     await prisma.$transaction(
@@ -259,12 +269,12 @@ export async function markItemsReceived(
           where: {
             productId_locationId: {
               productId: item.productId,
-              locationId: returnRequest.sale.locationId || '',
+              locationId: saleLocationId,
             },
           },
           create: {
             productId: item.productId,
-            locationId: returnRequest.sale.locationId || '',
+            locationId: saleLocationId,
             quantity: item.quantity,
           },
           update: {

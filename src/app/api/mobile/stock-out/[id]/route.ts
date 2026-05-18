@@ -1,29 +1,18 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
-import { verifyMobileToken } from '@/lib/mobile-auth'
+import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
 import { shouldRequireTransferApproval } from '@/lib/stock-transfer-policy'
 
 const DISPATCH_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
 const RECEIVE_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
 
-async function resolveUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
-  if (!token) return null
-  try {
-    return await verifyMobileToken(token)
-  } catch {
-    return null
-  }
-}
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await resolveUser(request)
+  const user = await getMobileUser(request)
   if (!user) return fail('Unauthorized', 401, 'UNAUTHORIZED')
 
   const role = (user.role ?? '').toUpperCase()
@@ -105,13 +94,19 @@ export async function PATCH(
         data: {
           status: 'IN_TRANSIT',
           dispatchedAt: new Date(),
-          dispatchedBy: user.sub!,
         },
       })
 
       if (updatedRows.count !== 1) {
         throw new Error('STATUS_CONFLICT')
       }
+
+      await tx.stockOutRequest.update({
+        where: { id },
+        data: {
+          dispatchedBy: user.sub!,
+        },
+      })
 
       return tx.stockOutRequest.findUnique({
         where: { id },
@@ -172,8 +167,6 @@ export async function PATCH(
         where: { id, status: { in: ['DISPATCHED', 'IN_TRANSIT'] } },
         data: {
           status: 'RECEIVED',
-          receivedAt,
-          receivedBy: user.sub!,
           acknowledgedAt: receivedAt,
         },
       })
@@ -181,6 +174,14 @@ export async function PATCH(
       if (updatedRows.count !== 1) {
         throw new Error('STATUS_CONFLICT')
       }
+
+      await tx.stockOutRequest.update({
+        where: { id },
+        data: {
+          receivedAt,
+          receivedBy: user.sub!,
+        },
+      })
 
       return tx.stockOutRequest.findUnique({
         where: { id },

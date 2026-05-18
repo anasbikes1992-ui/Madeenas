@@ -1,21 +1,10 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
-import { verifyMobileToken } from '@/lib/mobile-auth'
-
-async function resolveUser(request: NextRequest) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
-  if (!token) return null
-  try {
-    return await verifyMobileToken(token)
-  } catch {
-    return null
-  }
-}
+import { getMobileUser } from '@/lib/get-mobile-user'
 
 export async function GET(request: NextRequest) {
-  const user = await resolveUser(request)
+  const user = await getMobileUser(request)
   if (!user) return fail('Unauthorized', 401, 'UNAUTHORIZED')
 
   const { searchParams } = new URL(request.url)
