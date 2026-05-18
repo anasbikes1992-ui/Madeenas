@@ -2,6 +2,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { ROLE_LABELS, getDashboardPath } from '@/lib/constants'
 import { getInitials } from '@/lib/utils'
 import NotificationBell from '@/components/NotificationBell'
@@ -133,7 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {group.items.map(item => {
               const active = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
               return (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
                   title={!sidebarOpen ? item.label : undefined}
@@ -141,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 >
                   <span className="text-base shrink-0">{item.icon}</span>
                   {sidebarOpen && <span className="truncate">{item.label}</span>}
-                </a>
+                </Link>
               )
             })}
           </div>
@@ -233,12 +234,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <NotificationBell />
-            <a href="/gallery" target="_blank" className="btn-secondary btn-sm hidden sm:flex min-h-11 items-center">
+            <Link href="/gallery" target="_blank" className="btn-secondary btn-sm hidden sm:flex min-h-11 items-center">
               🖼️ Gallery
-            </a>
-            <a href="/admin/new-request" className="btn-primary min-h-11 px-4 py-2 text-sm sm:text-base flex items-center whitespace-nowrap">
+            </Link>
+            <Link href="/admin/new-request" className="btn-primary min-h-11 px-4 py-2 text-sm sm:text-base flex items-center whitespace-nowrap">
               + New Request
-            </a>
+            </Link>
           </div>
         </header>
 

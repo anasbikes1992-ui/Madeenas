@@ -35,6 +35,7 @@ export default function StockAdjustmentsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     productId: '',
@@ -51,20 +52,29 @@ export default function StockAdjustmentsPage() {
 
   async function loadData() {
     setLoading(true)
-    const [productsRes, locationsRes, adjustmentsRes] = await Promise.all([
-      fetch('/api/products?limit=300'),
-      fetch('/api/locations'),
-      fetch('/api/stock-adjustments?limit=100'),
-    ])
+    setError(null)
+    try {
+      const [productsRes, locationsRes, adjustmentsRes] = await Promise.all([
+        fetch('/api/products?limit=300'),
+        fetch('/api/locations'),
+        fetch('/api/stock-adjustments?limit=100'),
+      ])
 
-    const productsData = await productsRes.json()
-    const locationsData = await locationsRes.json()
-    const adjustmentsData = await adjustmentsRes.json()
+      const productsData = await productsRes.json()
+      const locationsData = await locationsRes.json()
+      const adjustmentsData = await adjustmentsRes.json()
 
-    setProducts(productsData.products || [])
-    setLocations(locationsData || [])
-    setRows(adjustmentsData.adjustments || [])
-    setLoading(false)
+      setProducts(productsData.products || [])
+      setLocations(locationsData || [])
+      setRows(adjustmentsData.adjustments || [])
+    } catch {
+      setProducts([])
+      setLocations([])
+      setRows([])
+      setError('Failed to load stock adjustments data. Please refresh.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -75,37 +85,57 @@ export default function StockAdjustmentsPage() {
     event.preventDefault()
     setSaving(true)
     setMessage(null)
+    setError(null)
 
-    const response = await fetch('/api/stock-adjustments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        productId: form.productId,
-        locationId: form.locationId,
-        countedQuantity: Number(form.countedQuantity),
-        reason: form.reason || undefined,
-        note: form.note || undefined,
-      }),
-    })
+    try {
+      const response = await fetch('/api/stock-adjustments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: form.productId,
+          locationId: form.locationId,
+          countedQuantity: Number(form.countedQuantity),
+          reason: form.reason || undefined,
+          note: form.note || undefined,
+        }),
+      })
 
-    const payload = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      setMessage(payload.error || 'Failed to save adjustment')
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setMessage(payload.error || 'Failed to save adjustment')
+        setSaving(false)
+        return
+      }
+
+      setMessage('Stock adjustment saved successfully.')
+      setForm({ productId: '', locationId: '', countedQuantity: '', reason: '', note: '' })
+      await loadData()
+    } catch {
+      setError('Could not save adjustment. Please try again.')
+    } finally {
       setSaving(false)
-      return
     }
-
-    setMessage('Stock adjustment saved successfully.')
-    setForm({ productId: '', locationId: '', countedQuantity: '', reason: '', note: '' })
-    await loadData()
-    setSaving(false)
   }
 
   return (
     <div className="space-y-6 fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Stock Balancing & Adjustments</h1>
-        <p className="text-sm text-slate-500 mt-1">Record physical count corrections and keep a clean audit trail.</p>
+      <div className="rounded-3xl bg-linear-to-r from-indigo-600 via-blue-600 to-cyan-600 p-6 text-white shadow-[0_24px_70px_rgba(37,99,235,0.25)]">
+        <h1 className="text-3xl font-black">Stock Balancing & Adjustments</h1>
+        <p className="mt-1 text-sm text-indigo-100">Record physical count corrections, reduce shrinkage risk, and keep a clean audit trail.</p>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl bg-white/15 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-indigo-100">Products</p>
+            <p className="mt-1 text-2xl font-black">{products.length}</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-indigo-100">Locations</p>
+            <p className="mt-1 text-2xl font-black">{locations.length}</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-indigo-100">Recent Entries</p>
+            <p className="mt-1 text-2xl font-black">{rows.length}</p>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={submitAdjustment} className="card space-y-4">
@@ -182,6 +212,9 @@ export default function StockAdjustmentsPage() {
 
         {message ? (
           <div className="text-sm rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">{message}</div>
+        ) : null}
+        {error ? (
+          <div className="text-sm rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700">{error}</div>
         ) : null}
 
         <button type="submit" disabled={saving} className="btn-primary">

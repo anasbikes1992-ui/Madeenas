@@ -24,13 +24,25 @@ const TYPE_BADGES: Record<JournalEntry['type'], string> = {
 export default function StockJournalPage() {
   const [rows, setRows] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const stockInCount = rows.filter((row) => row.type === 'STOCK_IN').length
+  const stockOutCount = rows.filter((row) => row.type === 'STOCK_OUT').length
+  const adjustmentCount = rows.filter((row) => row.type === 'STOCK_ADJUSTMENT').length
 
   async function load() {
     setLoading(true)
-    const response = await fetch('/api/stock-journal?limit=150')
-    const payload = await response.json()
-    setRows(payload.entries || [])
-    setLoading(false)
+    setError(null)
+    try {
+      const response = await fetch('/api/stock-journal?limit=150')
+      const payload = await response.json()
+      setRows(payload.entries || [])
+    } catch {
+      setRows([])
+      setError('Failed to load stock journal entries. Please refresh.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -39,12 +51,27 @@ export default function StockJournalPage() {
 
   return (
     <div className="space-y-6 fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Stock Journal</h1>
-        <p className="text-sm text-slate-500 mt-1">Unified ledger for stock-in, dispatches, acknowledgements, and adjustments.</p>
+      <div className="rounded-3xl bg-linear-to-r from-emerald-600 via-teal-600 to-cyan-600 p-6 text-white shadow-[0_24px_70px_rgba(13,148,136,0.25)]">
+        <h1 className="text-3xl font-black">Stock Journal</h1>
+        <p className="mt-1 text-sm text-emerald-100">Unified ledger for stock-in, dispatches, acknowledgements, and adjustments.</p>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl bg-white/15 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-100">Stock In</p>
+            <p className="mt-1 text-2xl font-black">{stockInCount}</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-100">Stock Out</p>
+            <p className="mt-1 text-2xl font-black">{stockOutCount}</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-100">Adjustments</p>
+            <p className="mt-1 text-2xl font-black">{adjustmentCount}</p>
+          </div>
+        </div>
       </div>
 
       <div className="card">
+        {error ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
         {loading ? (
           <div className="space-y-2">
             {[...Array(6)].map((_, index) => (

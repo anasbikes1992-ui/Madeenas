@@ -27,6 +27,7 @@ interface InventoryResponse {
 
 interface MovementResponse {
   movements?: Array<Record<string, unknown>>
+  warning?: string
 }
 
 interface ReportsData {
@@ -38,21 +39,34 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState('30')
   const [inventoryData, setInventoryData] = useState<ReportsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadReports() {
+      setError(null)
       try {
-        const [inv, mov] = await Promise.all([
-          fetch(`/api/reports?type=inventory`).then(r => r.json()),
-          fetch(`/api/reports?type=movement&days=${period}`).then(r => r.json()),
+        const [invRes, movRes] = await Promise.all([
+          fetch(`/api/reports?type=inventory`),
+          fetch(`/api/reports?type=movement&days=${period}`),
         ])
+
+        if (!invRes.ok || !movRes.ok) {
+          throw new Error('Reports API request failed')
+        }
+
+        const [inv, mov] = await Promise.all([invRes.json(), movRes.json()])
+        const movementPayload = mov as MovementResponse
         setInventoryData({
           inventory: inv as InventoryResponse,
-          movement: mov as MovementResponse,
+          movement: movementPayload,
         })
-      } catch (error) {
-        console.error('Failed to load reports:', error)
+        if (movementPayload.warning) {
+          setError(movementPayload.warning)
+        }
+      } catch (err) {
+        console.error('[ReportsPage] Failed to load reports:', err)
         setInventoryData(null)
+        setError('Could not load reports data. Please retry.')
       } finally {
         setLoading(false)
       }
@@ -71,11 +85,20 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>
-          <p className="text-sm text-slate-500">Stock movement and inventory overview</p>
+      <div className="rounded-3xl bg-linear-to-r from-fuchsia-600 via-indigo-600 to-blue-600 p-6 text-white shadow-[0_24px_70px_rgba(79,70,229,0.25)]">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black">Reports & Analytics</h1>
+            <p className="mt-1 text-sm text-indigo-100">Stock movement and inventory overview</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 px-4 py-3 text-sm">
+            <span className="font-semibold">Data window: </span>
+            {period === '7' ? 'Last 7 days' : period === '30' ? 'Last 30 days' : 'Last 90 days'}
+          </div>
         </div>
+      </div>
+
+      <div className="flex justify-end">
         <select
           id="period-filter"
           aria-label="Report period"
@@ -93,14 +116,20 @@ export default function ReportsPage() {
       </div>
 
       {/* Summary Cards */}
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Stock Units', value: totalUnits.toLocaleString(), icon: '📦', color: 'bg-indigo-50 text-indigo-700' },
-          { label: 'Estimated Stock Value', value: formatCurrency(totalValue), icon: '💰', color: 'bg-emerald-50 text-emerald-700' },
-          { label: 'Unique Products', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.productId)).size, icon: '🏷️', color: 'bg-purple-50 text-purple-700' },
-          { label: 'Active Locations', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.locationId)).size, icon: '🏭', color: 'bg-amber-50 text-amber-700' },
+          { label: 'Total Stock Units', value: totalUnits.toLocaleString(), icon: '📦', color: 'bg-indigo-500 text-white' },
+          { label: 'Estimated Stock Value', value: formatCurrency(totalValue), icon: '💰', color: 'bg-emerald-500 text-white' },
+          { label: 'Unique Products', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.productId)).size, icon: '🏷️', color: 'bg-fuchsia-500 text-white' },
+          { label: 'Active Locations', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.locationId)).size, icon: '🏭', color: 'bg-amber-500 text-white' },
         ].map(s => (
-          <div key={s.label} className="card">
+          <div key={s.label} className="card shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
             <div className="flex items-center gap-3">
               <div className={`p-3 rounded-xl ${s.color}`}>{s.icon}</div>
               <div>

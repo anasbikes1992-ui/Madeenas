@@ -5,7 +5,7 @@ import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasPermission(session.user.role as string, 'reports.read')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   startDate.setDate(startDate.getDate() - days)
 
   if (type === 'movement') {
+    let movementWarning: string | undefined
     const [stockIns, stockOuts] = await Promise.all([
       prisma.stockIn.groupBy({
         by: ['createdAt'],
@@ -32,9 +33,13 @@ export async function GET(request: NextRequest) {
           createdAt: { gte: startDate },
         },
         orderBy: { createdAt: 'asc' },
+      }).catch((error) => {
+        console.error('[reports] movement stockOut query failed:', error)
+        movementWarning = 'Stock-out movement is temporarily unavailable due to database schema mismatch.'
+        return []
       }),
     ])
-    return NextResponse.json({ stockIns, stockOuts })
+    return NextResponse.json({ stockIns, stockOuts, warning: movementWarning })
   }
 
   if (type === 'top-products') {

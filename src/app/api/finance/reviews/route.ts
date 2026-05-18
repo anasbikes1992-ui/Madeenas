@@ -19,28 +19,37 @@ export async function GET(request: NextRequest) {
   const where: any = {}
   if (status) where.status = status
 
-  const [reviews, total] = await Promise.all([
-    prisma.financeReview.findMany({
-      where,
-      include: {
-        stockOut: {
-          include: {
-            product: true,
-            fromLocation: true,
-            toLocation: true,
-            requestedByUser: { select: { name: true } }
-          }
+  try {
+    const [reviews, total] = await Promise.all([
+      prisma.financeReview.findMany({
+        where,
+        include: {
+          stockOut: {
+            include: {
+              product: true,
+              fromLocation: true,
+              toLocation: true,
+              requestedByUser: { select: { name: true } }
+            }
+          },
+          reviewer: { select: { name: true } }
         },
-        reviewer: { select: { name: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.financeReview.count({ where }),
-  ])
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.financeReview.count({ where }),
+    ])
 
-  return NextResponse.json({ reviews, total })
+    return NextResponse.json({ reviews, total })
+  } catch (error) {
+    console.error('[finance-reviews] GET failed:', error)
+    return NextResponse.json({
+      reviews: [],
+      total: 0,
+      warning: 'Finance review data is temporarily unavailable. Please check database migration state.',
+    })
+  }
 }
 
 export async function PATCH(request: NextRequest) {
