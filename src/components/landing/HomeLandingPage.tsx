@@ -38,56 +38,56 @@ const fadeUp = {
 }
 
 const highlights = [
-  'Gallery-first customer browsing',
-  'Role-aware operational dashboards',
-  'Inventory-safe sales and requests',
-  'Audit-ready history for every action',
+  'Supplier to sales workflow visibility',
+  'Real-time stock movement tracking',
+  'Purchase, issue, and return control',
+  'Audit-ready records for every transaction',
 ]
 
 const metrics = [
-  { value: '200+', label: 'catalog items ready for launch', icon: Store },
-  { value: '7', label: 'role-based access profiles', icon: Users },
-  { value: '<2 min', label: 'average checkout start time', icon: Sparkles },
+  { value: '200+', label: 'raw material SKUs managed in one catalog', icon: Store },
+  { value: '7', label: 'team roles with controlled permissions', icon: Users },
+  { value: '<2 min', label: 'to capture and process stock requests', icon: Sparkles },
 ]
 
 const workflows = [
   {
-    title: 'Customers',
-    description: 'Browse the gallery, compare fabrics, and move into a clean request flow.',
+    title: 'Procurement',
+    description: 'Review materials, raise requests, and keep purchase actions aligned with demand.',
     icon: ShoppingBag,
-    cta: 'Open gallery',
+    cta: 'Open materials catalog',
     href: '/gallery',
   },
   {
-    title: 'Staff & management',
-    description: 'Operate sales, inventory, returns, and finance with the same source of truth.',
+    title: 'Operations & management',
+    description: 'Run stock-in, stock-out, adjustments, and approvals from a single operational view.',
     icon: Warehouse,
-    cta: 'Staff login',
+    cta: 'Open operations login',
     href: '/login',
   },
   {
-    title: 'Fulfillment',
-    description: 'Track requests, approve movement, and keep the workflow audit-friendly.',
+    title: 'Sales & dispatch',
+    description: 'Convert requests to fulfilled movement with traceable history for every handoff.',
     icon: Truck,
-    cta: 'Sales hub',
+    cta: 'Open sales hub',
     href: '/sales',
   },
 ]
 
 const pillars = [
   {
-    title: 'Simple for shoppers',
-    body: 'A clear public path with catalog discovery, order requests, and a fast signup/login handoff.',
+    title: 'Clear for business users',
+    body: 'Teams can discover materials, raise requests, and execute daily actions without process confusion.',
     icon: ShoppingBag,
   },
   {
     title: 'Strong for operators',
-    body: 'The staff workspace keeps sales, inventory, requests, and finance under one structure.',
+    body: 'Sales, inventory, warehouse, and finance work on the same live dataset and status signals.',
     icon: BarChart3,
   },
   {
-    title: 'Safe for growth',
-    body: 'Role access, audit trails, and clean data boundaries keep the system maintainable.',
+    title: 'Safe for scaling',
+    body: 'Role access, approval discipline, and traceable logs support growth without losing control.',
     icon: ShieldCheck,
   },
 ]
@@ -95,6 +95,16 @@ const pillars = [
 export default function HomeLandingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+
+  const loadingView = (
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.08),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#ffffff_45%,#eef4ff_100%)]">
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
+        className="h-10 w-10 rounded-full border-4 border-navy-700 border-t-transparent"
+      />
+    </div>
+  )
 
   // Redirect authenticated users to their correct home immediately
   useEffect(() => {
@@ -108,15 +118,12 @@ export default function HomeLandingPage() {
 
   // While checking session, show a minimal loader so there's no flash
   if (status === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.08),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#ffffff_45%,#eef4ff_100%)]">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
-          className="h-10 w-10 rounded-full border-4 border-navy-700 border-t-transparent"
-        />
-      </div>
-    )
+    return loadingView
+  }
+
+  // While redirecting authenticated users, avoid flashing public landing content.
+  if (status === 'authenticated' && session?.user) {
+    return loadingView
   }
 
   // Unauthenticated — show the full public landing page
@@ -137,7 +144,7 @@ export default function HomeLandingPage() {
             </div>
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Madeena Tex</p>
-              <p className="text-sm text-slate-600">Textiles, operations, and customer requests in one system</p>
+              <p className="text-sm text-slate-600">Raw materials planning, stock operations, and sales coordination in one platform</p>
             </div>
           </div>
 
@@ -163,20 +170,20 @@ export default function HomeLandingPage() {
         <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
           <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-indigo-500 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
             <Sparkles className="h-4 w-4 text-gold-500" />
-            Textile commerce rethought
+            Built for textile business operations
           </motion.div>
 
           <motion.h1 variants={fadeUp} className="max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
-            A clean, fast web workspace for shopping, sales, and stock operations.
+            Run procurement, inventory, sales, and finance from one operational command center.
           </motion.h1>
 
           <motion.p variants={fadeUp} className="max-w-2xl text-lg leading-8 text-slate-600">
-            Customers get a direct path into the catalog. Staff get a calmer workspace for orders, inventory, and finance. The business keeps one shared source of truth.
+            Give every team one source of truth: materials catalog, stock movement, dispatch workflow, and financial visibility with role-based controls.
           </motion.p>
 
           <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row">
             <Link href="/gallery" className="btn-primary btn-lg">
-              Browse gallery
+              View materials catalog
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/signup" className="btn-secondary btn-lg">
@@ -218,7 +225,7 @@ export default function HomeLandingPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="section-label">At a glance</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-950">A calmer dashboard for the whole team.</h2>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">A single workspace for supply, stock, and sales teams.</h2>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-50 text-gold-700">
                 <Layers3 className="h-6 w-6" />
@@ -227,9 +234,9 @@ export default function HomeLandingPage() {
 
             <div className="mt-6 grid gap-3">
               {[
-                ['Customers', 'Open the gallery and place a request without hunting for buttons.'],
-                ['Sales', 'Move from inquiry to request handling in fewer steps.'],
-                ['Operations', 'Manage stock, returns, and approvals from a single place.'],
+                ['Procurement', 'Open materials, compare options, and capture requests quickly.'],
+                ['Sales', 'Move from inquiry to validated request and dispatch with fewer handoffs.'],
+                ['Operations', 'Control stock, adjustments, and approvals from one accountable flow.'],
               ].map(([title, body]) => (
                 <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="font-semibold text-slate-950">{title}</p>
@@ -242,7 +249,7 @@ export default function HomeLandingPage() {
           <motion.div variants={fadeUp} className="surface-card bg-[linear-gradient(180deg,#0f172a_0%,#152a63_100%)] p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold-300">Workflow</p>
             <div className="mt-4 grid gap-3">
-              {['Browse catalog', 'Capture request', 'Fulfill order'].map((step, index) => (
+              {['Plan demand', 'Execute stock movement', 'Close and report'].map((step, index) => (
                 <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-gold-300">
                     0{index + 1}
@@ -282,7 +289,7 @@ export default function HomeLandingPage() {
             <p className="section-label">System map</p>
             <h2 className="mt-3 text-3xl font-black text-slate-950">One system, three surfaces.</h2>
             <p className="mt-4 text-base leading-7 text-slate-600">
-              The site is structured around a public catalog, a staff workspace, and a controlled operational backend. Each part shares the same data and design language.
+              The platform connects materials visibility, operational execution, and reporting. Every surface is aligned to the same live business data.
             </p>
             <div className="mt-6 space-y-3">
               {pillars.map((pillar) => {
@@ -317,9 +324,9 @@ export default function HomeLandingPage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
                 ['Gallery', '/gallery', 'Browse the collection and request products.'],
-                ['Sales hub', '/sales', 'Start customer sales workflows.'],
-                ['Staff login', '/login', 'Access the internal dashboard.'],
-                ['Customer portal', '/customer/login', 'Enter the customer experience.'],
+                ['Sales hub', '/sales', 'Run sales and dispatch workflows.'],
+                ['Staff login', '/login', 'Access operations, stock, and finance dashboards.'],
+                ['Customer portal', '/customer/login', 'Track customer-side requests and status.'],
               ].map(([title, href, body]) => (
                 <Link key={title} href={href} className="rounded-2xl border border-slate-200 bg-white p-4 transition-transform duration-200 hover:-translate-y-1 hover:border-slate-300">
                   <p className="font-semibold text-slate-950">{title}</p>

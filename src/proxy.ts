@@ -7,26 +7,13 @@ const { auth } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 })
 
-const PUBLIC_PATHS = ['/', '/gallery', '/login', '/signup', '/api/auth']
-
-function getRequestOrigin(req: Parameters<typeof auth>[0]) {
-  const forwardedHost = req.headers.get('x-forwarded-host')
-  const host = forwardedHost ?? req.headers.get('host')
-  const forwardedProto = req.headers.get('x-forwarded-proto')
-  const protocol = forwardedProto ?? req.nextUrl.protocol.replace(':', '') ?? 'http'
-
-  if (host) {
-    return `${protocol}://${host}`
-  }
-
-  return req.nextUrl.origin
-}
+const PUBLIC_PATHS = ['/', '/gallery', '/login', '/signup']
 
 export default auth((req) => {
   const { nextUrl } = req
   const pathname = nextUrl.pathname
   const session = req.auth
-  const origin = getRequestOrigin(req)
+  const origin = nextUrl.origin
 
   const isPublic = PUBLIC_PATHS.some((path) => (path === '/' ? pathname === '/' : pathname.startsWith(path)))
   if (isPublic) return NextResponse.next()
