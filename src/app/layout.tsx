@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Manrope } from 'next/font/google'
 import Providers from '@/components/Providers'
 import OfflineStatus from '@/components/OfflineStatus'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope' })
 
 export const metadata: Metadata = {
   title: {
@@ -26,8 +27,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
+      <body className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.08),transparent_28%),radial-gradient(circle_at_15%_15%,rgba(212,175,55,0.12),transparent_26%),linear-gradient(180deg,#f8fafc_0%,#ffffff_42%,#eef4ff_100%)] text-slate-900 antialiased selection:bg-gold-400 selection:text-navy-950">
         <Providers>
           {children}
           <OfflineStatus />

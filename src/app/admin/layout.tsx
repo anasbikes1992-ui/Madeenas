@@ -105,7 +105,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   })).filter(g => g.items.length > 0)
 
   const Sidebar = (
-    <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 bg-linear-to-b from-indigo-900 to-indigo-950 flex flex-col h-full`}>
+    <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 bg-linear-to-b from-indigo-900 via-navy-900 to-slate-950 flex h-full flex-col`}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
         <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -177,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   )
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.05),transparent_26%),linear-gradient(180deg,#f8fafc_0%,#ffffff_48%,#eef4ff_100%)] text-slate-900">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex flex-col h-full">
         {Sidebar}
@@ -197,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="bg-white border-b border-slate-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
+        <header className="surface-card-soft mx-3 mt-3 flex shrink-0 items-center justify-between px-4 py-3 sm:mx-4 sm:px-6 sm:py-4">
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Mobile hamburger */}
             <button

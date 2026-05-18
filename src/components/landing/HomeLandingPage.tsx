@@ -6,70 +6,91 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { getDashboardPath } from '@/lib/constants'
+import {
+  ArrowRight,
+  BarChart3,
+  Layers3,
+  LogIn,
+  ShoppingBag,
+  ShieldCheck,
+  Sparkles,
+  Store,
+  Truck,
+  Users,
+  Warehouse,
+} from 'lucide-react'
 
-const FEATURES = [
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1]
+
+const pageIn = {
+  hidden: { opacity: 0, y: 26 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.42, ease: EASE } },
+}
+
+const highlights = [
+  'Gallery-first customer browsing',
+  'Role-aware operational dashboards',
+  'Inventory-safe sales and requests',
+  'Audit-ready history for every action',
+]
+
+const metrics = [
+  { value: '200+', label: 'catalog items ready for launch', icon: Store },
+  { value: '7', label: 'role-based access profiles', icon: Users },
+  { value: '<2 min', label: 'average checkout start time', icon: Sparkles },
+]
+
+const workflows = [
   {
     title: 'Customers',
-    description: 'Browse the gallery, compare fabrics, and submit requests with one clear path from discovery to order.',
+    description: 'Browse the gallery, compare fabrics, and move into a clean request flow.',
+    icon: ShoppingBag,
     cta: 'Open gallery',
-    ctaLink: '/gallery',
-    secondary: 'Create account →',
-    secondaryLink: '/signup',
-    icon: '🛍️',
+    href: '/gallery',
   },
   {
-    title: 'Staff & Management',
-    description: 'Sign in to the operational workspace for sales, POS, customer orders, inventory, and finance views.',
+    title: 'Staff & management',
+    description: 'Operate sales, inventory, returns, and finance with the same source of truth.',
+    icon: Warehouse,
     cta: 'Staff login',
-    ctaLink: '/login',
-    icon: '👔',
+    href: '/login',
+  },
+  {
+    title: 'Fulfillment',
+    description: 'Track requests, approve movement, and keep the workflow audit-friendly.',
+    icon: Truck,
+    cta: 'Sales hub',
+    href: '/sales',
   },
 ]
 
-const PROOF_POINTS = [
-  'Premium textile-first storefront',
-  'Gallery-to-order flow for customers',
-  'Role-aware staff operations and sales',
-  'Inventory-safe transactions and audit trails',
-]
-
-const METRICS = [
-  { value: '200+', label: 'SKUs ready to order' },
-  { value: '7', label: 'role-based access profiles' },
-  { value: '<2 min', label: 'avg checkout time' },
-]
-
-const SYSTEM_INFO = [
-  ['Homepage', 'Routes visitors to the right place fast — gallery, login, or signup.'],
-  ['Gallery', 'Product discovery and customer order requests.'],
-  ['Staff Workspace', 'Role-based access for POS, sales history, stock control, and finance.'],
-]
-
-// Framer Motion variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
+const pillars = [
+  {
+    title: 'Simple for shoppers',
+    body: 'A clear public path with catalog discovery, order requests, and a fast signup/login handoff.',
+    icon: ShoppingBag,
   },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.3 },
+  {
+    title: 'Strong for operators',
+    body: 'The staff workspace keeps sales, inventory, requests, and finance under one structure.',
+    icon: BarChart3,
   },
-}
-
-const textVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-}
+  {
+    title: 'Safe for growth',
+    body: 'Role access, audit trails, and clean data boundaries keep the system maintainable.',
+    icon: ShieldCheck,
+  },
+]
 
 export default function HomeLandingPage() {
   const { data: session, status } = useSession()
@@ -88,11 +109,11 @@ export default function HomeLandingPage() {
   // While checking session, show a minimal loader so there's no flash
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.08),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#ffffff_45%,#eef4ff_100%)]">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
-          className="h-8 w-8 rounded-full border-4 border-cyan-400 border-t-transparent"
+          className="h-10 w-10 rounded-full border-4 border-navy-700 border-t-transparent"
         />
       </div>
     )
@@ -100,216 +121,215 @@ export default function HomeLandingPage() {
 
   // Unauthenticated — show the full public landing page
   return (
-    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.22),transparent_28%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.18),transparent_25%),linear-gradient(180deg,#0f172a_0%,#111827_42%,#f8fafc_42%,#ffffff_100%)] text-slate-900">
-      {/* Hero Section */}
-      <section className="relative mx-auto max-w-7xl px-6 pb-10 pt-8 lg:px-10 lg:pb-16 lg:pt-10">
-        <motion.div
-          className="absolute inset-x-6 top-6 h-24 rounded-4xl border border-white/10 bg-white/5 blur-3xl lg:inset-x-10"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1 }}
-          aria-hidden="true"
-        />
+    <motion.main
+      variants={pageIn}
+      initial="hidden"
+      animate="visible"
+      className="relative min-h-screen overflow-hidden text-slate-900"
+    >
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.08),transparent_30%),radial-gradient(circle_at_12%_20%,rgba(212,175,55,0.14),transparent_24%),linear-gradient(180deg,#f8fafc_0%,#ffffff_44%,#eef4ff_100%)]" aria-hidden />
 
-        <motion.div
-          className="relative rounded-4xl border border-white/10 bg-white/8 p-6 shadow-[0_30px_120px_rgba(15,23,42,0.25)] backdrop-blur-xl lg:p-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl space-y-6 text-white">
-              <motion.div
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 }}
-              >
-                Madeena Tex — Textile Commerce
-              </motion.div>
-
-              <motion.div className="space-y-4" variants={containerVariants} initial="hidden" animate="visible">
-                <motion.p
-                  className="text-sm font-semibold uppercase tracking-[0.28em] text-indigo-200/90"
-                  variants={textVariants}
-                >
-                  Textile sourcing reimagined
-                </motion.p>
-                <motion.h1
-                  className="max-w-4xl text-5xl font-black leading-[0.95] sm:text-6xl lg:text-7xl"
-                  variants={textVariants}
-                >
-                  A premium textile experience for browsing, ordering, and operating the store.
-                </motion.h1>
-                <motion.p className="max-w-2xl text-base leading-8 text-indigo-100 sm:text-lg" variants={textVariants}>
-                  Customers move into the gallery, staff move into the workspace, and the business keeps one shared source of truth for sales, stock, and customer requests.
-                </motion.p>
-              </motion.div>
-
-              <motion.div
-                className="flex flex-col gap-3 sm:flex-row"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }} variants={itemVariants}>
-                  <Link
-                    href="/gallery"
-                    className="btn-primary btn-lg justify-center bg-cyan-400 text-slate-950 hover:bg-cyan-300"
-                  >
-                    Browse Gallery
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }} variants={itemVariants}>
-                  <Link href="/login" className="btn-secondary btn-lg justify-center border-white/15 bg-white/10 text-white hover:bg-white/15">
-                    Sign In
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }} variants={itemVariants}>
-                  <Link href="/signup" className="btn-secondary btn-lg justify-center border-white/15 bg-white/5 text-white hover:bg-white/10">
-                    Create Account
-                  </Link>
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-              >
-                {PROOF_POINTS.map((point, idx) => (
-                  <motion.div
-                    key={point}
-                    className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-indigo-100 backdrop-blur"
-                    variants={itemVariants}
-                    whileHover={{ y: -4 }}
-                  >
-                    {point}
-                  </motion.div>
-                ))}
-              </motion.div>
+      <section className="page-shell pt-5">
+        <div className="surface-card-soft sticky top-4 z-20 flex flex-col gap-4 px-5 py-4 backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-navy-700 to-slate-900 font-heading text-sm font-black text-white shadow-navy">
+              M
             </div>
-
-            <motion.div
-              className="grid gap-4 lg:w-88"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              {METRICS.map((metric, idx) => (
-                <motion.div
-                  key={metric.label}
-                  className="rounded-[1.75rem] border border-white/10 bg-slate-950/50 p-5 text-white shadow-[0_18px_60px_rgba(15,23,42,0.2)]"
-                  variants={itemVariants}
-                  whileHover={{ y: -6 }}
-                >
-                  <motion.p
-                    className="text-3xl font-black tracking-tight text-cyan-200"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 + idx * 0.1 }}
-                  >
-                    {metric.value}
-                  </motion.p>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{metric.label}</p>
-                </motion.div>
-              ))}
-            </motion.div>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Madeena Tex</p>
+              <p className="text-sm text-slate-600">Textiles, operations, and customer requests in one system</p>
+            </div>
           </div>
-        </motion.div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/sales" className="btn-secondary btn-sm">
+              Sales hub
+            </Link>
+            <Link href="/gallery" className="btn-secondary btn-sm">
+              Browse catalog
+            </Link>
+            <Link href="/login" className="btn-secondary btn-sm">
+              <LogIn className="h-4 w-4" />
+              Staff login
+            </Link>
+            <Link href="/customer/login" className="btn-primary btn-sm">
+              Customer portal
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {/* Features Section */}
-      <section className="mx-auto grid max-w-7xl gap-6 px-6 pb-10 lg:grid-cols-[1.1fr_0.9fr] lg:px-10 lg:pb-16">
-        <motion.div
-          className="grid gap-6"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          {FEATURES.map((feature, idx) => (
-            <motion.article
-              key={feature.title}
-              className="group rounded-4xl border border-slate-200/70 bg-white p-6 shadow-[0_24px_90px_rgba(15,23,42,0.08)] sm:p-8"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -4 }}
-              transition={{ delay: idx * 0.1, duration: 0.4 }}
-              viewport={{ once: true, margin: '-50px' }}
-            >
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                <div className="max-w-xl space-y-3">
-                  <motion.p
-                    className="text-2xl font-black"
-                    initial={{ scale: 0 }}
-                    whileInView={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    viewport={{ once: true }}
-                  >
-                    {feature.icon}
-                  </motion.p>
-                  <h2 className="text-2xl font-black text-slate-950">{feature.title}</h2>
-                  <p className="text-base leading-7 text-slate-600">{feature.description}</p>
-                </div>
-                <div className="flex flex-col gap-2 self-start">
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Link href={feature.ctaLink} className="btn-primary whitespace-nowrap justify-center">
-                      {feature.cta}
-                    </Link>
-                  </motion.div>
-                  {feature.secondary && (
-                    <Link href={feature.secondaryLink} className="text-center text-sm font-medium text-indigo-600 hover:underline">
-                      {feature.secondary}
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </motion.article>
-          ))}
-        </motion.div>
+      <section className="page-shell grid gap-8 pb-10 pt-10 lg:grid-cols-[1.12fr_0.88fr] lg:items-start lg:pb-16 lg:pt-12">
+        <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
+          <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-indigo-500 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+            <Sparkles className="h-4 w-4 text-gold-500" />
+            Textile commerce rethought
+          </motion.div>
 
-        {/* Info Sidebar */}
-        <motion.aside
-          className="rounded-4xl border border-slate-200/70 bg-[linear-gradient(160deg,#ffffff_0%,#f8fafc_42%,#eef2ff_100%)] p-6 shadow-[0_24px_90px_rgba(15,23,42,0.08)] sm:p-8"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true, margin: '-50px' }}
-        >
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-indigo-500">What Madeena Tex includes</p>
-          <h2 className="mt-3 text-3xl font-black text-slate-950">One idea, three surfaces, shared data.</h2>
-          <motion.div
-            className="mt-6 space-y-4"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-50px' }}
-          >
-            {SYSTEM_INFO.map(([title, body]) => (
-              <motion.div
-                key={title}
-                className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70"
-                variants={itemVariants}
-                whileHover={{ y: -2 }}
-              >
-                <p className="font-semibold text-slate-900">{title}</p>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
-              </motion.div>
+          <motion.h1 variants={fadeUp} className="max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
+            A clean, fast web workspace for shopping, sales, and stock operations.
+          </motion.h1>
+
+          <motion.p variants={fadeUp} className="max-w-2xl text-lg leading-8 text-slate-600">
+            Customers get a direct path into the catalog. Staff get a calmer workspace for orders, inventory, and finance. The business keeps one shared source of truth.
+          </motion.p>
+
+          <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row">
+            <Link href="/gallery" className="btn-primary btn-lg">
+              Browse gallery
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link href="/signup" className="btn-secondary btn-lg">
+              Create account
+            </Link>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="flex flex-wrap gap-3">
+            {highlights.map((highlight) => (
+              <div key={highlight} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                {highlight}
+              </div>
             ))}
           </motion.div>
-          <motion.div
-            className="mt-6 rounded-2xl border border-cyan-200/70 bg-cyan-50 px-4 py-4 text-sm leading-7 text-cyan-950"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            viewport={{ once: true }}
-          >
-            Customers are automatically taken to the gallery when they log in. Staff and management land in the operational dashboard matching their role.
+
+          <motion.div variants={fadeUp} className="grid gap-4 sm:grid-cols-3">
+            {metrics.map((metric) => {
+              const Icon = metric.icon
+
+              return (
+                <div key={metric.label} className="surface-card-soft p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-3xl font-black tracking-tight text-slate-950">{metric.value}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{metric.label}</p>
+                    </div>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-navy-50 text-navy-700">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </motion.div>
+        </motion.div>
+
+        <motion.aside variants={stagger} initial="hidden" animate="visible" className="space-y-4">
+          <motion.div variants={fadeUp} className="surface-card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="section-label">At a glance</p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">A calmer dashboard for the whole team.</h2>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-50 text-gold-700">
+                <Layers3 className="h-6 w-6" />
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3">
+              {[
+                ['Customers', 'Open the gallery and place a request without hunting for buttons.'],
+                ['Sales', 'Move from inquiry to request handling in fewer steps.'],
+                ['Operations', 'Manage stock, returns, and approvals from a single place.'],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-semibold text-slate-950">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="surface-card bg-[linear-gradient(180deg,#0f172a_0%,#152a63_100%)] p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold-300">Workflow</p>
+            <div className="mt-4 grid gap-3">
+              {['Browse catalog', 'Capture request', 'Fulfill order'].map((step, index) => (
+                <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-gold-300">
+                    0{index + 1}
+                  </div>
+                  <p className="font-medium text-white">{step}</p>
+                </div>
+              ))}
+            </div>
           </motion.div>
         </motion.aside>
       </section>
-    </main>
+
+      <section className="page-shell pb-16">
+        <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="grid gap-6 lg:grid-cols-3">
+          {workflows.map((workflow) => {
+            const Icon = workflow.icon
+
+            return (
+              <motion.article key={workflow.title} variants={fadeUp} className="surface-card p-6 transition-transform duration-200 hover:-translate-y-1">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-5 text-2xl font-black text-slate-950">{workflow.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{workflow.description}</p>
+                <Link href={workflow.href} className="btn-secondary mt-6 w-full">
+                  {workflow.cta}
+                </Link>
+              </motion.article>
+            )
+          })}
+        </motion.div>
+      </section>
+
+      <section className="page-shell pb-20">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <motion.div variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="surface-card p-6">
+            <p className="section-label">System map</p>
+            <h2 className="mt-3 text-3xl font-black text-slate-950">One system, three surfaces.</h2>
+            <p className="mt-4 text-base leading-7 text-slate-600">
+              The site is structured around a public catalog, a staff workspace, and a controlled operational backend. Each part shares the same data and design language.
+            </p>
+            <div className="mt-6 space-y-3">
+              {pillars.map((pillar) => {
+                const Icon = pillar.icon
+
+                return (
+                  <div key={pillar.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-navy-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <p className="font-semibold text-slate-950">{pillar.title}</p>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{pillar.body}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="surface-card p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="section-label">Navigation</p>
+                <h2 className="mt-2 text-3xl font-black text-slate-950">Get to the right surface quickly.</h2>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-50 text-navy-700">
+                <LogIn className="h-5 w-5" />
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {[
+                ['Gallery', '/gallery', 'Browse the collection and request products.'],
+                ['Sales hub', '/sales', 'Start customer sales workflows.'],
+                ['Staff login', '/login', 'Access the internal dashboard.'],
+                ['Customer portal', '/customer/login', 'Enter the customer experience.'],
+              ].map(([title, href, body]) => (
+                <Link key={title} href={href} className="rounded-2xl border border-slate-200 bg-white p-4 transition-transform duration-200 hover:-translate-y-1 hover:border-slate-300">
+                  <p className="font-semibold text-slate-950">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+    </motion.main>
   )
 }

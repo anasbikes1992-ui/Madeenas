@@ -35,7 +35,7 @@ export default function SalesLandingPage() {
         <motion.div variants={fadeUp} className="mb-10 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold-300">Customer Sales</p>
-            <h1 className="mt-3 bg-linear-to-r from-white via-gold-100 to-gold-300 bg-clip-text text-4xl font-black text-transparent md:text-5xl">
+            <h1 className="mt-3 bg-gradient-to-r from-white via-gold-100 to-gold-300 bg-clip-text text-4xl font-black text-transparent md:text-5xl">
               Sales Interaction Hub
             </h1>
             <p className="mt-4 max-w-3xl text-slate-200/85">
