@@ -27,8 +27,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
-      <body className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(30,64,175,0.08),transparent_28%),radial-gradient(circle_at_15%_15%,rgba(212,175,55,0.12),transparent_26%),linear-gradient(180deg,#f8fafc_0%,#ffffff_42%,#eef4ff_100%)] text-slate-900 antialiased selection:bg-gold-400 selection:text-navy-950">
+    <html lang="en" className={`${inter.variable} ${manrope.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen bg-bg text-text antialiased selection:bg-accent-soft selection:text-text">
         <Providers>
           {children}
           <OfflineStatus />

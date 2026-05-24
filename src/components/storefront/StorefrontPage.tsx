@@ -5,16 +5,19 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight,
-  CalendarDays,
   CheckCircle2,
   Globe2,
-  MessageSquareMore,
+  Heart,
+  Eye,
+  PackageCheck,
   Search,
   ShoppingBag,
   Sparkles,
   X,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { parseImages } from '@/lib/utils'
+import { formatCurrency } from '@/lib/tax'
 import {
   resolveStorefrontLanguage,
   STOREFRONT_LANGUAGES,
@@ -40,6 +43,9 @@ type ProductItem = {
   unit: string
   description?: string | null
   images: string
+  lowStockAt: number
+  costPrice?: number | null
+  stocks?: Array<{ quantity: number }>
   category?: CategoryItem | null
 }
 
@@ -90,21 +96,37 @@ export default function StorefrontPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [language, setLanguage] = useState<StorefrontLanguage>('en')
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([])
 
   const t = storefrontDictionary[language]
 
-  const productCountLabel = useMemo(() => `${products.length} ${t.productsLabel}`, [products.length, t.productsLabel])
+  const visibleProducts = useMemo(() => {
+    if (!favoritesOnly) return products
+    return products.filter((product) => favoriteIds.includes(product.id))
+  }, [favoriteIds, favoritesOnly, products])
 
-  function queueToast(type: 'success' | 'error', message: string) {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current)
+  const productCountLabel = useMemo(() => `${visibleProducts.length} ${t.productsLabel}`, [t.productsLabel, visibleProducts.length])
+
+  function productStock(product: ProductItem) {
+    const total = (product.stocks || []).reduce((sum, item) => sum + (item.quantity || 0), 0)
+    const lowAt = Math.max(0, product.lowStockAt || 0)
+
+    if (total <= 0) {
+      return { total, label: 'Out of stock', badgeClass: 'badge-red' }
     }
 
-    setToast({ type, message })
-    toastTimerRef.current = setTimeout(() => setToast(null), 3200)
+    if (total <= lowAt) {
+      return { total, label: 'Low stock', badgeClass: 'badge-amber' }
+    }
+
+    return { total, label: 'In stock', badgeClass: 'badge-green' }
+  }
+
+  function estimatedUnitPrice(product: ProductItem) {
+    const base = product.costPrice && product.costPrice > 0 ? product.costPrice * 1.25 : 0
+    return formatCurrency(base)
   }
 
   async function load() {
@@ -121,7 +143,7 @@ export default function StorefrontPage() {
       setProducts(data.products || [])
       setCategories(data.categories || [])
     } catch {
-      queueToast('error', t.toastLoadFailed)
+      toast.error(t.toastLoadFailed)
     } finally {
       setLoading(false)
     }
@@ -152,11 +174,24 @@ export default function StorefrontPage() {
       return [...current, { product, quantity, colorPreference, note }]
     })
 
-    queueToast('success', 'Added to cart.')
+    toast.success('Added to cart.')
   }
 
   function removeFromCart(productId: string) {
     setCart((current) => current.filter((item) => item.product.id !== productId))
+  }
+
+  function toggleFavorite(productId: string) {
+    setFavoriteIds((current) => {
+      const exists = current.includes(productId)
+      if (exists) {
+        toast.success('Removed from favorites')
+        return current.filter((id) => id !== productId)
+      }
+
+      toast.success('Saved to favorites')
+      return [...current, productId]
+    })
   }
 
   async function submitOrder(event: React.FormEvent) {
@@ -164,17 +199,17 @@ export default function StorefrontPage() {
 
     if (!selected) return
     if (!orderForm.customerName.trim()) {
-      queueToast('error', t.validationName)
+      toast.error(t.validationName)
       return
     }
 
     if (!orderForm.customerEmail.includes('@')) {
-      queueToast('error', t.validationEmail)
+      toast.error(t.validationEmail)
       return
     }
 
     if (Number(orderForm.quantity) < 0.01) {
-      queueToast('error', t.validationQuantity)
+      toast.error(t.validationQuantity)
       return
     }
 
@@ -196,9 +231,9 @@ export default function StorefrontPage() {
       }
 
       setOrdered(true)
-      queueToast('success', t.toastOrderPlaced)
+      toast.success(t.toastOrderPlaced)
     } catch {
-      queueToast('error', t.toastOrderFailed)
+      toast.error(t.toastOrderFailed)
     } finally {
       setSubmitting(false)
     }
@@ -208,17 +243,17 @@ export default function StorefrontPage() {
     event.preventDefault()
 
     if (cart.length === 0) {
-      queueToast('error', 'Cart is empty.')
+      toast.error('Cart is empty.')
       return
     }
 
     if (!orderForm.customerName.trim()) {
-      queueToast('error', t.validationName)
+      toast.error(t.validationName)
       return
     }
 
     if (!orderForm.customerEmail.includes('@')) {
-      queueToast('error', t.validationEmail)
+      toast.error(t.validationEmail)
       return
     }
 
@@ -249,9 +284,9 @@ export default function StorefrontPage() {
       setCart([])
       setCartOpen(false)
       setOrdered(true)
-      queueToast('success', 'Cart order requests sent successfully.')
+      toast.success('Cart order requests sent successfully.')
     } catch {
-      queueToast('error', t.toastOrderFailed)
+      toast.error(t.toastOrderFailed)
     } finally {
       setSubmitting(false)
     }
@@ -278,10 +313,21 @@ export default function StorefrontPage() {
   }, [language])
 
   useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    const raw = window.localStorage.getItem('storefront-favorites')
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        setFavoriteIds(parsed.filter((value) => typeof value === 'string'))
+      }
+    } catch {
+      setFavoriteIds([])
     }
   }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem('storefront-favorites', JSON.stringify(favoriteIds))
+  }, [favoriteIds])
 
   const catalogSummary = [
     { label: t.catalogLabel, value: productCountLabel },
@@ -425,6 +471,14 @@ export default function StorefrontPage() {
                 {item.name}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((current) => !current)}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${favoritesOnly ? 'bg-rose-600 text-white shadow-[0_10px_22px_rgba(225,29,72,0.3)]' : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+            >
+              <Heart className="h-4 w-4" />
+              Favorites
+            </button>
           </div>
         </div>
       </section>
@@ -433,21 +487,32 @@ export default function StorefrontPage() {
         {loading ? (
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="gallery-card h-96 animate-pulse bg-slate-100" />
+              <div key={index} className="gallery-card flex flex-col h-96 animate-pulse bg-surface">
+                <div className="h-52 bg-slate-200 dark:bg-slate-800" />
+                <div className="p-5 space-y-4 mt-2">
+                  <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
+                  <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/2" />
+                </div>
+              </div>
             ))}
           </div>
-        ) : products.length === 0 ? (
+        ) : visibleProducts.length === 0 ? (
           <div className="surface-card px-6 py-16 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-navy-50 text-navy-700">
               <Search className="h-6 w-6" />
             </div>
-            <h3 className="text-2xl font-black text-slate-950">{t.noProductsTitle}</h3>
-            <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-slate-600">{t.noProductsBody}</p>
+            <h3 className="text-2xl font-black text-slate-950">{favoritesOnly ? 'No favorite products yet' : t.noProductsTitle}</h3>
+            <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-slate-600">
+              {favoritesOnly ? 'Save products to favorites and they will appear here for quick repeat ordering.' : t.noProductsBody}
+            </p>
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {products.map((product) => {
+            {visibleProducts.map((product) => {
               const images = parseImages(product.images)
+              const stock = productStock(product)
+              const isFavorite = favoriteIds.includes(product.id)
 
               return (
                 <article key={product.id} className="gallery-card flex flex-col">
@@ -465,6 +530,38 @@ export default function StorefrontPage() {
                         <p className="text-lg font-bold">{product.name}</p>
                         <p className="text-sm text-slate-200">{product.design}</p>
                       </div>
+
+                      <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                        <span className={`badge ${stock.badgeClass}`}>{stock.label}</span>
+                        <span className="badge bg-white/95 text-slate-700">{stock.total.toFixed(0)} {product.unit}</span>
+                      </div>
+
+                      <div className="absolute right-3 top-3 flex items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={isFavorite ? 'Remove from favorites' : 'Save to favorites'}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleFavorite(product.id)
+                          }}
+                          className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur ${isFavorite ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-white/70 bg-white/80 text-slate-600 hover:text-rose-600'}`}
+                        >
+                          <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Quick view"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            resetOrderFlow(product)
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/80 text-slate-600 backdrop-blur hover:text-navy-700"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-4 p-5">
@@ -478,9 +575,23 @@ export default function StorefrontPage() {
                         </div>
                       </div>
 
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Estimated unit price</p>
+                        <p className="mt-1 text-lg font-black text-slate-950">{estimatedUnitPrice(product)}</p>
+                      </div>
+
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <span className="h-3.5 w-3.5 rounded-full border border-slate-200" style={{ backgroundColor: product.colorHex }} />
                         <span>{product.color}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full border border-slate-200" title={product.color} style={{ backgroundColor: product.colorHex }} />
+                        <span className="h-5 w-5 rounded-full border border-slate-200" title={product.category?.name || 'Category'} style={{ backgroundColor: product.category?.color || '#1e3a8a' }} />
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                          <PackageCheck className="h-3.5 w-3.5" />
+                          live stock
+                        </span>
                       </div>
                     </div>
                   </button>
@@ -847,20 +958,6 @@ export default function StorefrontPage() {
                 </div>
               </form>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            className={`toast-${toast.type}`}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-          >
-            <MessageSquareMore className="h-4 w-4" />
-            <span>{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>

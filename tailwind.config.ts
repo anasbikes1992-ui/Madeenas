@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 export default {
+  darkMode: 'class',
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,42 +10,42 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Premium Navy Blue Theme
+        // Soft Blues (Ocean/Slate)
         navy: {
-          50: '#E8EAF6',
-          100: '#C5CAE9',
-          200: '#9FA8DA',
-          300: '#7986CB',
-          400: '#5C6BC0',
-          500: '#3F51B5', // Main navy
-          600: '#1A237E', // Deep navy - primary
-          700: '#0D1B3E',
-          800: '#0A1429',
-          900: '#050A14',
-          950: '#020509',
+          50: '#F0F4F8',
+          100: '#D9E2EC',
+          200: '#BCCCDC',
+          300: '#9FB3C8',
+          400: '#829AB1',
+          500: '#627D98', // Main soft blue
+          600: '#486581', 
+          700: '#334E68', // Deep blue
+          800: '#243B53',
+          900: '#102A43',
+          950: '#0B1C2D',
         },
-        // Premium Gold Accent
+        // Warm Earth Tones (Terracotta/Sand)
         gold: {
-          50: '#FFFBEB',
-          100: '#FEF3C7',
-          200: '#FDE68A',
-          300: '#FCD34D',
-          400: '#FBBF24',
-          500: '#F59E0B', // Main gold
-          600: '#D97706',
-          700: '#B45309',
-          800: '#92400E',
-          900: '#78350F',
-          metallic: '#D4AF37', // Pure gold
+          50: '#FBF5EC',
+          100: '#F6E6D1',
+          200: '#EFD1A4',
+          300: '#E6BB75',
+          400: '#DCA247',
+          500: '#D38D1C', // Warm terracotta/gold
+          600: '#B47113',
+          700: '#91580F',
+          800: '#73440B',
+          900: '#5F3609',
+          metallic: '#C88D36', 
         },
         // Supporting Colors
         cream: {
-          DEFAULT: '#FDF6E3',
-          50: '#FFFEF9',
-          100: '#FDF6E3',
+          DEFAULT: '#FAF8F5',
+          50: '#FCFBF9',
+          100: '#FAF8F5',
         },
-        pearl: '#F8F9FA',
-        'navy-light': '#2C3E50',
+        pearl: '#FDFCFB',
+        'navy-light': '#486581',
       },
       fontFamily: {
         heading: ['var(--font-manrope)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

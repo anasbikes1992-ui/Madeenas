@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import { VATBreakdown } from '@/components/shared/VATBreakdown'
 import { formatCurrency } from '@/lib/tax'
@@ -62,6 +62,17 @@ export default function CartPage() {
     if (quantity < 1) return
 
     setUpdating(itemId)
+    // Optimistic update
+    const previousCart = cart ? { ...cart } : null
+    if (cart) {
+      setCart({
+        ...cart,
+        items: cart.items.map(item => 
+          item.id === itemId ? { ...item, quantity } : item
+        )
+      })
+    }
+
     try {
       const res = await fetch(`/api/cart/items/${itemId}`, {
         method: 'PUT',
@@ -75,6 +86,7 @@ export default function CartPage() {
       setCart(data.data)
       toast.success('Cart updated')
     } catch (error) {
+      if (previousCart) setCart(previousCart)
       toast.error('Failed to update cart')
     } finally {
       setUpdating(null)
@@ -83,6 +95,15 @@ export default function CartPage() {
 
   const removeItem = async (itemId: string) => {
     setUpdating(itemId)
+    // Optimistic update
+    const previousCart = cart ? { ...cart } : null
+    if (cart) {
+      setCart({
+        ...cart,
+        items: cart.items.filter(item => item.id !== itemId)
+      })
+    }
+
     try {
       const res = await fetch(`/api/cart/items/${itemId}`, {
         method: 'DELETE'
@@ -94,6 +115,7 @@ export default function CartPage() {
       setCart(data.data)
       toast.success('Item removed')
     } catch (error) {
+      if (previousCart) setCart(previousCart)
       toast.error('Failed to remove item')
     } finally {
       setUpdating(null)
@@ -117,8 +139,11 @@ export default function CartPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="surface-card-soft w-full max-w-lg p-10 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm font-medium text-slate-600">Loading your cart...</p>
+        </div>
       </div>
     )
   }
@@ -142,6 +167,25 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Checkout flow</p>
+          <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            {[
+              { label: 'Cart', active: true },
+              { label: 'Checkout', active: false },
+              { label: 'Confirmation', active: false },
+            ].map((step, index) => (
+              <div
+                key={step.label}
+                className={`rounded-xl border px-3 py-2 text-center font-semibold ${step.active ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                aria-current={step.active ? 'step' : undefined}
+              >
+                {index + 1}. {step.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
@@ -151,6 +195,7 @@ export default function CartPage() {
                 <button
                   onClick={clearCart}
                   className="text-sm text-red-600 hover:text-red-700 font-semibold"
+                  aria-label="Clear all items from cart"
                 >
                   Clear Cart
                 </button>
@@ -158,7 +203,7 @@ export default function CartPage() {
 
               <div className="space-y-4">
                 {cart.items.map(item => (
-                  <div key={item.id} className="border border-slate-200 rounded-xl p-4">
+                  <div key={item.id} className="border border-slate-200 rounded-xl p-4 transition hover:border-slate-300 hover:shadow-sm">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-bold text-slate-900">{item.product.name}</h3>
@@ -171,6 +216,7 @@ export default function CartPage() {
                         onClick={() => removeItem(item.id)}
                         disabled={updating === item.id}
                         className="text-red-600 hover:text-red-700 font-semibold"
+                        aria-label={`Remove ${item.product.name} from cart`}
                       >
                         ✕
                       </button>
@@ -182,6 +228,7 @@ export default function CartPage() {
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           disabled={updating === item.id || item.quantity <= 1}
                           className="w-8 h-8 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+                          aria-label={`Decrease quantity for ${item.product.name}`}
                         >
                           −
                         </button>
@@ -190,6 +237,7 @@ export default function CartPage() {
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           disabled={updating === item.id}
                           className="w-8 h-8 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+                          aria-label={`Increase quantity for ${item.product.name}`}
                         >
                           +
                         </button>
@@ -222,8 +270,10 @@ export default function CartPage() {
                 href="/customer/checkout"
                 className="block w-full bg-indigo-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
               >
-                Proceed to Checkout
+                Continue to Checkout
               </Link>
+
+              <p className="mt-3 text-xs text-slate-500">Prices shown in LKR with VAT (18%) included in summary.</p>
 
               <Link
                 href="/customer/products"
