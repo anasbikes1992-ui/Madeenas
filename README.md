@@ -1,8 +1,9 @@
 # Madeenas Textile Management System
 
-Modern textile inventory and sales management platform with VAT integration and customer portal.
+Modern textile inventory, sales, and customer ordering platform built for Sri Lankan textile raw material trading operations.
 
-**Version**: 2.0 (In Development)  
+**Version**: 2.0
+**Region**: Sri Lanka (LKR + VAT)
 **Tech Stack**: Next.js 16 + Prisma + PostgreSQL + Flutter
 
 ## 🎯 Platform Components
@@ -15,7 +16,7 @@ Modern textile inventory and sales management platform with VAT integration and 
 ## ✨ What's New in v2.0
 
 ### 🧾 VAT Integration (18%)
-- Complete Ethiopian VAT support with 18% tax rate
+- Sri Lanka-ready VAT support with 18% tax rate
 - Automatic tax calculations on all sales and orders
 - Tax breakdown display: Subtotal + Tax Amount = Grand Total
 - Comprehensive tax reporting
@@ -40,25 +41,14 @@ Modern textile inventory and sales management platform with VAT integration and 
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-Before starting development, review these key documents:
+Use these docs as the current source of truth:
 
-- **[QUICK-START.md](./QUICK-START.md)** - Setup guide and common tasks
-- **[DEVELOPMENT-PLAN.md](./DEVELOPMENT-PLAN.md)** - 6-sprint roadmap with detailed tasks
-- **[IMPLEMENTATION-SUMMARY.md](./IMPLEMENTATION-SUMMARY.md)** - Current progress and completed features
-- **[API-DOCUMENTATION.md](./API-DOCUMENTATION.md)** - API endpoint documentation
-
-### Sprint Progress
-- **Sprint 0 (Foundation)**: 80% complete ✅
-  - Database schema with VAT models ✅
-  - Tax calculation utilities ✅
-  - Service layer (sales, cart, orders) ✅
-  - Validation schemas ✅
-  - API route examples ✅
-  
-- **Sprint 1-6**: Not started
-  - See DEVELOPMENT-PLAN.md for details
+- **[QUICK-START.md](./QUICK-START.md)** - local setup, commands, and implementation examples
+- **[API-DOCUMENTATION.md](./API-DOCUMENTATION.md)** - markdown API reference
+- **`/api-docs`** - browser API reference page
+- **`/openapi.json`** - OpenAPI specification for tooling or Swagger-compatible viewers
 
 ---
 
@@ -81,14 +71,14 @@ All business logic is isolated in service files:
 - OrderStatus enum for workflow tracking
 
 ### Key Features
-✅ Point of Sale (POS) with VAT breakdown  
+✅ Point of Sale (POS) with VAT breakdown and invoice export  
 ✅ Inventory management with multi-location support  
 ✅ Customer database with credit tracking  
 ✅ Sales reporting with tax analytics  
 ✅ Stock management (IN/OUT requests)  
 ✅ Audit logging for all critical operations  
-🚧 Customer portal with cart and ordering (in progress)  
-🚧 Mobile app (Flutter) - needs sync with v2 schema  
+✅ Customer portal with cart, checkout, and order tracking  
+🚧 Mobile app (Flutter) - verify parity with the latest web/API flows  
 
 ---
 
@@ -239,8 +229,8 @@ await addToCart({
 import { createOrderFromCart } from '@/services/orders.service';
 
 const order = await createOrderFromCart('customer-id', {
-  shippingAddress: '123 Main St, Addis Ababa',
-  phoneNumber: '+251911234567',
+  shippingAddress: 'No. 145, First Cross Street, Pettah, Colombo 11',
+  phoneNumber: '+94771234567',
 });
 
 console.log(order.orderNumber); // ORD-2026-0001
@@ -266,25 +256,16 @@ const report = await generateTaxReport(
 npm run test
 
 # E2E tests
-npm run test:e2e
+npm run e2e
 
 # Coverage report
 npm run test:coverage
 
 # Type checking
-npm run type-check
+npm run typecheck
 ```
 
 ---
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
 

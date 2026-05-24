@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 import { calculateMultipleItemsTax, formatCurrency, formatTaxRate } from '@/lib/tax'
 import { VATBreakdown } from '@/components/shared/VATBreakdown'
+import { exportSaleInvoicePDF } from '@/lib/reports'
 
 interface Product {
   id: string
@@ -18,6 +19,19 @@ interface CartItem {
   product: Product
   quantity: number
   unitPrice: number
+}
+
+interface CompletedSale {
+  id: string
+  receiptNo: string
+  createdAt: string
+  customerName?: string | null
+  customerPhone?: string | null
+  paymentMode: string
+  subTotal: number
+  taxRate: number
+  taxAmount: number
+  grandTotal: number
 }
 
 const RETAIL_MARKUP = 1.2
@@ -118,6 +132,7 @@ export default function POSPage() {
     
     setIsProcessing(true)
     try {
+      const cartSnapshot = cart.map((item) => ({ ...item }))
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -130,24 +145,46 @@ export default function POSPage() {
           items: cart.map(item => ({
             productId: item.product.id,
             quantity: item.quantity,
-            unitPrice: item.unitPrice
+            unitPrice: item.unitPrice,
+            subTotal: item.quantity * item.unitPrice,
           })),
           isCreditEligible
         })
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Checkout failed')
+      const sale = await res.json() as CompletedSale & { error?: string }
+      if (!res.ok) throw new Error(sale.error || 'Checkout failed')
 
-      toast.success(`Sale completed! Receipt: ${data.sale?.receiptNo || ''}`)
+      await exportSaleInvoicePDF({
+        id: sale.id,
+        receiptNo: sale.receiptNo,
+        createdAt: sale.createdAt,
+        customerName: sale.customerName || customerName.trim() || undefined,
+        customerPhone: sale.customerPhone || customerPhone.trim() || undefined,
+        paymentMode: sale.paymentMode,
+        subTotal: sale.subTotal,
+        taxRate: sale.taxRate,
+        taxAmount: sale.taxAmount,
+        grandTotal: sale.grandTotal,
+        items: cartSnapshot.map((item) => ({
+          quantity: item.quantity,
+          unit: item.product.unit,
+          unitPrice: item.unitPrice,
+          subTotal: item.quantity * item.unitPrice,
+          product: {
+            name: item.product.name,
+            sku: item.product.sku,
+          },
+        })),
+      })
+
+      toast.success(`Sale completed. Invoice exported for ${sale.receiptNo}`)
       setCart([])
       setCustomerName('')
       setCustomerPhone('')
       setIsCreditEligible(false)
       setPaymentMode('CASH')
       setTaxRate(DEFAULT_TAX_RATE)
-      
-      // TODO: Print receipt with VAT breakdown
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {

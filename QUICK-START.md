@@ -73,10 +73,10 @@ textilestock/
 │   │   └── orders.service.ts
 │   ├── components/          # React components
 │   └── types/              # TypeScript types
-├── DEVELOPMENT-PLAN.md     # ✨ Sprint roadmap
-└── IMPLEMENTATION-SUMMARY.md  # ✨ What's completed
+├── API-DOCUMENTATION.md    # Markdown API reference
+└── QUICK-START.md          # Setup and workflow guide
 
-✨ = New in v2
+✨ = Core business logic and shared utilities
 ```
 
 ---
@@ -127,7 +127,7 @@ const sale = await createSale({
   paymentMode: 'CASH',
   customerId: 'customer-id', // Optional
   customerName: 'John Doe',  // Optional
-  customerPhone: '+251911234567', // Optional
+  customerPhone: '+94771234567', // Optional
 }, soldById);
 
 console.log(sale.grandTotal); // 1180 (1000 + 180 tax)
@@ -154,8 +154,8 @@ console.log(cart.grandTotal); // Includes VAT
 import { createOrderFromCart } from '@/services/orders.service';
 
 const order = await createOrderFromCart('cust-123', {
-  shippingAddress: '123 Main St, Addis Ababa',
-  phoneNumber: '+251911234567',
+  shippingAddress: 'No. 145, First Cross Street, Pettah, Colombo 11',
+  phoneNumber: '+94771234567',
   note: 'Deliver before 5pm',
 });
 
@@ -172,7 +172,7 @@ console.log(order.orderNumber); // ORD-2026-0001
 npm run test
 
 # E2E tests
-npm run test:e2e
+npm run e2e
 
 # Coverage report
 npm run test:coverage
@@ -310,10 +310,10 @@ npx prisma db push --force-reset
 ### Before Making Changes
 1. Create a feature branch:
    ```bash
-   git checkout -b feature/sprint-1-vat-ui
+  git checkout -b feature/sri-lanka-updates
    ```
 
-2. Check current sprint tasks in `DEVELOPMENT-PLAN.md`
+2. Review the affected API and workflow docs in `API-DOCUMENTATION.md` and this guide.
 
 ### After Making Changes
 1. Run linter:
@@ -328,7 +328,7 @@ npx prisma db push --force-reset
 
 3. Commit with descriptive message:
    ```bash
-   git commit -m "feat: add VAT breakdown to POS UI"
+  git commit -m "feat: improve sri lanka sales flow"
    ```
 
 4. Push and create PR:
@@ -340,14 +340,9 @@ npx prisma db push --force-reset
 
 ## Next Steps
 
-See `DEVELOPMENT-PLAN.md` for the full roadmap.
-
-**Current Sprint**: Sprint 0 - Foundation (80% complete)
-
-**Next Sprint**: Sprint 1 - Core Enhancements + VAT
-- Update POS UI with VAT display
-- Create invoice templates with tax breakdown
-- Add barcode scanning
+- Validate the production build with `npm run build`
+- Review the live API reference at `/api-docs`
+- Keep the Flutter mobile app aligned with the current web/API schema
 
 ---
 
@@ -368,24 +363,24 @@ npx prisma migrate dev     # Create migration
 # Code Quality
 npm run lint               # Run ESLint
 npm run format             # Format with Prettier
-npm run type-check         # TypeScript type checking
+npm run typecheck          # TypeScript type checking
 
 # Testing
 npm run test               # Run unit tests
 npm run test:watch         # Watch mode
 npm run test:coverage      # Coverage report
-npm run test:e2e          # E2E tests
+npm run e2e               # E2E tests
 ```
 
 ---
 
 ## Getting Help
 
-- **Development Plan**: See `DEVELOPMENT-PLAN.md`
-- **Implementation Status**: See `IMPLEMENTATION-SUMMARY.md`
 - **API Documentation**: See `API-DOCUMENTATION.md`
+- **Browser API Docs**: Open `/api-docs`
+- **OpenAPI Spec**: Open `/openapi.json`
 - **Prisma Schema**: See `prisma/schema.prisma`
 
 ---
 
-**Happy Coding!** 🚀
+**Happy coding.**

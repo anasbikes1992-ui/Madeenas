@@ -7,7 +7,16 @@ const { auth } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 })
 
-const PUBLIC_PATHS = ['/', '/gallery', '/login', '/signup']
+const PUBLIC_PATHS = [
+  '/',
+  '/gallery',
+  '/login',
+  '/signup',
+  '/api-docs',
+  '/openapi.json',
+  '/customer/login',
+  '/customer/signup',
+]
 
 export default auth((req) => {
   const { nextUrl } = req

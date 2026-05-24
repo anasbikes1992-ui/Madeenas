@@ -4,6 +4,10 @@
 **Base URL:** `https://madeenas.vercel.app/api`  
 **Authentication:** NextAuth v5 JWT + NextAuth.js session
 
+Additional docs surfaces:
+- Browser reference: `/api-docs`
+- OpenAPI spec: `/openapi.json`
+
 ---
 
 ## Table of Contents
@@ -142,15 +146,15 @@ GET /api/products?category=catId&active=true
 [
   {
     "id": "prod_id",
-    "name": "Premium Silk Saree",
-    "sku": "SILK-SAREE-001",
-    "design": "Traditional",
-    "color": "Maroon",
+    "name": "Poly Cotton Roll 58in",
+    "sku": "PCR-58-001",
+    "design": "Plain Weave",
+    "color": "Navy Blue",
     "colorHex": "#800000",
     "category": {
       "id": "cat_id",
-      "name": "Sarees",
-      "slug": "sarees"
+      "name": "Shirting Fabrics",
+      "slug": "shirting-fabrics"
     },
     "unit": "pieces",
     "lowStockAt": 10,
@@ -174,8 +178,8 @@ GET /api/products/{productId}
 ```json
 {
   "id": "prod_id",
-  "name": "Premium Silk Saree",
-  "sku": "SILK-SAREE-001",
+  "name": "Poly Cotton Roll 58in",
+  "sku": "PCR-58-001",
   "category": {...},
   "stocks": [
     {
@@ -210,8 +214,8 @@ Content-Type: application/json
 Authorization: Bearer {token}
 
 {
-  "name": "Cotton Saree",
-  "design": "Check",
+  "name": "Cotton Drill Fabric",
+  "design": "Drill Weave",
   "color": "Blue",
   "colorHex": "#0000FF",
   "sku": "COTTON-SAREE-001",

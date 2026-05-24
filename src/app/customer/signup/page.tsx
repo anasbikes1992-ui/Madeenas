@@ -120,7 +120,7 @@ export default function CustomerSignupPage() {
                 onChange={handleChange}
                 required
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="+251 9xx xxx xxx"
+                placeholder="+94 7x xxx xxxx"
               />
             </div>
 
