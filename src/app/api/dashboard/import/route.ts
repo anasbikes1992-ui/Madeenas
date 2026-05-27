@@ -26,6 +26,14 @@ function numberValue(input: unknown, fallback = 0) {
   return Number.isFinite(value) ? value : fallback
 }
 
+function normalizeRowKeys(row: Record<string, unknown>) {
+  return Object.entries(row).reduce<Record<string, unknown>>((acc, [key, value]) => {
+    const normalizedKey = key.replace(/^\uFEFF/, '').trim().toLowerCase()
+    acc[normalizedKey] = value
+    return acc
+  }, {})
+}
+
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,14 +54,17 @@ export async function POST(request: NextRequest) {
   }
 
   const arrayBuffer = await file.arrayBuffer()
-  const workbook = XLSX.read(Buffer.from(arrayBuffer), { type: 'buffer' })
+  const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' })
   const sheetName = workbook.SheetNames[0]
 
   if (!sheetName) {
     return NextResponse.json({ error: 'No sheets found in uploaded file' }, { status: 400 })
   }
 
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' })
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], {
+    defval: '',
+    raw: false,
+  })
 
   if (rows.length === 0) {
     return NextResponse.json({ error: 'Uploaded file is empty' }, { status: 400 })
@@ -71,8 +82,9 @@ export async function POST(request: NextRequest) {
 
   const results: Array<{ sku: string; status: string; message?: string }> = []
 
-  for (const row of rows) {
+  for (const rawRow of rows) {
     try {
+      const row = normalizeRowKeys(rawRow)
       const name = stringValue(row.name)
       const sku = stringValue(row.sku)
       const design = stringValue(row.design, 'Default')
@@ -82,7 +94,7 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const categoryName = stringValue(row.category || row.categoryName)
+      const categoryName = stringValue(row.category || row.categoryname)
       const categorySlug = slugify(categoryName)
 
       let categoryId = uncategorized.id
@@ -130,6 +142,7 @@ export async function POST(request: NextRequest) {
 
       results.push({ sku, status: 'OK' })
     } catch (error) {
+      const row = normalizeRowKeys(rawRow)
       results.push({
         sku: stringValue(row.sku, 'N/A'),
         status: 'ERROR',

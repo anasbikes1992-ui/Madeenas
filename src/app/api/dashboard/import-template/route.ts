@@ -18,7 +18,9 @@ export async function GET() {
     'Silk Blend,Floral,SKU-002,Premium,meters,Blue,#0000FF,5,300.00,Premium silk blend,true',
   ].join('\n')
 
-  return new NextResponse(csvTemplate, {
+  const csvPayload = `\uFEFF${csvTemplate}`
+
+  return new NextResponse(csvPayload, {
     status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

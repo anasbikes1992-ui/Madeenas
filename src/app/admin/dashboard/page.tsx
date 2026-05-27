@@ -106,6 +106,32 @@ export default function DashboardPage() {
     }
   }
 
+  async function downloadTemplate() {
+    setCsvBusy(true)
+    setCsvMessage(null)
+
+    try {
+      const response = await fetch('/api/dashboard/import-template')
+      if (!response.ok) {
+        throw new Error('Template download failed')
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = 'import-template.csv'
+      anchor.click()
+      URL.revokeObjectURL(url)
+      setCsvMessage('Template downloaded successfully.')
+    } catch (error) {
+      console.error('Template download error:', error)
+      setCsvMessage('Template download failed.')
+    } finally {
+      setCsvBusy(false)
+    }
+  }
+
   async function importCsv(file: File) {
     setCsvBusy(true)
     setCsvMessage(null)
@@ -199,9 +225,30 @@ export default function DashboardPage() {
               }
             }}
           />
-          <a href="/admin/import-csv">
-            <NavyButton variant="outline" size="sm">Download Template</NavyButton>
-          </a>
+          <NavyButton
+            variant="outline"
+            size="sm"
+            onClick={() => void downloadTemplate()}
+            disabled={csvBusy}
+          >
+            {csvBusy ? 'Working...' : 'Download Template'}
+          </NavyButton>
+          <NavyButton
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={csvBusy}
+          >
+            Upload CSV
+          </NavyButton>
+          <NavyButton
+            variant="outline"
+            size="sm"
+            onClick={() => void exportCsv()}
+            disabled={csvBusy}
+          >
+            Export CSV
+          </NavyButton>
           <a href="/admin/stock-in">
             <NavyButton size="sm">⬇️ Stock In</NavyButton>
           </a>

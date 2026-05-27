@@ -84,7 +84,7 @@ export const saleCheckoutSchema = z.object({
   note: z.string().max(2000).optional().nullable(),
 })
 
-export const stockInSchema = z.object({
+const stockInSingleSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
   locationId: z.string().min(1, 'Location is required'),
   quantity: z.coerce.number().positive('Quantity must be greater than 0'),
@@ -94,7 +94,7 @@ export const stockInSchema = z.object({
   note: z.string().optional(),
 })
 
-export const stockOutRequestSchema = z.object({
+const stockOutSingleSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
   fromLocationId: z.string().min(1, 'From location is required'),
   toLocationId: z.string().optional().nullable(),
@@ -103,6 +103,38 @@ export const stockOutRequestSchema = z.object({
   referenceInvoice: z.string().trim().max(120).optional().nullable(),
   invoiceDate: z.string().trim().optional().nullable(),
 })
+
+const stockInItemSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  quantity: z.coerce.number().positive('Quantity must be greater than 0'),
+  costPrice: z.coerce.number().optional().nullable(),
+});
+
+const stockInBatchSchema = z.object({
+  locationId: z.string().min(1, 'Location is required'),
+  batchNumber: z.string().optional(),
+  supplierId: z.string().optional().nullable(),
+  note: z.string().optional(),
+  items: z.array(stockInItemSchema).min(3, 'Batch must contain at least 3 item lines'),
+});
+
+export const stockInSchema = z.union([stockInSingleSchema, stockInBatchSchema]);
+
+const stockOutItemSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
+});
+
+const stockOutBatchSchema = z.object({
+  fromLocationId: z.string().min(1, 'From location is required'),
+  toLocationId: z.string().optional().nullable(),
+  note: z.string().optional(),
+  referenceInvoice: z.string().trim().max(120).optional().nullable(),
+  invoiceDate: z.string().trim().optional().nullable(),
+  items: z.array(stockOutItemSchema).min(3, 'Batch must contain at least 3 item lines'),
+});
+
+export const stockOutRequestSchema = z.union([stockOutSingleSchema, stockOutBatchSchema]);
 
 export const categorySchema = z.object({
   name: z.string().trim().min(1, 'Category name is required').max(100, 'Category name is too long'),

@@ -1,9 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function StockInPage() {
-  const emptyForm = { productId: '', locationId: '', quantity: '', batchNumber: '', supplierId: '', costPrice: '', note: '' }
+  const emptyItem = { productId: '', quantity: '', costPrice: '' }
+  const emptyForm = { locationId: '', batchNumber: '', supplierId: '', note: '' }
   const [entries, setEntries] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
@@ -11,6 +12,7 @@ export default function StockInPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<any>(emptyForm)
+  const [items, setItems] = useState<any[]>([emptyItem, emptyItem, emptyItem])
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -37,22 +39,78 @@ export default function StockInPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+
+    const cleanedItems = items
+      .filter((item) => item.productId.trim() && item.quantity.trim())
+      .map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+        costPrice: item.costPrice ? Number(item.costPrice) : undefined,
+      }))
+
+    const filledCount = items.filter(item => item.productId.trim() && item.quantity.trim()).length
+
+    if (filledCount < 3) {
+      setSaving(false)
+      showToast(`You must fill at least 3 item rows. Currently filled: ${filledCount}/3`)
+      return
+    }
+
+    const uniqueProducts = new Set(cleanedItems.map(item => item.productId))
+    if (uniqueProducts.size < 3) {
+      setSaving(false)
+      showToast(`Batch requires at least 3 distinct products. You have ${uniqueProducts.size} unique product(s).`)
+      return
+    }
+
     const res = await fetch('/api/stock-in', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        items: cleanedItems,
+      }),
     })
     setSaving(false)
     if (res.ok) {
       setShowForm(false)
       setForm(emptyForm)
+      setItems([emptyItem, emptyItem, emptyItem])
       load()
-      showToast('Stock recorded successfully!')
+      showToast('Batch stock receipt recorded successfully!')
     } else {
       const err = await res.json()
       showToast('Error: ' + (err.error || 'Unknown error'))
     }
   }
+
+  function updateItem(index: number, patch: Record<string, string>) {
+    setItems((currentItems) => currentItems.map((item, currentIndex) => (currentIndex === index ? { ...item, ...patch } : item)))
+  }
+
+  function addItem() {
+    setItems((currentItems) => [...currentItems, { ...emptyItem }])
+  }
+
+  function removeItem(index: number) {
+    setItems((currentItems) => currentItems.filter((_, currentIndex) => currentIndex !== index))
+  }
+
+  const filledItemsCount = useMemo(
+    () => items.filter(item => item.productId.trim() && item.quantity.trim()).length,
+    [items]
+  )
+
+  const selectedProductIds = useMemo(
+    () => items.filter(item => item.productId.trim()).map(item => item.productId),
+    [items]
+  )
+
+  const duplicateProductIds = useMemo(() => {
+    const counts = new Map<string, number>()
+    selectedProductIds.forEach((id: string) => counts.set(id, (counts.get(id) || 0) + 1))
+    return Array.from(counts.entries()).filter(([, count]) => count > 1).map(([id]) => id)
+  }, [selectedProductIds])
 
   const warehouses = locations.filter(l => l.type === 'WAREHOUSE')
   const shops = locations.filter(l => l.type === 'SHOP')
@@ -120,19 +178,15 @@ export default function StockInPage() {
 
       {showForm && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
-          <div className="modal max-w-lg">
+          <div className="modal max-w-3xl">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Record Stock In</h2>
+              <div>
+                <h2 className="text-xl font-bold">Record Stock In</h2>
+                <p className="text-sm text-slate-500">Batch receipt mode: enter a destination first, then add 3 or more product lines.</p>
+              </div>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="form-group">
-                <label htmlFor="stockin-product" className="label">Product *</label>
-                <select id="stockin-product" required className="input" value={form.productId} onChange={e => setForm({ ...form, productId: e.target.value })}>
-                  <option value="">Select product</option>
-                  {products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
-                </select>
-              </div>
               <div className="form-group">
                 <label htmlFor="stockin-location" className="label">Destination Location *</label>
                 <select id="stockin-location" required className="input" value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
@@ -140,16 +194,6 @@ export default function StockInPage() {
                   {warehouses.length > 0 && <optgroup label="Warehouses">{warehouses.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>}
                   {shops.length > 0 && <optgroup label="Shops">{shops.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>}
                 </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="form-group">
-                  <label className="label">Quantity *</label>
-                  <input type="number" required min="0.01" step="0.01" className="input" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder="0" />
-                </div>
-                <div className="form-group">
-                  <label className="label">Cost Price / Unit</label>
-                  <input type="number" step="0.01" className="input" value={form.costPrice || ''} onChange={e => setForm({ ...form, costPrice: e.target.value })} placeholder="0.00" />
-                </div>
               </div>
               <div className="form-group">
                 <label className="label">Batch Number</label>
@@ -168,9 +212,69 @@ export default function StockInPage() {
                 <label className="label">Notes</label>
                 <textarea className="input" rows={2} value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="Optional notes..." />
               </div>
+
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">Stock Lines</h3>
+                    <p className="text-xs text-slate-500">
+                      Batch requires 3+ distinct products. Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
+                    </p>
+                  </div>
+                  <button type="button" onClick={addItem} className="btn-secondary btn-sm">+ Add Item</button>
+                </div>
+
+                <div className="space-y-3">
+                  {items.map((item, index) => {
+                    const isDuplicate = item.productId && duplicateProductIds.includes(item.productId)
+                    return (
+                    <div key={index} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-[minmax(0,1fr)_140px_140px_auto]">
+                      <div className="form-group mb-0">
+                        <label className="label">Product {index + 1}</label>
+                        <select className={`input ${isDuplicate ? 'border-amber-400 bg-amber-50' : ''}`} required value={item.productId} onChange={(e) => updateItem(index, { productId: e.target.value })}>
+                          <option value="">Select product</option>
+                          {products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                        </select>
+                        {isDuplicate && (
+                          <p className="mt-1 text-xs font-medium text-amber-600">
+                            ⚠️ Duplicate product – batch needs distinct products
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="form-group mb-0">
+                        <label className="label">Quantity</label>
+                        <input type="number" required min="0.01" step="0.01" className="input" value={item.quantity} onChange={(e) => updateItem(index, { quantity: e.target.value })} placeholder="0" />
+                      </div>
+
+                      <div className="form-group mb-0">
+                        <label className="label">Cost Price</label>
+                        <input type="number" step="0.01" className="input" value={item.costPrice || ''} onChange={(e) => updateItem(index, { costPrice: e.target.value })} placeholder="0.00" />
+                      </div>
+
+                      <div className="flex items-end">
+                        <button type="button" onClick={() => removeItem(index)} className="btn-secondary btn-sm w-full md:w-auto">Remove</button>
+                      </div>
+                    </div>
+                  )})}
+                </div>
+
+                {filledItemsCount < 3 && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                    ⚠️ Need at least 3 filled rows to submit. Add {3 - filledItemsCount} more.
+                  </div>
+                )}
+
+                {duplicateProductIds.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                    ⚠️ Duplicate products detected. Each batch line should be a different product.
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-                  {saving ? 'Saving…' : '⬇️ Record Stock In'}
+                <button type="submit" disabled={saving || !form.locationId} className="btn-primary flex-1 justify-center">
+                  {saving ? 'Saving…' : '⬇️ Record Batch Stock In'}
                 </button>
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
               </div>

@@ -57,47 +57,107 @@ export async function POST(request: NextRequest) {
     )
   }
   const b = parsed.data
-  const qty = b.quantity
+  const isBatchPayload = 'items' in b
+  const items = isBatchPayload ? b.items : [{ productId: b.productId, quantity: b.quantity, costPrice: b.costPrice ?? null }]
 
-  // Create stock-in record
-  const stockIn = await prisma.stockIn.create({
-    data: {
-      productId: b.productId,
-      locationId: b.locationId,
-      quantity: qty,
-      batchNumber: b.batchNumber,
-      supplierId: b.supplierId ?? null,
-      costPrice: b.costPrice ?? null,
-      note: b.note,
-      receivedBy: session.user.id as string,
-    },
-    include: { product: true, location: true }
+  if (isBatchPayload && items.length < 3) {
+    return NextResponse.json({ error: 'Batch requires at least 3 item lines' }, { status: 400 })
+  }
+
+  if (isBatchPayload) {
+    const uniqueProductCount = new Set(items.map((item) => item.productId)).size
+    if (uniqueProductCount < 3) {
+      return NextResponse.json({ error: 'Batch requires at least 3 distinct products' }, { status: 400 })
+    }
+  }
+
+  const consolidatedItems = Array.from(
+    items.reduce((map, item) => {
+      const current = map.get(item.productId)
+      map.set(item.productId, {
+        productId: item.productId,
+        quantity: (current?.quantity ?? 0) + item.quantity,
+        costPrice: item.costPrice ?? current?.costPrice ?? null,
+      })
+      return map
+    }, new Map<string, { productId: string; quantity: number; costPrice: number | null }>()).values()
+  )
+
+  const [location, products] = await Promise.all([
+    prisma.location.findUnique({ where: { id: b.locationId }, select: { id: true, name: true, isActive: true } }),
+    prisma.product.findMany({
+      where: { id: { in: consolidatedItems.map((item) => item.productId) } },
+      select: { id: true, name: true, unit: true, isActive: true },
+    }),
+  ])
+
+  if (!location || !location.isActive) {
+    return NextResponse.json({ error: 'Location not found' }, { status: 404 })
+  }
+
+  const productMap = new Map(products.map((product) => [product.id, product]))
+  for (const item of consolidatedItems) {
+    const product = productMap.get(item.productId)
+    if (!product || !product.isActive) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+  }
+
+  const stockIns = await prisma.$transaction(async (tx) => {
+    const created = await Promise.all(
+      consolidatedItems.map((item) =>
+        tx.stockIn.create({
+          data: {
+            productId: item.productId,
+            locationId: b.locationId,
+            quantity: item.quantity,
+            batchNumber: 'batchNumber' in b ? b.batchNumber : undefined,
+            supplierId: 'supplierId' in b ? b.supplierId ?? null : null,
+            costPrice: item.costPrice,
+            note: b.note,
+            receivedBy: session.user.id as string,
+          },
+          include: { product: true, location: true },
+        })
+      )
+    )
+
+    await Promise.all(
+      consolidatedItems.map((item) =>
+        tx.stock.upsert({
+          where: { productId_locationId: { productId: item.productId, locationId: b.locationId } },
+          update: { quantity: { increment: item.quantity } },
+          create: { productId: item.productId, locationId: b.locationId, quantity: item.quantity },
+        })
+      )
+    )
+
+    return created
   })
 
-  // Upsert stock level
-  await prisma.stock.upsert({
-    where: { productId_locationId: { productId: b.productId, locationId: b.locationId } },
-    update: { quantity: { increment: qty } },
-    create: { productId: b.productId, locationId: b.locationId, quantity: qty },
-  })
-
-  // Audit Log
   await logActivity({
     userId: session.user.id,
     action: 'STOCK_IN',
     entity: 'StockIn',
-    entityId: stockIn.id,
-    details: `Added ${qty} ${stockIn.product.unit} to ${stockIn.location.name}. Batch: ${b.batchNumber || 'N/A'}`
+    entityId: stockIns[0]?.id,
+    details: `Added ${consolidatedItems.length} item(s) to ${location.name}${'batchNumber' in b && b.batchNumber ? ` (Batch: ${b.batchNumber})` : ''}`,
   })
 
-  // Notify Admins about stock arrival
   await createNotification({
     role: 'ADMIN',
     title: 'New Stock Received 📦',
-    message: `${qty} units of ${stockIn.product.name} received at ${stockIn.location.name}.`,
+    message: `${consolidatedItems.length} product line(s) received at ${location.name}.`,
     type: 'SUCCESS',
-    link: '/admin/inventory'
+    link: '/admin/inventory',
   })
 
-  return NextResponse.json(stockIn, { status: 201 })
+  return NextResponse.json(
+    {
+      batch: {
+        count: stockIns.length,
+        items: stockIns,
+      },
+    },
+    { status: 201 }
+  )
 }

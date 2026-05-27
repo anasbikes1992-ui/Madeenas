@@ -88,7 +88,32 @@ export async function POST(request: NextRequest) {
   const b = parsed.data
 
   const userLocationId = session.user.locationId as string | null
-  let effectiveToLocationId = b.toLocationId ?? null
+  const isBatchPayload = 'items' in b
+  const items = isBatchPayload ? b.items : [{ productId: b.productId, quantityRequested: b.quantityRequested }]
+
+  if (isBatchPayload && items.length < 3) {
+    return NextResponse.json({ error: 'Batch requires at least 3 item lines' }, { status: 400 })
+  }
+
+  if (isBatchPayload) {
+    const uniqueProductCount = new Set(items.map((item) => item.productId)).size
+    if (uniqueProductCount < 3) {
+      return NextResponse.json({ error: 'Batch requires at least 3 distinct products' }, { status: 400 })
+    }
+  }
+
+  const consolidatedItems = Array.from(
+    items.reduce((map, item) => {
+      const current = map.get(item.productId)
+      map.set(item.productId, {
+        productId: item.productId,
+        quantityRequested: (current?.quantityRequested ?? 0) + item.quantityRequested,
+      })
+      return map
+    }, new Map<string, { productId: string; quantityRequested: number }>()).values()
+  )
+
+  let effectiveToLocationId = role === 'SHOP_STAFF' ? userLocationId : b.toLocationId ?? null
 
   if (!effectiveToLocationId) {
     return NextResponse.json({ error: 'Destination location is required' }, { status: 400 })
@@ -122,9 +147,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Source and destination locations must be different' }, { status: 400 })
   }
 
-  const [fromLocation, toLocation] = await Promise.all([
+  const [fromLocation, toLocation, products, stocks] = await Promise.all([
     prisma.location.findUnique({ where: { id: b.fromLocationId }, select: { id: true, isActive: true } }),
     prisma.location.findUnique({ where: { id: effectiveToLocationId }, select: { id: true, isActive: true } }),
+    prisma.product.findMany({
+      where: { id: { in: consolidatedItems.map((item) => item.productId) } },
+      select: { id: true, name: true, unit: true, isActive: true },
+    }),
+    prisma.stock.findMany({
+      where: {
+        locationId: b.fromLocationId,
+        productId: { in: consolidatedItems.map((item) => item.productId) },
+      },
+      select: { productId: true, quantity: true },
+    }),
   ])
 
   if (!fromLocation || !fromLocation.isActive) {
@@ -135,12 +171,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Destination location not found' }, { status: 400 })
   }
 
-  // Check available stock
-  const stock = await prisma.stock.findUnique({
-    where: { productId_locationId: { productId: b.productId, locationId: b.fromLocationId } },
-  })
-  if (!stock || stock.quantity < b.quantityRequested) {
-    return NextResponse.json({ error: 'Insufficient stock at selected location' }, { status: 400 })
+  const productMap = new Map(products.map((product) => [product.id, product]))
+  const stockMap = new Map(stocks.map((stock) => [stock.productId, stock.quantity]))
+
+  for (const item of consolidatedItems) {
+    const product = productMap.get(item.productId)
+    if (!product || !product.isActive) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+    const available = stockMap.get(item.productId) ?? 0
+    if (available < item.quantityRequested) {
+      return NextResponse.json({ error: `Insufficient stock for ${product.name} at selected location` }, { status: 400 })
+    }
   }
 
   let invoiceDate: Date | null = null
@@ -149,23 +191,36 @@ export async function POST(request: NextRequest) {
     invoiceDate = Number.isNaN(d.getTime()) ? null : d
   }
 
-  const stockOut = await prisma.stockOutRequest.create({
-    data: {
-      productId: b.productId,
-      fromLocationId: b.fromLocationId,
-      toLocationId: effectiveToLocationId,
-      requestedBy: session.user.id as string,
-      quantityRequested: b.quantityRequested,
-      referenceInvoice: b.referenceInvoice ?? undefined,
-      invoiceDate,
-      note: b.note,
+  const stockOutRequests = await prisma.$transaction(
+    consolidatedItems.map((item) =>
+      prisma.stockOutRequest.create({
+        data: {
+          productId: item.productId,
+          fromLocationId: b.fromLocationId,
+          toLocationId: effectiveToLocationId,
+          requestedBy: session.user.id as string,
+          quantityRequested: item.quantityRequested,
+          referenceInvoice: b.referenceInvoice ?? undefined,
+          invoiceDate,
+          note: b.note,
+        },
+        include: {
+          product: true,
+          fromLocation: true,
+          toLocation: true,
+          requestedByUser: { select: { id: true, name: true } },
+        },
+      })
+    )
+  )
+
+  return NextResponse.json(
+    {
+      batch: {
+        count: stockOutRequests.length,
+        items: stockOutRequests,
+      },
     },
-    include: {
-      product: true,
-      fromLocation: true,
-      toLocation: true,
-      requestedByUser: { select: { id: true, name: true } },
-    },
-  })
-  return NextResponse.json(stockOut, { status: 201 })
+    { status: 201 }
+  )
 }
