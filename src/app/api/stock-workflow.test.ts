@@ -148,12 +148,24 @@ describe('Stock workflow API hardening', () => {
     expect(vi.mocked(prisma.stock.upsert)).toHaveBeenCalledTimes(3)
   })
 
-  it('rejects stock-out batch with fewer than 3 lines', async () => {
+  it('creates stock-out batch with 2 items (no minimum restriction)', async () => {
     const { auth } = await import('@/lib/auth')
+    const { prisma } = await import('@/lib/db')
 
     vi.mocked(auth).mockResolvedValue({
       user: { id: 'u1', role: 'ADMIN', locationId: 'locA' },
     } as never)
+
+    vi.mocked(prisma.location.findUnique).mockResolvedValue({ id: 'locA', isActive: true } as never)
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      { id: 'p1', name: 'Prod 1', unit: 'meters', isActive: true },
+      { id: 'p2', name: 'Prod 2', unit: 'meters', isActive: true },
+    ] as never)
+    vi.mocked(prisma.stock.findMany).mockResolvedValue([
+      { productId: 'p1', quantity: 20 },
+      { productId: 'p2', quantity: 15 },
+    ] as never)
+    vi.mocked(prisma.stockOutRequest.create).mockResolvedValue({ id: 'r1' } as never)
 
     const request = new NextRequest('http://localhost/api/stock-out', {
       method: 'POST',
@@ -169,7 +181,8 @@ describe('Stock workflow API hardening', () => {
     })
 
     const response = await stockOutPOST(request)
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(201)
+    expect(vi.mocked(prisma.stockOutRequest.create)).toHaveBeenCalledTimes(2)
   })
 
   it('rejects stock-in batch when products are not distinct', async () => {

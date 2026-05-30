@@ -91,14 +91,15 @@ export async function POST(request: NextRequest) {
   const isBatchPayload = 'items' in b
   const items = isBatchPayload ? b.items : [{ productId: b.productId, quantityRequested: b.quantityRequested }]
 
-  if (isBatchPayload && items.length < 3) {
-    return NextResponse.json({ error: 'Batch requires at least 3 item lines' }, { status: 400 })
+  if (isBatchPayload && items.length === 0) {
+    return NextResponse.json({ error: 'Batch requires at least 1 item line' }, { status: 400 })
   }
 
+  // Check for duplicate products (each product should appear only once)
   if (isBatchPayload) {
     const uniqueProductCount = new Set(items.map((item) => item.productId)).size
-    if (uniqueProductCount < 3) {
-      return NextResponse.json({ error: 'Batch requires at least 3 distinct products' }, { status: 400 })
+    if (uniqueProductCount !== items.length) {
+      return NextResponse.json({ error: 'Duplicate products detected. Each item must be a different product.' }, { status: 400 })
     }
   }
 

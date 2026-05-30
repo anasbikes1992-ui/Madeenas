@@ -50,16 +50,16 @@ export default function StockInPage() {
 
     const filledCount = items.filter(item => item.productId.trim() && item.quantity.trim()).length
 
-    if (filledCount < 3) {
+    if (filledCount === 0) {
       setSaving(false)
-      showToast(`You must fill at least 3 item rows. Currently filled: ${filledCount}/3`)
+      showToast('You must fill at least 1 item row.')
       return
     }
 
     const uniqueProducts = new Set(cleanedItems.map(item => item.productId))
-    if (uniqueProducts.size < 3) {
+    if (uniqueProducts.size !== cleanedItems.length) {
       setSaving(false)
-      showToast(`Batch requires at least 3 distinct products. You have ${uniqueProducts.size} unique product(s).`)
+      showToast('Duplicate products detected. Each item must be a different product.')
       return
     }
 
@@ -218,7 +218,7 @@ export default function StockInPage() {
                   <div>
                     <h3 className="text-sm font-semibold text-slate-800">Stock Lines</h3>
                     <p className="text-xs text-slate-500">
-                      Batch requires 3+ distinct products. Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
+                      Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
                     </p>
                   </div>
                   <button type="button" onClick={addItem} className="btn-secondary btn-sm">+ Add Item</button>
@@ -258,12 +258,6 @@ export default function StockInPage() {
                     </div>
                   )})}
                 </div>
-
-                {filledItemsCount < 3 && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-                    ⚠️ Need at least 3 filled rows to submit. Add {3 - filledItemsCount} more.
-                  </div>
-                )}
 
                 {duplicateProductIds.length > 0 && (
                   <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">

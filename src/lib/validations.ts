@@ -115,7 +115,7 @@ const stockInBatchSchema = z.object({
   batchNumber: z.string().optional(),
   supplierId: z.string().optional().nullable(),
   note: z.string().optional(),
-  items: z.array(stockInItemSchema).min(3, 'Batch must contain at least 3 item lines'),
+  items: z.array(stockInItemSchema).min(1, 'Batch must contain at least 1 item line'),
 });
 
 export const stockInSchema = z.union([stockInSingleSchema, stockInBatchSchema]);
@@ -131,7 +131,7 @@ const stockOutBatchSchema = z.object({
   note: z.string().optional(),
   referenceInvoice: z.string().trim().max(120).optional().nullable(),
   invoiceDate: z.string().trim().optional().nullable(),
-  items: z.array(stockOutItemSchema).min(3, 'Batch must contain at least 3 item lines'),
+  items: z.array(stockOutItemSchema).min(1, 'Batch must contain at least 1 item line'),
 });
 
 export const stockOutRequestSchema = z.union([stockOutSingleSchema, stockOutBatchSchema]);

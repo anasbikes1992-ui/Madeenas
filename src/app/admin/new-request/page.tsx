@@ -109,17 +109,15 @@ export default function NewRequestPage() {
         quantityRequested: Number(item.quantityRequested),
       }))
 
-    const filledCount = items.filter(item => item.productId.trim() && item.quantityRequested.trim()).length
-
-    if (filledCount < 3) {
-      setError(`You must fill at least 3 item rows. Currently filled: ${filledCount}/3`)
+    if (cleanedItems.length === 0) {
+      setError('You must fill at least 1 item row.')
       setSaving(false)
       return
     }
 
     const uniqueProducts = new Set(cleanedItems.map(item => item.productId))
-    if (uniqueProducts.size < 3) {
-      setError(`Batch requires at least 3 distinct products. You have ${uniqueProducts.size} unique product(s).`)
+    if (uniqueProducts.size !== cleanedItems.length) {
+      setError(`Duplicate products detected. Each item must be a different product.`)
       setSaving(false)
       return
     }
@@ -260,7 +258,7 @@ export default function NewRequestPage() {
             <div>
               <h2 className="text-sm font-semibold text-slate-800">Movement Lines</h2>
               <p className="text-xs text-slate-500">
-                Batch requires 3+ distinct products. Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
+                Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
               </p>
             </div>
             <button type="button" onClick={addItem} className="btn-secondary btn-sm">
@@ -327,12 +325,6 @@ export default function NewRequestPage() {
               )
             })}
           </div>
-
-          {filledItemsCount < 3 && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-              ⚠️ Need at least 3 filled rows to submit. Add {3 - filledItemsCount} more.
-            </div>
-          )}
 
           {duplicateProductIds.length > 0 && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
