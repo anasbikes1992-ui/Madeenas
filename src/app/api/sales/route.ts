@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { saleCheckoutSchema } from '@/lib/validations'
 import { captureApiError } from '@/lib/logger'
 import { hasPermission } from '@/lib/permissions'
+import { sendInvoiceWhatsAppNotification } from '@/lib/whatsapp'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -173,7 +174,22 @@ export async function POST(request: NextRequest) {
       return newSale
     })
 
-    return NextResponse.json(sale, { status: 201 })
+    const invoiceUrlBase = process.env.NEXT_PUBLIC_APP_URL
+    const invoiceUrl = invoiceUrlBase
+      ? `${invoiceUrlBase.replace(/\/$/, '')}/admin/sales?receiptNo=${encodeURIComponent(sale.receiptNo)}`
+      : undefined
+
+    const whatsapp = await sendInvoiceWhatsAppNotification({
+      receiptNo: sale.receiptNo,
+      customerName: sale.customerName,
+      customerPhone: sale.customerPhone,
+      grandTotal: Number(sale.grandTotal),
+      paymentMode: sale.paymentMode,
+      createdAt: sale.createdAt,
+      invoiceUrl,
+    })
+
+    return NextResponse.json({ ...sale, whatsapp }, { status: 201 })
   } catch (error: unknown) {
     captureApiError(error, { route: 'POST /api/sales' })
     const message = error instanceof Error ? error.message : 'Sale transaction failed'

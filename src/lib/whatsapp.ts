@@ -1,4 +1,5 @@
 import { env } from '@/lib/env'
+import { captureApiError } from '@/lib/logger'
 
 type OrderNotificationPayload = {
   orderId: string
@@ -19,6 +20,16 @@ type NotificationResult = {
   delivered: number
   skipped: string[]
   failures: string[]
+}
+
+type InvoiceNotificationPayload = {
+  receiptNo: string
+  customerName?: string | null
+  customerPhone?: string | null
+  grandTotal: number
+  paymentMode: string
+  createdAt: Date | string
+  invoiceUrl?: string
 }
 
 function parseRecipients(value: string | undefined) {
@@ -134,6 +145,74 @@ export async function sendOrderWhatsAppNotifications(payload: OrderNotificationP
       }
     })
   )
+
+  return result
+}
+
+function buildInvoiceMessage(payload: InvoiceNotificationPayload) {
+  const issuedAt =
+    payload.createdAt instanceof Date ? payload.createdAt.toISOString() : payload.createdAt
+
+  return [
+    'Madeena Tex invoice',
+    `Receipt: ${payload.receiptNo}`,
+    `Customer: ${payload.customerName || 'Walk-in customer'}`,
+    `Amount: LKR ${payload.grandTotal.toFixed(2)}`,
+    `Payment: ${payload.paymentMode.replace(/_/g, ' ')}`,
+    `Issued: ${issuedAt}`,
+    payload.invoiceUrl ? `Invoice PDF: ${payload.invoiceUrl}` : null,
+    'Thank you for shopping with us.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+export async function sendInvoiceWhatsAppNotification(
+  payload: InvoiceNotificationPayload,
+): Promise<NotificationResult> {
+  const result: NotificationResult = {
+    enabled: env.WHATSAPP_ENABLED && env.WHATSAPP_SEND_CUSTOMER,
+    attempted: 0,
+    delivered: 0,
+    skipped: [],
+    failures: [],
+  }
+
+  if (!env.WHATSAPP_ENABLED) {
+    result.skipped.push('WhatsApp integration disabled')
+    return result
+  }
+
+  if (!env.WHATSAPP_SEND_CUSTOMER) {
+    result.skipped.push('Customer WhatsApp notifications disabled')
+    return result
+  }
+
+  const recipient = payload.customerPhone?.trim()
+  if (!recipient) {
+    result.skipped.push('Customer phone is missing')
+    return result
+  }
+
+  const apiUrl = env.WHATSAPP_API_URL
+  const apiToken = env.WHATSAPP_API_TOKEN
+  if (!apiUrl || !apiToken) {
+    result.skipped.push('WhatsApp API credentials missing')
+    return result
+  }
+
+  result.attempted = 1
+  try {
+    await sendTextMessage(recipient, buildInvoiceMessage(payload), apiUrl, apiToken)
+    result.delivered = 1
+  } catch (error) {
+    captureApiError(error, {
+      route: 'lib/whatsapp.sendInvoiceWhatsAppNotification',
+      recipient,
+      receiptNo: payload.receiptNo,
+    })
+    result.failures.push(`customer:${recipient}`)
+  }
 
   return result
 }

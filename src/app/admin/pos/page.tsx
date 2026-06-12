@@ -32,6 +32,13 @@ interface CompletedSale {
   taxRate: number
   taxAmount: number
   grandTotal: number
+  whatsapp?: {
+    enabled: boolean
+    attempted: number
+    delivered: number
+    skipped: string[]
+    failures: string[]
+  }
 }
 
 const RETAIL_MARKUP = 1.2
@@ -179,6 +186,11 @@ export default function POSPage() {
       })
 
       toast.success(`Sale completed. Invoice exported for ${sale.receiptNo}`)
+      if (sale.whatsapp?.attempted && sale.whatsapp.delivered > 0) {
+        toast.success('Invoice summary sent to customer via WhatsApp')
+      } else if (sale.whatsapp?.enabled && sale.whatsapp.failures.length > 0) {
+        toast.error('Sale completed, but WhatsApp delivery failed')
+      }
       setCart([])
       setCustomerName('')
       setCustomerPhone('')

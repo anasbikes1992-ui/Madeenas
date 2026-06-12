@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
+import { sendInvoiceWhatsAppNotification } from '@/lib/whatsapp'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -158,7 +159,22 @@ export async function POST(request: NextRequest) {
     details: `Mobile POS: ${items.length} item(s), total Rs. ${grandTotal}, receipt ${receiptNo}`,
   })
 
-  return ok({ sale, receiptNo }, 201)
+  const invoiceUrlBase = process.env.NEXT_PUBLIC_APP_URL
+  const invoiceUrl = invoiceUrlBase
+    ? `${invoiceUrlBase.replace(/\/$/, '')}/admin/sales?receiptNo=${encodeURIComponent(receiptNo)}`
+    : undefined
+
+  const whatsapp = await sendInvoiceWhatsAppNotification({
+    receiptNo,
+    customerName: sale.customerName,
+    customerPhone: sale.customerPhone,
+    grandTotal,
+    paymentMode,
+    createdAt: sale.createdAt,
+    invoiceUrl,
+  })
+
+  return ok({ sale, receiptNo, whatsapp }, 201)
 }
 
 export async function GET(request: NextRequest) {

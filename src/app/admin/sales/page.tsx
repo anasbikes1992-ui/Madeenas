@@ -200,13 +200,22 @@ export default function SalesHistoryPage() {
                   </span>
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    onClick={() => exportSaleInvoicePDF(sale)}
-                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
-                  >
-                    Download PDF
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => exportSaleInvoicePDF(sale)}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                    >
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => exportSaleInvoicePDF(sale, { print: true })}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700"
+                    >
+                      Print
+                    </button>
+                  </div>
                 </td>
                 <td className="text-sm text-slate-500">{sale.soldBy.name}</td>
               </tr>

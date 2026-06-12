@@ -5,9 +5,15 @@ import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
 import { z } from 'zod'
 
-const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER'])
+const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER'])
 
-const stockInSchema = z.object({
+const stockInItemSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().positive(),
+  costPrice: z.number().nonnegative().optional(),
+})
+
+const singleStockInSchema = z.object({
   productId: z.string().min(1),
   locationId: z.string().min(1),
   quantity: z.number().positive(),
@@ -16,6 +22,16 @@ const stockInSchema = z.object({
   costPrice: z.number().nonnegative().optional(),
   note: z.string().optional(),
 })
+
+const batchStockInSchema = z.object({
+  locationId: z.string().min(1),
+  batchNumber: z.string().optional(),
+  supplierId: z.string().optional(),
+  note: z.string().optional(),
+  items: z.array(stockInItemSchema).min(1),
+})
+
+const stockInSchema = z.union([singleStockInSchema, batchStockInSchema])
 
 export async function GET(request: NextRequest) {
   const user = await getMobileUser(request)
@@ -67,46 +83,97 @@ export async function POST(request: NextRequest) {
     return fail('Validation error', 400, 'VALIDATION_ERROR')
   }
 
-  const { productId, locationId, quantity, batchNumber, supplierId, costPrice, note } = parsed.data
+  const payload = parsed.data
+  const isBatch = 'items' in payload
+  const locationId = payload.locationId
+  const incomingItems = isBatch
+    ? payload.items
+    : [
+        {
+          productId: payload.productId,
+          quantity: payload.quantity,
+          costPrice: payload.costPrice,
+        },
+      ]
 
-  const [product, location] = await Promise.all([
-    prisma.product.findUnique({ where: { id: productId } }),
+  const distinctProductIds = new Set(incomingItems.map((item) => item.productId))
+  if (distinctProductIds.size !== incomingItems.length) {
+    return fail('Duplicate products detected. Each line must be distinct.', 400, 'VALIDATION_ERROR')
+  }
+
+  const [location, products] = await Promise.all([
     prisma.location.findUnique({ where: { id: locationId } }),
+    prisma.product.findMany({ where: { id: { in: incomingItems.map((item) => item.productId) } } }),
   ])
 
-  if (!product || !product.isActive) return fail('Product not found', 404, 'NOT_FOUND')
   if (!location || !location.isActive) return fail('Location not found', 404, 'NOT_FOUND')
 
-  const stockIn = await prisma.$transaction(async (tx) => {
-    const record = await tx.stockIn.create({
-      data: {
-        productId,
-        locationId,
-        quantity,
-        batchNumber,
-        supplierId: supplierId || null,
-        costPrice,
-        note,
-        receivedBy: user.sub!
-      },
-    })
+  const productMap = new Map(products.map((product) => [product.id, product]))
+  for (const item of incomingItems) {
+    const product = productMap.get(item.productId)
+    if (!product || !product.isActive) {
+      return fail('Product not found', 404, 'NOT_FOUND')
+    }
+  }
 
-    await tx.stock.upsert({
-      where: { productId_locationId: { productId, locationId } },
-      create: { productId, locationId, quantity },
-      update: { quantity: { increment: quantity } },
-    })
+  if (payload.supplierId) {
+    const supplier = await prisma.supplier.findUnique({ where: { id: payload.supplierId } })
+    if (!supplier || !supplier.isActive) {
+      return fail('Supplier not found', 404, 'NOT_FOUND')
+    }
+  }
 
-    return record
+  const stockIns = await prisma.$transaction(async (tx) => {
+    const created = await Promise.all(
+      incomingItems.map((item) =>
+        tx.stockIn.create({
+          data: {
+            productId: item.productId,
+            locationId,
+            quantity: item.quantity,
+            batchNumber: payload.batchNumber,
+            supplierId: payload.supplierId || null,
+            costPrice: item.costPrice,
+            note: payload.note,
+            receivedBy: user.sub!,
+          },
+        })
+      )
+    )
+
+    await Promise.all(
+      incomingItems.map((item) =>
+        tx.stock.upsert({
+          where: { productId_locationId: { productId: item.productId, locationId } },
+          create: { productId: item.productId, locationId, quantity: item.quantity },
+          update: { quantity: { increment: item.quantity } },
+        })
+      )
+    )
+
+    return created
   })
+
+  const lineCount = incomingItems.length
+  const detail = isBatch
+    ? `Recorded batch stock receipt (${lineCount} lines) at ${location.name} via mobile`
+    : (() => {
+        const item = incomingItems[0]
+        const product = productMap.get(item.productId)
+        return `Added ${item.quantity} units of ${product?.name ?? item.productId} to ${location.name} via mobile`
+      })()
 
   await logActivity({
     userId: user.sub!,
     action: 'STOCK_IN',
     entity: 'StockIn',
-    entityId: stockIn.id,
-    details: `Added ${quantity} units of ${product.name} to ${location.name} via mobile`,
+    entityId: stockIns[0]?.id,
+    details: detail,
   })
 
-  return ok({ stockIn }, 201)
+  if (isBatch) {
+    return ok({ batch: { count: stockIns.length, items: stockIns } }, 201)
+  }
+
+  return ok({ stockIn: stockIns[0] }, 201)
 }

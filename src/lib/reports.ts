@@ -124,7 +124,11 @@ export async function exportStockOutRequestsPDF(requests: any[]) {
   doc.save(`stock-out-requests-${new Date().toISOString().split('T')[0]}.pdf`)
 }
 
-export async function exportSaleInvoicePDF(sale: SaleInvoiceData) {
+type ExportSaleInvoiceOptions = {
+  print?: boolean
+}
+
+export async function exportSaleInvoicePDF(sale: SaleInvoiceData, options?: ExportSaleInvoiceOptions) {
   const doc = new jsPDF()
   const issuedOn = formatDate(sale.createdAt, {
     year: 'numeric',
@@ -201,6 +205,13 @@ export async function exportSaleInvoicePDF(sale: SaleInvoiceData) {
   doc.setTextColor(100)
   doc.text('All amounts are shown in Sri Lankan Rupees (LKR).', 14, 284)
   doc.text('Thank you for trading with Madeena Textile Management.', 14, 289)
+
+  if (options?.print) {
+    doc.autoPrint()
+    const pdfBlobUrl = doc.output('bloburl')
+    window.open(pdfBlobUrl, '_blank', 'noopener,noreferrer')
+    return
+  }
 
   doc.save(`invoice-${sale.receiptNo}.pdf`)
 }
