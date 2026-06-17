@@ -30,12 +30,14 @@ const navItems = [
       { href: '/admin/stock-out', label: 'All Requests', icon: '📋', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
       { href: '/admin/my-requests', label: 'My Requests', icon: '📤', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
       { href: '/admin/new-request', label: 'New Request', icon: '➕', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/send-stock', label: 'Send Stock', icon: '🚚', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
     ]
   },
   {
     group: 'Activity',
     items: [
       { href: '/admin/notifications', label: 'Notifications', icon: '🔔', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
+      { href: '/admin/history', label: 'History', icon: '🕘', roles: ['SUPER_ADMIN'] },
     ]
   },
   {

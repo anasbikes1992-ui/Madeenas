@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity, createNotification } from '@/lib/audit'
+import { logHistoryEvent } from '@/lib/history'
 import { hasPermission } from '@/lib/permissions'
 import { shouldRequireTransferApproval } from '@/lib/stock-transfer-policy'
 
@@ -31,6 +32,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     include: { product: true, fromLocation: true, toLocation: true },
   })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (existing.flowType === 'SEND_DIRECT') {
+    return NextResponse.json({ error: 'Use send acknowledgement endpoint for direct send records' }, { status: 400 })
+  }
 
   const userLocationId = session.user.locationId as string | null
   const isRequester = existing.requestedBy === session.user.id
@@ -82,6 +86,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         type: 'SUCCESS',
         link: '/admin/my-requests',
       })
+
+      await logHistoryEvent({
+        entityType: 'STOCK_REQUEST',
+        entityId: id,
+        eventType: 'REQUEST_APPROVED',
+        title: 'Stock request approved',
+        details: `Approved ${qtyApproved} ${existing.product.unit}`,
+        createdBy: session.user.id,
+      })
       return NextResponse.json(updated)
     }
 
@@ -125,6 +138,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         message: `Your request for ${existing.product.name} was rejected.`,
         type: 'DANGER',
         link: '/admin/my-requests',
+      })
+
+      await logHistoryEvent({
+        entityType: 'STOCK_REQUEST',
+        entityId: id,
+        eventType: 'REQUEST_REJECTED',
+        title: 'Stock request rejected',
+        details: body.rejectionReason || 'Rejected without reason',
+        createdBy: session.user.id,
       })
       return NextResponse.json(updated)
     }
@@ -186,6 +208,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             status: 'IN_TRANSIT',
             dispatchedAt,
             dispatchedBy: session.user.id,
+            quantityDispatched: qty,
             // Keep legacy timestamp fields populated for existing reports/UI paths.
             acknowledgedAt: existing.acknowledgedAt,
           },
@@ -238,6 +261,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
       }
 
+      await logHistoryEvent({
+        entityType: 'STOCK_REQUEST',
+        entityId: id,
+        eventType: 'REQUEST_DISPATCHED',
+        title: 'Stock request dispatched',
+        details: `Dispatched ${qty} ${existing.product.unit}`,
+        createdBy: session.user.id,
+      })
+
       return NextResponse.json(updated)
     }
 
@@ -267,6 +299,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           where: { id, status: { in: ['DISPATCHED', 'IN_TRANSIT'] } },
           data: {
             status: 'RECEIVED',
+            quantityReceived: qty,
+            discrepancyQty: 0,
             receivedAt,
             receivedBy: session.user.id,
             acknowledgedAt: receivedAt,
@@ -298,6 +332,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         link: '/admin/stock-out',
       })
 
+      await logHistoryEvent({
+        entityType: 'STOCK_REQUEST',
+        entityId: id,
+        eventType: 'REQUEST_ACKNOWLEDGED',
+        title: 'Stock request received',
+        details: `Received ${qty} ${existing.product.unit}`,
+        createdBy: session.user.id,
+      })
+
       return NextResponse.json(updated)
     }
 
@@ -323,6 +366,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!updated) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
       }
+
+      await logHistoryEvent({
+        entityType: 'STOCK_REQUEST',
+        entityId: id,
+        eventType: 'REQUEST_CANCELLED',
+        title: 'Stock request cancelled',
+        details: 'Cancelled while pending',
+        createdBy: session.user.id,
+      })
       return NextResponse.json(updated)
     }
 

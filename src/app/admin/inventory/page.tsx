@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { classifyStockLevel } from '@/lib/utils'
 import { exportInventoryMatrixPDF } from '@/lib/reports'
+import { toast } from 'react-hot-toast'
 
 export default function InventoryPage() {
   const [data, setData] = useState<any[]>([])
@@ -9,22 +10,68 @@ export default function InventoryPage() {
   const [locations, setLocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    Promise.all([
+  async function refreshMatrix() {
+    const [reportData, locs] = await Promise.all([
       fetch('/api/reports?type=inventory').then(r => r.json()),
       fetch('/api/locations').then(r => r.json()),
-    ]).then(([reportData, locs]) => {
-      setData(reportData.inventoryMatrix || [])
-      setLocations(locs)
-      // Extract unique products
-      const prodMap = new Map<string, any>()
-      reportData.inventoryMatrix?.forEach((s: any) => {
-        if (!prodMap.has(s.productId)) prodMap.set(s.productId, s.product)
-      })
-      setProducts(Array.from(prodMap.values()))
-      setLoading(false)
+    ])
+    setData(reportData.inventoryMatrix || [])
+    setLocations(locs)
+    const prodMap = new Map<string, any>()
+    reportData.inventoryMatrix?.forEach((s: any) => {
+      if (!prodMap.has(s.productId)) prodMap.set(s.productId, s.product)
     })
+    setProducts(Array.from(prodMap.values()))
+  }
+
+  useEffect(() => {
+    refreshMatrix().finally(() => setLoading(false))
   }, [])
+
+  async function handleExport(format: 'xlsx' | 'csv') {
+    try {
+      const res = await fetch(`/api/inventory/export?format=${format}`)
+      if (!res.ok) {
+        toast.error('Export failed')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `inventory-matrix-${new Date().toISOString().slice(0, 10)}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`Inventory exported as ${format.toUpperCase()}`)
+    } catch {
+      toast.error('Export failed')
+    }
+  }
+
+  async function handleImport(event: { target: { files: FileList | null } }) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/inventory/import', {
+        method: 'POST',
+        body: formData,
+      })
+      const payload = await res.json()
+      if (!res.ok) {
+        toast.error(payload.error || 'Import failed')
+        return
+      }
+
+      toast.success(`Inventory import complete: ${payload.imported} updated, ${payload.failed} failed`)
+      await refreshMatrix()
+    } catch {
+      toast.error('Import failed')
+    }
+  }
 
   function getStock(productId: string, locationId: string) {
     return data.find(s => s.productId === productId && s.locationId === locationId)
@@ -61,6 +108,12 @@ export default function InventoryPage() {
           >
             📄 Export to PDF
           </button>
+          <button onClick={() => handleExport('xlsx')} className="btn-secondary btn-sm">⬇️ XLSX</button>
+          <button onClick={() => handleExport('csv')} className="btn-secondary btn-sm">⬇️ CSV</button>
+          <label className="btn-secondary btn-sm cursor-pointer">
+            📥 Import
+            <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleImport} />
+          </label>
         </div>
       </div>
 
@@ -131,7 +184,14 @@ export default function InventoryPage() {
                     return (
                       <td key={loc.id} className="text-center">
                         {qty > 0 ? (
-                          <span className={`stock-${level} font-mono text-sm`}>{qty.toLocaleString()}</span>
+                          <span className={`stock-${level} font-mono text-sm`}>
+                            {qty.toLocaleString()}
+                            {product.conversionFactor && product.alternateUnit ? (
+                              <span className="block text-[10px] text-slate-500 font-normal">
+                                {(qty * product.conversionFactor).toFixed(4)} {product.alternateUnit}
+                              </span>
+                            ) : null}
+                          </span>
                         ) : (
                           <span className="text-slate-300 text-sm">—</span>
                         )}
@@ -141,6 +201,11 @@ export default function InventoryPage() {
                   <td className="text-center">
                     <span className={`font-bold stock-${classifyStockLevel(total, product.lowStockAt)}`}>
                       {total.toLocaleString()} {product.unit}
+                      {product.conversionFactor && product.alternateUnit ? (
+                        <span className="block text-[10px] text-slate-500 font-normal">
+                          {(total * product.conversionFactor).toFixed(4)} {product.alternateUnit}
+                        </span>
+                      ) : null}
                     </span>
                   </td>
                 </tr>

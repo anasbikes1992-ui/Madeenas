@@ -41,6 +41,9 @@ export async function PATCH(
   })
 
   if (!existing) return fail('Request not found', 404, 'NOT_FOUND')
+  if (existing.flowType === 'SEND_DIRECT') {
+    return fail('Use stock-send endpoint for direct sends', 400, 'VALIDATION_ERROR')
+  }
 
   const isDestinationUser = Boolean(userLocationId && existing.toLocationId === userLocationId)
 
@@ -94,6 +97,7 @@ export async function PATCH(
         data: {
           status: 'IN_TRANSIT',
           dispatchedAt: new Date(),
+          quantityDispatched: qty,
         },
       })
 
@@ -167,6 +171,8 @@ export async function PATCH(
         where: { id, status: { in: ['DISPATCHED', 'IN_TRANSIT'] } },
         data: {
           status: 'RECEIVED',
+          quantityReceived: qty,
+          discrepancyQty: 0,
           acknowledgedAt: receivedAt,
         },
       })

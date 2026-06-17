@@ -31,6 +31,8 @@ export const productSchema = z.object({
   colorHex: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid hex color'),
   categoryId: z.string().min(1, 'Category is required'),
   unit: z.string().min(1, 'Unit is required'),
+  alternateUnit: z.string().optional().nullable(),
+  conversionFactor: z.coerce.number().positive('Conversion factor must be greater than 0').optional().nullable(),
   lowStockAt: z.coerce.number().min(0, 'Threshold cannot be negative'),
   costPrice: z.coerce.number().optional().nullable(),
   description: z.string().optional().nullable(),
@@ -135,6 +137,27 @@ const stockOutBatchSchema = z.object({
 });
 
 export const stockOutRequestSchema = z.union([stockOutSingleSchema, stockOutBatchSchema]);
+
+const stockSendItemSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  quantityDispatched: z.coerce.number().positive('Quantity must be greater than 0'),
+})
+
+export const stockSendCreateSchema = z.object({
+  fromLocationId: z.string().min(1, 'From location is required'),
+  toLocationId: z.string().min(1, 'To location is required'),
+  note: z.string().trim().max(500).optional().nullable(),
+  referenceInvoice: z.string().trim().max(120).optional().nullable(),
+  invoiceDate: z.string().trim().optional().nullable(),
+  items: z.array(stockSendItemSchema).min(1, 'At least one line is required'),
+})
+
+export const stockSendAcknowledgeSchema = z.object({
+  action: z.literal('acknowledge'),
+  quantityReceived: z.coerce.number().positive('Received quantity must be greater than 0'),
+  discrepancyReason: z.string().trim().max(500).optional().nullable(),
+  acknowledgeNote: z.string().trim().max(500).optional().nullable(),
+})
 
 export const categorySchema = z.object({
   name: z.string().trim().min(1, 'Category name is required').max(100, 'Category name is too long'),

@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
+import { logHistoryEvent } from '@/lib/history'
 import { productUpdateSchema } from '@/lib/validations'
 import { hasPermission } from '@/lib/permissions'
 
@@ -45,6 +46,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (d.sku !== undefined) data.sku = d.sku
   if (d.categoryId !== undefined) data.category = { connect: { id: d.categoryId } }
   if (d.unit !== undefined) data.unit = d.unit
+  if (d.alternateUnit !== undefined) data.alternateUnit = d.alternateUnit
+  if (d.conversionFactor !== undefined) data.conversionFactor = d.conversionFactor
   if (d.description !== undefined) data.description = d.description
   if (d.images !== undefined) data.images = JSON.stringify(d.images)
   if (d.barcodeType !== undefined) data.barcodeType = d.barcodeType
@@ -70,6 +73,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     details: `Updated product details for: ${product.name}`
   })
 
+  await logHistoryEvent({
+    entityType: 'PRODUCT',
+    entityId: product.id,
+    eventType: 'PRODUCT_UPDATED',
+    title: 'Product updated',
+    details: `Updated ${product.name}`,
+    payload: {
+      unit: product.unit,
+      alternateUnit: product.alternateUnit,
+      conversionFactor: product.conversionFactor,
+      isActive: product.isActive,
+    },
+    createdBy: session.user.id,
+  })
+
   return NextResponse.json(product)
 }
 
@@ -89,6 +107,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     entity: 'Product',
     entityId: id,
     details: `Archived product: ${product.name}`
+  })
+
+  await logHistoryEvent({
+    entityType: 'PRODUCT',
+    entityId: id,
+    eventType: 'PRODUCT_ARCHIVED',
+    title: 'Product archived',
+    details: `${product.name} archived`,
+    createdBy: session.user.id,
   })
 
   return NextResponse.json({ success: true })

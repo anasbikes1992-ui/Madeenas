@@ -3,7 +3,6 @@ import { useEffect, useState, useRef } from 'react'
 import { parseImages, formatDate, truncate } from '@/lib/utils'
 import { generateProductLabelPDF } from '@/lib/barcode'
 import { toast } from 'react-hot-toast'
-import * as XLSX from 'xlsx'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { productSchema, type ProductFormData } from '@/lib/validations'
@@ -45,29 +44,45 @@ export default function ProductsPage() {
   async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = async (evt) => {
-      const data = new Uint8Array(evt.target?.result as ArrayBuffer)
-      const workbook = XLSX.read(data, { type: 'array' })
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet)
-      try {
-        const res = await fetch('/api/admin/products/bulk-import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ products: jsonData })
-        })
-        if (res.ok) {
-          toast.success('Import successful')
-          loadProducts()
-        } else {
-          toast.error('Import failed')
-        }
-      } catch (err) {
-        toast.error('Error importing file')
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/products/import', {
+        method: 'POST',
+        body: formData,
+      })
+      const payload = await res.json()
+      if (!res.ok) {
+        toast.error(payload.error || 'Import failed')
+        return
       }
+      toast.success(`Import completed: ${payload.imported} success, ${payload.failed} failed`)
+      loadProducts()
+    } catch {
+      toast.error('Error importing file')
     }
-    reader.readAsArrayBuffer(file)
+  }
+
+  async function handleExport(format: 'xlsx' | 'csv') {
+    try {
+      const res = await fetch(`/api/products/export?format=${format}`)
+      if (!res.ok) {
+        toast.error('Export failed')
+        return
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `products-export-${new Date().toISOString().slice(0, 10)}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`Exported products as ${format.toUpperCase()}`)
+    } catch {
+      toast.error('Export failed')
+    }
   }
 
   useEffect(() => { loadCategories() }, [])
@@ -82,7 +97,7 @@ export default function ProductsPage() {
     reset({
       name: '', design: '', color: '', colorHex: '#3730a3',
       sku: `TXT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      unit: 'meters', lowStockAt: 10,
+      unit: 'meters', alternateUnit: 'yards', conversionFactor: null, lowStockAt: 10,
     })
     setImageFiles([])
     setShowForm(true)
@@ -151,9 +166,11 @@ export default function ProductsPage() {
         </div>
         <div className="flex gap-2">
           <label className="btn-secondary cursor-pointer">
-            📊 Import Excel
-            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelImport} />
+            📥 Import XLSX/CSV
+            <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleExcelImport} />
           </label>
+          <button onClick={() => handleExport('xlsx')} className="btn-secondary">⬇️ Export XLSX</button>
+          <button onClick={() => handleExport('csv')} className="btn-secondary">⬇️ Export CSV</button>
           <button onClick={openNew} className="btn-primary">+ Add Product</button>
         </div>
       </div>
@@ -237,7 +254,14 @@ export default function ProductsPage() {
                       {p.category?.name}
                     </span>
                   </td>
-                  <td className="text-sm text-slate-600">{p.unit}</td>
+                  <td className="text-sm text-slate-600">
+                    <div>
+                      <span>{p.unit}</span>
+                      {p.alternateUnit && p.conversionFactor ? (
+                        <p className="text-xs text-slate-400">1 {p.unit} = {p.conversionFactor} {p.alternateUnit}</p>
+                      ) : null}
+                    </div>
+                  </td>
                   <td>
                     <span className={totalStock <= 0 ? 'stock-empty' : totalStock <= p.lowStockAt ? 'stock-low' : 'stock-healthy'}>
                       {totalStock.toLocaleString()} {p.unit}
@@ -306,6 +330,7 @@ export default function ProductsPage() {
                 <div className="flex gap-2">
                   <input 
                     type="color" 
+                    title="Choose color"
                     className="h-10 w-14 rounded-lg cursor-pointer border border-slate-200" 
                     value={watch('colorHex')}
                     onChange={(e) => setValue('colorHex', e.target.value)}
@@ -344,6 +369,15 @@ export default function ProductsPage() {
                 {errors.lowStockAt && <p className="text-red-500 text-xs mt-1">{errors.lowStockAt.message}</p>}
               </div>
               <div className="form-group">
+                <label className="label">Alternate Unit</label>
+                <input className="input" {...register('alternateUnit')} placeholder="e.g. meters" />
+              </div>
+              <div className="form-group">
+                <label className="label">Conversion Factor</label>
+                <input type="number" step="0.0001" className={`input ${errors.conversionFactor ? 'border-red-500' : ''}`} {...register('conversionFactor')} placeholder="1 unit = factor alternate unit" />
+                {errors.conversionFactor && <p className="text-red-500 text-xs mt-1">{errors.conversionFactor.message}</p>}
+              </div>
+              <div className="form-group">
                 <label className="label">Cost Price (optional)</label>
                 <input type="number" step="0.01" className={`input ${errors.costPrice ? 'border-red-500' : ''}`} {...register('costPrice')} placeholder="0.00" />
                 {errors.costPrice && <p className="text-red-500 text-xs mt-1">{errors.costPrice.message}</p>}
@@ -362,7 +396,7 @@ export default function ProductsPage() {
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); handleImageUpload(e.dataTransfer.files) }}
                 >
-                  <input ref={fileRef} type="file" multiple accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files)} />
+                  <input ref={fileRef} title="Upload product images" type="file" multiple accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files)} />
                   <p className="text-sm text-slate-500">📷 Drag & drop or click to upload images</p>
                   <p className="text-xs text-slate-400 mt-1">PNG, JPG, WebP up to 10MB each</p>
                 </div>

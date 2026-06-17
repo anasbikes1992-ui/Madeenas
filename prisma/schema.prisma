@@ -41,6 +41,7 @@ model User {
   customerOrders  CustomerOrder[]
   financeReviews  FinanceReview[]
   auditLogs       AuditLog[]
+  historyEvents   EntityHistory[]
   sales           Sale[]
   carts           Cart[]
   
@@ -91,6 +92,8 @@ model Product {
   categoryId   String
   category     Category @relation(fields: [categoryId], references: [id])
   unit         String   @default("meters")
+  alternateUnit String?
+  conversionFactor Float?
   description  String?
   images       String   @default("[]")
   barcodeType  String   @default("CODE128")
@@ -178,6 +181,8 @@ model StockAdjustment {
 
 model StockOutRequest {
   id                 String   @id @default(cuid())
+  transferNo         String?  @unique
+  flowType           String   @default("REQUEST")
   productId          String
   product            Product  @relation(fields: [productId], references: [id])
   fromLocationId     String
@@ -188,6 +193,11 @@ model StockOutRequest {
   requestedByUser    User     @relation("RequestedBy", fields: [requestedBy], references: [id])
   quantityRequested  Float
   quantityApproved   Float?
+  quantityDispatched Float?
+  quantityReceived   Float?
+  discrepancyQty     Float?
+  discrepancyReason  String?
+  acknowledgeNote    String?
   status             String   @default("PENDING")
   referenceInvoice   String?
   invoiceDate        DateTime?
@@ -307,6 +317,23 @@ model AuditLog {
   entityId  String?
   details   String?
   createdAt DateTime @default(now())
+}
+
+model EntityHistory {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  eventType   String
+  title       String
+  details     String?
+  payloadJson String?
+  createdBy   String
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdBy, createdAt])
 }
 
 model Notification {

@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
+import { logHistoryEvent } from '@/lib/history'
 import { productCreateSchema } from '@/lib/validations'
 import { hasPermission } from '@/lib/permissions'
 
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
       sku: d.sku,
       categoryId: d.categoryId,
       unit: d.unit || 'meters',
+      alternateUnit: d.alternateUnit ?? null,
+      conversionFactor: d.conversionFactor ?? null,
       description: d.description ?? undefined,
       images: JSON.stringify(d.images ?? []),
       barcodeType: d.barcodeType || 'CODE128',
@@ -84,6 +87,20 @@ export async function POST(request: NextRequest) {
     entity: 'Product',
     entityId: product.id,
     details: `Created product: ${product.name} (SKU: ${product.sku})`
+  })
+
+  await logHistoryEvent({
+    entityType: 'PRODUCT',
+    entityId: product.id,
+    eventType: 'PRODUCT_CREATED',
+    title: 'Product created',
+    details: `${product.name} (${product.sku}) created`,
+    payload: {
+      unit: product.unit,
+      alternateUnit: product.alternateUnit,
+      conversionFactor: product.conversionFactor,
+    },
+    createdBy: session.user.id,
   })
 
   return NextResponse.json(product, { status: 201 })

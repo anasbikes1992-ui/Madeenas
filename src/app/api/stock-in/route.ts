@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity, createNotification } from '@/lib/audit'
+import { logHistoryEvent } from '@/lib/history'
 import { stockInSchema } from '@/lib/validations'
 import { hasPermission } from '@/lib/permissions'
 
@@ -151,6 +152,24 @@ export async function POST(request: NextRequest) {
     type: 'SUCCESS',
     link: '/admin/inventory',
   })
+
+  await Promise.all(
+    stockIns.map((item) =>
+      logHistoryEvent({
+        entityType: 'INVENTORY',
+        entityId: item.id,
+        eventType: 'STOCK_IN_RECORDED',
+        title: 'Stock-in recorded',
+        details: `${item.quantity ?? 'N/A'} ${item.product?.unit ?? 'units'} received at ${item.location?.name ?? b.locationId}`,
+        payload: {
+          productId: item.productId,
+          locationId: item.locationId,
+          batchNumber: item.batchNumber,
+        },
+        createdBy: session.user.id,
+      })
+    )
+  )
 
   return NextResponse.json(
     {

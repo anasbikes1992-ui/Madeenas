@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
 
   const stockOut = await prisma.stockOutRequest.create({
     data: {
+      flowType: 'REQUEST',
       productId,
       fromLocationId,
       toLocationId: effectiveToLocationId,
@@ -142,6 +143,7 @@ export async function GET(request: NextRequest) {
   const userLocationId = user.locationId ?? null
 
   const where: Record<string, unknown> = {}
+  where.flowType = 'REQUEST'
   if (mine) {
     where.requestedBy = user.sub
   } else if (!canViewAll) {

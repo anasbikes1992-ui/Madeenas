@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import { stockOutRequestSchema } from '@/lib/validations'
+import { logHistoryEvent } from '@/lib/history'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
   const role = session.user.role as string
   const userLocationId = session.user.locationId as string | null
 
-  const where: Prisma.StockOutRequestWhereInput = {}
+  const where: Prisma.StockOutRequestWhereInput = { flowType: 'REQUEST' }
   if (status) {
     if (status.includes(',')) {
       where.status = { in: status.split(',') }
@@ -196,6 +197,7 @@ export async function POST(request: NextRequest) {
     consolidatedItems.map((item) =>
       prisma.stockOutRequest.create({
         data: {
+          flowType: 'REQUEST',
           productId: item.productId,
           fromLocationId: b.fromLocationId,
           toLocationId: effectiveToLocationId,
@@ -211,6 +213,24 @@ export async function POST(request: NextRequest) {
           toLocation: true,
           requestedByUser: { select: { id: true, name: true } },
         },
+      })
+    )
+  )
+
+  await Promise.all(
+    stockOutRequests.map((requestRow) =>
+      logHistoryEvent({
+        entityType: 'STOCK_REQUEST',
+        entityId: requestRow.id,
+        eventType: 'REQUEST_CREATED',
+        title: 'Stock request created',
+        details: `${requestRow.quantityRequested ?? 'N/A'} ${requestRow.product?.unit ?? 'units'} requested`,
+        payload: {
+          fromLocationId: requestRow.fromLocationId,
+          toLocationId: requestRow.toLocationId,
+          productId: requestRow.productId,
+        },
+        createdBy: session.user.id as string,
       })
     )
   )
