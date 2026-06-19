@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
-import * as cartService from '@/services/cart.service'
 import { checkoutSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
@@ -35,28 +34,10 @@ export async function POST(request: NextRequest) {
     const checkoutData = validation.data
     const taxRate = checkoutData.taxRate || 18
 
-    // Checkout stock validation uses the customer's assigned location.
-    if (!user.locationId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Customer location is not configured. Please contact support.',
-        },
-        { status: 400 }
-      )
-    }
-
-    const stockValidation = await cartService.validateCartStock(user.id, user.locationId)
-    if (!stockValidation.valid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Insufficient stock for some items',
-          details: stockValidation.errors,
-        },
-        { status: 400 }
-      )
-    }
+    // Stock is only validated at admin fulfillment time, not at order placement.
+    // Customer orders are requests — the admin reviews and fulfills them.
+    // Skipping validateCartStock here so customers without an assigned location
+    // can still place orders.
 
     // Create order from cart
     const order = await ordersService.createOrderFromCart(

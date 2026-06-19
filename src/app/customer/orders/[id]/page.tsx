@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
 import { VATBreakdownTable } from '@/components/shared/VATBreakdown'
@@ -42,25 +42,32 @@ interface Order {
   items: OrderItem[]
 }
 
-export default function OrderDetailPage({ params }: { params: { id: string } }) {
+export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { status: sessionStatus } = useSession()
   const router = useRouter()
+  const [orderId, setOrderId] = useState<string | null>(null)
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
 
+  // Unwrap async params once on mount
+  useEffect(() => {
+    void params.then(p => setOrderId(p.id))
+  }, [params])
+
   useEffect(() => {
     if (sessionStatus === 'unauthenticated') {
       router.push('/customer/login')
-    } else if (sessionStatus === 'authenticated') {
+    } else if (sessionStatus === 'authenticated' && orderId) {
       loadOrder()
     }
-  }, [sessionStatus, router])
+  }, [sessionStatus, router, orderId])
 
   const loadOrder = async () => {
+    if (!orderId) return
     try {
-      const res = await fetch(`/api/orders/${params.id}`)
+      const res = await fetch(`/api/orders/${orderId}`)
       const data = await res.json()
 
       if (!res.ok) {
@@ -77,9 +84,10 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   }
 
   const handleCancelOrder = async () => {
+    if (!orderId) return
     setCancelling(true)
     try {
-      const res = await fetch(`/api/orders/${params.id}/cancel`, {
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: 'Customer requested cancellation' })

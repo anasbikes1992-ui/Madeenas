@@ -22,7 +22,9 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const validation = updateCartItemSchema.safeParse(body)
+    // cartItemId comes from the URL path, not the body — validate only quantity
+    const quantitySchema = updateCartItemSchema.pick({ quantity: true })
+    const validation = quantitySchema.safeParse(body)
 
     if (!validation.success) {
       return NextResponse.json(

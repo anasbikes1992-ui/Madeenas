@@ -136,184 +136,197 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Checkout</h1>
-          <p className="text-slate-600">{cartSummary.itemCount} items in your order</p>
-          <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
-            {[
-              { label: 'Address', step: 1 },
-              { label: 'Review', step: 2 },
-              { label: 'Payment', step: 3 },
-            ].map((item) => (
-              <button
-                key={item.step}
-                type="button"
-                onClick={() => setActiveStep(item.step)}
-                className={`rounded-xl border px-3 py-2 font-semibold transition ${activeStep === item.step ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'}`}
-                aria-current={activeStep === item.step ? 'step' : undefined}
-              >
-                {item.step}. {item.label}
-              </button>
-            ))}
-          </div>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      {/* Progress steps */}
+      <div className="card p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600 mb-3">Checkout flow</p>
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          {[
+            { label: 'Address', step: 1 },
+            { label: 'Review', step: 2 },
+            { label: 'Payment', step: 3 },
+          ].map((item) => (
+            <button
+              key={item.step}
+              type="button"
+              onClick={() => setActiveStep(item.step)}
+              className={`rounded-xl border px-3 py-2 font-semibold transition ${
+                activeStep === item.step
+                  ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'
+              }`}
+              aria-current={activeStep === item.step ? 'step' : undefined}
+            >
+              {item.step}. {item.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Checkout Form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
-              <div className={activeStep === 1 ? '' : 'opacity-60'}>
-                <h2 className="text-xl font-bold text-slate-900 mb-4">Shipping Information</h2>
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Checkout Form */}
+        <div className="lg:col-span-2">
+          <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Checkout</h1>
+              <p className="text-sm text-slate-500 mt-0.5">{cartSummary.itemCount} item{cartSummary.itemCount !== 1 ? 's' : ''} in your order</p>
+            </div>
 
-                <div className="space-y-4">
-                  {savedAddresses.length > 0 && (
-                    <div>
-                      <label htmlFor="savedAddress" className="block text-sm font-medium text-slate-700 mb-2">
-                        Saved Addresses
-                      </label>
-                      <select
-                        id="savedAddress"
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setFormData((prev) => ({ ...prev, shippingAddress: e.target.value }))
-                          }
-                        }}
-                        defaultValue=""
-                      >
-                        <option value="">Select a saved address</option>
-                        {savedAddresses.map((address) => (
-                          <option key={address} value={address}>
-                            {address}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
+            {/* Step 1: Shipping */}
+            <section className={activeStep === 1 ? '' : 'opacity-60 pointer-events-none'}>
+              <h2 className="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">1</span>
+                Shipping Information
+              </h2>
+              <div className="space-y-4">
+                {savedAddresses.length > 0 && (
                   <div>
-                    <label htmlFor="shippingAddress" className="block text-sm font-medium text-slate-700 mb-2">
-                      Shipping Address *
-                    </label>
-                    <textarea
-                      id="shippingAddress"
-                      name="shippingAddress"
-                      rows={3}
-                      value={formData.shippingAddress}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Enter your full shipping address"
-                    />
+                    <label htmlFor="savedAddress" className="label">Saved Addresses</label>
+                    <select
+                      id="savedAddress"
+                      className="input"
+                      onChange={(e) => {
+                        if (e.target.value) setFormData((prev) => ({ ...prev, shippingAddress: e.target.value }))
+                      }}
+                      defaultValue=""
+                    >
+                      <option value="">Select a saved address…</option>
+                      {savedAddresses.map((address) => (
+                        <option key={address} value={address}>{address}</option>
+                      ))}
+                    </select>
                   </div>
-
-                  <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={saveAddress}
-                      onChange={(e) => setSaveAddress(e.target.checked)}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    Save this address for next time
-                  </label>
-
-                  <div>
-                    <label htmlFor="phoneNumber" className="block text-sm font-medium text-slate-700 mb-2">
-                      Phone Number *
-                    </label>
-                    <input
-                      id="phoneNumber"
-                      name="phoneNumber"
-                      type="tel"
-                      value={formData.phoneNumber}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="+94 7X XXX XXXX"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className={activeStep === 2 ? '' : 'opacity-60'}>
-                <h2 className="text-xl font-bold text-slate-900 mb-4">Billing Information</h2>
-
+                )}
                 <div>
-                  <label htmlFor="billingAddress" className="block text-sm font-medium text-slate-700 mb-2">
-                    Billing Address (optional, leave blank to use shipping address)
-                  </label>
+                  <label htmlFor="shippingAddress" className="label">Shipping Address *</label>
                   <textarea
-                    id="billingAddress"
-                    name="billingAddress"
+                    id="shippingAddress"
+                    name="shippingAddress"
                     rows={3}
-                    value={formData.billingAddress}
+                    value={formData.shippingAddress}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Enter billing address if different from shipping"
+                    required
+                    className="input"
+                    placeholder="Enter your full shipping address"
+                  />
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveAddress}
+                    onChange={(e) => setSaveAddress(e.target.checked)}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Save this address for next time
+                </label>
+                <div>
+                  <label htmlFor="phoneNumber" className="label">Phone Number *</label>
+                  <input
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    required
+                    className="input"
+                    placeholder="+94 7X XXX XXXX"
                   />
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setActiveStep(2)}
+                className="btn-primary mt-5 w-full sm:w-auto"
+              >
+                Continue to Review →
+              </button>
+            </section>
 
-              <div className={`rounded-xl border border-slate-200 bg-slate-50 p-4 ${activeStep === 3 ? '' : 'opacity-60'}`}>
-                <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-600 mb-3">Payment Method</h3>
-                <p className="text-sm text-slate-700 font-semibold">Bank Transfer (Sri Lanka)</p>
-                <div className="mt-2 space-y-1 text-sm text-slate-600">
-                  <p>Bank: Commercial Bank PLC</p>
-                  <p>Account Name: Madeena Textile Management</p>
-                  <p>Account Number: 101245789633</p>
-                  <p>Branch: Pettah</p>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">Use your order number as the transfer reference after confirmation.</p>
-              </div>
-
+            {/* Step 2: Billing */}
+            <section className={activeStep === 2 ? '' : 'opacity-60 pointer-events-none'}>
+              <h2 className="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">2</span>
+                Billing Information
+              </h2>
               <div>
-                <label htmlFor="note" className="block text-sm font-medium text-slate-700 mb-2">
-                  Order Notes (optional)
-                </label>
+                <label htmlFor="billingAddress" className="label">Billing Address <span className="text-slate-400 font-normal">(optional — leave blank to use shipping address)</span></label>
                 <textarea
-                  id="note"
-                  name="note"
+                  id="billingAddress"
+                  name="billingAddress"
                   rows={3}
-                  value={formData.note}
+                  value={formData.billingAddress}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Any special instructions for your order?"
+                  className="input"
+                  placeholder="Enter billing address if different from shipping"
                 />
               </div>
-
               <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-indigo-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => setActiveStep(3)}
+                className="btn-primary mt-5 w-full sm:w-auto"
               >
-                {isProcessing ? 'Placing Order...' : 'Place Order'}
+                Continue to Payment →
               </button>
-            </form>
-          </div>
+            </section>
 
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-8 sticky top-4">
-              <h2 className="text-xl font-bold text-slate-900 mb-6">Order Summary</h2>
-
-              <VATBreakdown
-                subTotal={cartSummary.subTotal}
-                taxRate={cartSummary.taxRate}
-                taxAmount={cartSummary.taxAmount}
-                grandTotal={cartSummary.grandTotal}
-                showTitle={false}
-              />
-
-              <div className="mt-6 pt-6 border-t border-slate-200">
-                <p className="text-xs text-slate-600">
-                  By placing this order, you agree to our terms and conditions.
-                  Your order will be reviewed and approved by our team.
-                </p>
-                <p className="mt-2 text-xs text-slate-600">All amounts are shown in LKR. VAT is calculated at 18%.</p>
+            {/* Step 3: Payment */}
+            <section className={activeStep === 3 ? '' : 'opacity-60 pointer-events-none'}>
+              <h2 className="text-base font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">3</span>
+                Payment Method
+              </h2>
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5 space-y-1">
+                <p className="text-sm font-semibold text-slate-800">Bank Transfer (Sri Lanka)</p>
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600">
+                  <span className="font-medium text-slate-500">Bank</span><span>Commercial Bank PLC</span>
+                  <span className="font-medium text-slate-500">Account Name</span><span>Madeena Textile Management</span>
+                  <span className="font-medium text-slate-500">Account No.</span><span className="font-mono font-semibold text-slate-800">101245789633</span>
+                  <span className="font-medium text-slate-500">Branch</span><span>Pettah</span>
+                </div>
+                <p className="mt-3 text-xs text-slate-500 pt-2 border-t border-indigo-100">Use your order number as the transfer reference after confirmation.</p>
               </div>
+            </section>
+
+            {/* Order notes */}
+            <div>
+              <label htmlFor="note" className="label">Order Notes <span className="text-slate-400 font-normal">(optional)</span></label>
+              <textarea
+                id="note"
+                name="note"
+                rows={3}
+                value={formData.note}
+                onChange={handleChange}
+                className="input"
+                placeholder="Any special instructions for your order?"
+              />
             </div>
+
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="btn-primary w-full py-3 text-base"
+            >
+              {isProcessing ? 'Placing Order…' : '🛒 Place Order'}
+            </button>
+          </form>
+        </div>
+
+        {/* Order Summary */}
+        <div className="lg:col-span-1">
+          <div className="card p-6 sticky top-4 space-y-5">
+            <h2 className="text-base font-semibold text-slate-900">Order Summary</h2>
+
+            <VATBreakdown
+              subTotal={cartSummary.subTotal}
+              taxRate={cartSummary.taxRate}
+              taxAmount={cartSummary.taxAmount}
+              grandTotal={cartSummary.grandTotal}
+              showTitle={false}
+            />
+
+            <p className="text-xs text-slate-500 pt-4 border-t border-slate-100">
+              By placing this order, you agree to our terms and conditions. Your order will be reviewed and approved by our team. All amounts in LKR, VAT 18%.
+            </p>
           </div>
         </div>
       </div>

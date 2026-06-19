@@ -1,10 +1,13 @@
 /**
  * Cart Service for Customer Portal
- * 
+ *
  * Manages shopping cart operations for customers.
  */
 
 import { prisma } from '@/lib/db';
+
+/** Retail markup applied on top of cost price for customer-facing prices */
+const RETAIL_MARKUP = 1.2;
 import { calculateLineItemTax, calculateMultipleItemsTax } from '@/lib/tax';
 import type { Prisma } from '@prisma/client';
 
@@ -59,16 +62,17 @@ export async function getOrCreateCart(customerId: string): Promise<CartWithDetai
 export async function getCartWithTotals(customerId: string, taxRate = 18) {
   const cart = await getOrCreateCart(customerId);
   
-  // Calculate totals
+  // Calculate totals — convert Prisma Decimal to number explicitly to avoid
+  // silent type coercion issues in arithmetic operations
   const items = cart.items.map((item) => ({
     ...item,
-    ...calculateLineItemTax(item.quantity, item.unitPrice, taxRate),
+    ...calculateLineItemTax(item.quantity, Number(item.unitPrice), taxRate),
   }));
-  
+
   const totals = calculateMultipleItemsTax(
     items.map((item) => ({
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
+      unitPrice: Number(item.unitPrice),
     })),
     taxRate
   );
@@ -137,6 +141,9 @@ export async function addToCart(params: AddToCartParams) {
     },
   });
   
+  const costPrice = Number(product.costPrice) || 0;
+  const retailPrice = costPrice * RETAIL_MARKUP;
+
   if (existingItem) {
     // Update quantity
     await prisma.cartItem.update({
@@ -145,7 +152,7 @@ export async function addToCart(params: AddToCartParams) {
       },
       data: {
         quantity: existingItem.quantity + quantity,
-        unitPrice: product.costPrice, // Update to current price
+        unitPrice: retailPrice, // Update to current retail price
       },
     });
   } else {
@@ -155,7 +162,7 @@ export async function addToCart(params: AddToCartParams) {
         cartId: cart.id,
         productId,
         quantity,
-        unitPrice: product.costPrice,
+        unitPrice: retailPrice,
       },
     });
   }

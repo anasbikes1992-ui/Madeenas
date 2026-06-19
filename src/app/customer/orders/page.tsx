@@ -55,7 +55,7 @@ export default function OrdersPage() {
       const data = await res.json()
       if (data.success) {
         setOrders(data.data || [])
-        setTotal(data.total || data.data?.length || 0)
+        setTotal(data.pagination?.total ?? data.total ?? data.data?.length ?? 0)
       }
     } catch {
       console.error('Failed to load orders')

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { VATBreakdown } from '@/components/shared/VATBreakdown'
 import { formatCurrency } from '@/lib/tax'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Trash2, ShoppingBag } from 'lucide-react'
 
 interface CartItem {
   id: string
@@ -18,6 +19,7 @@ interface CartItem {
     name: string
     sku: string
     unit: string
+    category?: { name: string; color: string; icon?: string | null } | null
   }
 }
 
@@ -40,10 +42,8 @@ export default function CartPage() {
     try {
       const res = await fetch('/api/cart')
       const data = await res.json()
-      if (data.success) {
-        setCart(data.data)
-      }
-    } catch (error) {
+      if (data.success) setCart(data.data)
+    } catch {
       toast.error('Failed to load cart')
     } finally {
       setLoading(false)
@@ -54,38 +54,27 @@ export default function CartPage() {
     if (status === 'unauthenticated') {
       router.push('/customer/login')
     } else if (status === 'authenticated') {
-      loadCart()
+      void loadCart()
     }
   }, [status, router])
 
   const updateQuantity = async (itemId: string, quantity: number) => {
     if (quantity < 1) return
-
     setUpdating(itemId)
-    // Optimistic update
     const previousCart = cart ? { ...cart } : null
     if (cart) {
-      setCart({
-        ...cart,
-        items: cart.items.map(item => 
-          item.id === itemId ? { ...item, quantity } : item
-        )
-      })
+      setCart({ ...cart, items: cart.items.map(i => i.id === itemId ? { ...i, quantity } : i) })
     }
-
     try {
       const res = await fetch(`/api/cart/items/${itemId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity })
+        body: JSON.stringify({ quantity }),
       })
-
       if (!res.ok) throw new Error('Failed to update')
-
       const data = await res.json()
       setCart(data.data)
-      toast.success('Cart updated')
-    } catch (error) {
+    } catch {
       if (previousCart) setCart(previousCart)
       toast.error('Failed to update cart')
     } finally {
@@ -95,26 +84,17 @@ export default function CartPage() {
 
   const removeItem = async (itemId: string) => {
     setUpdating(itemId)
-    // Optimistic update
     const previousCart = cart ? { ...cart } : null
     if (cart) {
-      setCart({
-        ...cart,
-        items: cart.items.filter(item => item.id !== itemId)
-      })
+      setCart({ ...cart, items: cart.items.filter(i => i.id !== itemId) })
     }
-
     try {
-      const res = await fetch(`/api/cart/items/${itemId}`, {
-        method: 'DELETE'
-      })
-
+      const res = await fetch(`/api/cart/items/${itemId}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to remove')
-
       const data = await res.json()
       setCart(data.data)
       toast.success('Item removed')
-    } catch (error) {
+    } catch {
       if (previousCart) setCart(previousCart)
       toast.error('Failed to remove item')
     } finally {
@@ -123,26 +103,24 @@ export default function CartPage() {
   }
 
   const clearCart = async () => {
-    if (!confirm('Are you sure you want to clear your cart?')) return
-
+    if (!confirm('Clear your entire cart?')) return
     try {
       const res = await fetch('/api/cart', { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to clear cart')
-
       const data = await res.json()
       setCart(data.data)
       toast.success('Cart cleared')
-    } catch (error) {
+    } catch {
       toast.error('Failed to clear cart')
     }
   }
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="surface-card-soft w-full max-w-lg p-10 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
-          <p className="text-sm font-medium text-slate-600">Loading your cart...</p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
+          <p className="text-sm text-slate-500">Loading your cart…</p>
         </div>
       </div>
     )
@@ -150,138 +128,186 @@ export default function CartPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
         <EmptyState
           icon="🛒"
           title="Your cart is empty"
           description="Add some products to your cart to get started"
           action={{
             label: 'Browse Products',
-            onClick: () => router.push('/customer/products')
+            onClick: () => router.push('/customer/products'),
           }}
         />
       </div>
     )
   }
 
+  // Recompute displayed totals client-side so they always match the item rows
+  const clientSubTotal = cart.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0)
+  const clientTaxAmount = (clientSubTotal * cart.taxRate) / 100
+  const clientGrandTotal = clientSubTotal + clientTaxAmount
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Checkout flow</p>
-          <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
-            {[
-              { label: 'Cart', active: true },
-              { label: 'Checkout', active: false },
-              { label: 'Confirmation', active: false },
-            ].map((step, index) => (
-              <div
-                key={step.label}
-                className={`rounded-xl border px-3 py-2 text-center font-semibold ${step.active ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}
-                aria-current={step.active ? 'step' : undefined}
-              >
-                {index + 1}. {step.label}
-              </div>
-            ))}
-          </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      {/* Step progress */}
+      <div className="card p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600 mb-3">Checkout flow</p>
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          {[
+            { label: 'Cart', active: true },
+            { label: 'Checkout', active: false },
+            { label: 'Confirmation', active: false },
+          ].map((step, index) => (
+            <div
+              key={step.label}
+              className={`rounded-xl border px-3 py-2 text-center font-semibold ${
+                step.active
+                  ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                  : 'border-slate-200 bg-slate-50 text-slate-400'
+              }`}
+              aria-current={step.active ? 'step' : undefined}
+            >
+              {index + 1}. {step.label}
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h1 className="text-3xl font-bold text-slate-900">Shopping Cart</h1>
-                <button
-                  onClick={clearCart}
-                  className="text-sm text-red-600 hover:text-red-700 font-semibold"
-                  aria-label="Clear all items from cart"
-                >
-                  Clear Cart
-                </button>
-              </div>
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Cart Items */}
+        <div className="lg:col-span-2 space-y-3">
+          {/* Header row */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-slate-900">
+              Shopping Cart <span className="text-slate-400 font-normal text-base ml-1">({cart.items.length} item{cart.items.length !== 1 ? 's' : ''})</span>
+            </h1>
+            <button
+              onClick={clearCart}
+              className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-semibold transition"
+              aria-label="Clear entire cart"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear All
+            </button>
+          </div>
 
-              <div className="space-y-4">
-                {cart.items.map(item => (
-                  <div key={item.id} className="border border-slate-200 rounded-xl p-4 transition hover:border-slate-300 hover:shadow-sm">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-bold text-slate-900">{item.product.name}</h3>
-                        <p className="text-sm text-slate-500">{item.product.sku}</p>
-                        <p className="text-sm text-slate-600 mt-1">
-                          {formatCurrency(item.unitPrice)} per {item.product.unit}
-                        </p>
+          {cart.items.map(item => {
+            const isUpdating = updating === item.id
+            const lineTotal = item.quantity * Number(item.unitPrice)
+            const catColor = item.product.category?.color ?? '#6366f1'
+
+            return (
+              <div
+                key={item.id}
+                className={`card p-4 sm:p-5 transition ${isUpdating ? 'opacity-60' : ''}`}
+              >
+                <div className="flex gap-4">
+                  {/* Product icon */}
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${catColor}15, ${catColor}30)` }}
+                  >
+                    {item.product.category?.icon ?? '🧵'}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 leading-snug">{item.product.name}</p>
+                        <p className="text-xs text-slate-400 font-mono">{item.product.sku}</p>
+                        {item.product.category && (
+                          <span
+                            className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{ backgroundColor: `${catColor}18`, color: catColor }}
+                          >
+                            {item.product.category.icon ? `${item.product.category.icon} ` : ''}{item.product.category.name}
+                          </span>
+                        )}
                       </div>
                       <button
-                        onClick={() => removeItem(item.id)}
-                        disabled={updating === item.id}
-                        className="text-red-600 hover:text-red-700 font-semibold"
-                        aria-label={`Remove ${item.product.name} from cart`}
+                        onClick={() => void removeItem(item.id)}
+                        disabled={isUpdating}
+                        className="shrink-0 text-slate-300 hover:text-red-500 transition disabled:opacity-40"
+                        aria-label={`Remove ${item.product.name}`}
                       >
-                        ✕
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          disabled={updating === item.id || item.quantity <= 1}
-                          className="w-8 h-8 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
-                          aria-label={`Decrease quantity for ${item.product.name}`}
-                        >
-                          −
-                        </button>
-                        <span className="w-12 text-center font-semibold">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          disabled={updating === item.id}
-                          className="w-8 h-8 rounded-lg border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
-                          aria-label={`Increase quantity for ${item.product.name}`}
-                        >
-                          +
-                        </button>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      {/* Unit price */}
+                      <p className="text-sm text-slate-500">
+                        {formatCurrency(Number(item.unitPrice))} / {item.product.unit}
+                      </p>
+
+                      {/* Quantity stepper */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => void updateQuantity(item.id, item.quantity - 1)}
+                            disabled={isUpdating || item.quantity <= 1}
+                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition font-bold"
+                            aria-label="Decrease"
+                          >
+                            −
+                          </button>
+                          <span className="w-10 text-center text-sm font-semibold text-slate-900 select-none">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => void updateQuantity(item.id, item.quantity + 1)}
+                            disabled={isUpdating}
+                            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition font-bold"
+                            aria-label="Increase"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-sm font-bold text-slate-900 min-w-[80px] text-right">
+                          {formatCurrency(lineTotal)}
+                        </span>
                       </div>
-                      <span className="text-lg font-bold text-slate-900">
-                        {formatCurrency(item.quantity * item.unitPrice)}
-                      </span>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
+            )
+          })}
+        </div>
+
+        {/* Order Summary */}
+        <div className="lg:col-span-1">
+          <div className="card p-6 sticky top-4 space-y-5">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-base font-semibold text-slate-900">Order Summary</h2>
             </div>
-          </div>
 
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-8 sticky top-4">
-              <h2 className="text-xl font-bold text-slate-900 mb-6">Order Summary</h2>
+            <VATBreakdown
+              subTotal={clientSubTotal}
+              taxRate={cart.taxRate}
+              taxAmount={clientTaxAmount}
+              grandTotal={clientGrandTotal}
+              showTitle={false}
+              className="border-t border-slate-100 pt-4"
+            />
 
-              <VATBreakdown
-                subTotal={cart.subTotal}
-                taxRate={cart.taxRate}
-                taxAmount={cart.taxAmount}
-                grandTotal={cart.grandTotal}
-                showTitle={false}
-                className="mb-6"
-              />
+            <Link
+              href="/customer/checkout"
+              className="btn-primary flex items-center justify-center gap-2 w-full py-3"
+            >
+              Continue to Checkout →
+            </Link>
 
-              <Link
-                href="/customer/checkout"
-                className="block w-full bg-indigo-600 text-white text-center py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-              >
-                Continue to Checkout
-              </Link>
+            <p className="text-xs text-slate-400 text-center">Prices in LKR with VAT (18%)</p>
 
-              <p className="mt-3 text-xs text-slate-500">Prices shown in LKR with VAT (18%) included in summary.</p>
-
-              <Link
-                href="/customer/products"
-                className="block text-center text-sm text-slate-600 hover:text-slate-900 mt-4"
-              >
-                Continue Shopping
-              </Link>
-            </div>
+            <Link
+              href="/customer/products"
+              className="block text-center text-sm text-slate-500 hover:text-slate-700 transition"
+            >
+              ← Continue Shopping
+            </Link>
           </div>
         </div>
       </div>
