@@ -157,8 +157,14 @@ export default function SendStockPage() {
     setSaving(false)
 
     if (!response.ok) {
-      const error = await response.json()
-      showToast(error.error || 'Failed to create send')
+      let errorMsg = 'Failed to create send'
+      try {
+        const error = await response.json()
+        errorMsg = error.error || errorMsg
+      } catch {
+        errorMsg = `Server error (${response.status})`
+      }
+      showToast(errorMsg)
       return
     }
 
@@ -184,8 +190,14 @@ export default function SendStockPage() {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      showToast(error.error || 'Failed to acknowledge')
+      let errorMsg = 'Failed to acknowledge'
+      try {
+        const error = await response.json()
+        errorMsg = error.error || errorMsg
+      } catch {
+        errorMsg = `Server error (${response.status})`
+      }
+      showToast(errorMsg)
       return
     }
 

@@ -84,6 +84,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const userId = session.user.id as string | undefined
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid session — missing user ID' }, { status: 401 })
+  }
+
   const body = await request.json()
   const parsed = stockSendCreateSchema.safeParse(body)
   if (!parsed.success) {
@@ -171,8 +176,8 @@ export async function POST(request: NextRequest) {
               productId: item.productId,
               fromLocationId: data.fromLocationId,
               toLocationId: data.toLocationId,
-              requestedBy: session.user.id as string,
-              dispatchedBy: session.user.id as string,
+              requestedBy: userId,
+              dispatchedBy: userId,
               quantityRequested: item.quantityDispatched,
               quantityApproved: item.quantityDispatched,
               quantityDispatched: item.quantityDispatched,
@@ -192,11 +197,17 @@ export async function POST(request: NextRequest) {
         )
       )
 
+      // Use upsert so we don't fail if the stock record somehow needs creating
       await Promise.all(
         data.items.map((item) =>
-          tx.stock.update({
+          tx.stock.upsert({
             where: { productId_locationId: { productId: item.productId, locationId: data.fromLocationId } },
-            data: { quantity: { decrement: item.quantityDispatched } },
+            update: { quantity: { decrement: item.quantityDispatched } },
+            create: {
+              productId: item.productId,
+              locationId: data.fromLocationId,
+              quantity: 0,
+            },
           })
         )
       )
@@ -204,7 +215,8 @@ export async function POST(request: NextRequest) {
       return created
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : ''
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[stock-send POST] transaction error:', error)
     if (message.startsWith('INSUFFICIENT:')) {
       const [, productId, available] = message.split(':')
       const product = productMap.get(productId)
@@ -213,29 +225,40 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    return NextResponse.json({ error: 'Failed to create direct send' }, { status: 500 })
+    // Surface the actual DB error message to help debug
+    const displayMessage = process.env.NODE_ENV !== 'production' ? message : 'Failed to create direct send'
+    return NextResponse.json({ error: displayMessage }, { status: 500 })
   }
 
-  const destinationUsers = await prisma.user.findMany({
-    where: { locationId: data.toLocationId, isActive: true },
-    select: { id: true },
-  })
+  // Post-transaction side effects — failures here must not affect the committed transaction
+  let destinationUsers: { id: string }[] = []
+  try {
+    destinationUsers = await prisma.user.findMany({
+      where: { locationId: data.toLocationId, isActive: true },
+      select: { id: true },
+    })
+  } catch (e) {
+    console.error('[stock-send POST] destination users lookup error:', e)
+  }
 
   if (destinationUsers.length > 0) {
-    await prisma.notification.createMany({
-      data: destinationUsers.map((user) => ({
-        userId: user.id,
-        title: 'New Stock Send In Transit 🚚',
-        message: `${transferNo}: Stock dispatched from ${fromLocation.name}. Please acknowledge on receipt.`,
-        type: 'INFO',
-        link: '/admin/send-stock',
-      })),
-    })
+    try {
+      await prisma.notification.createMany({
+        data: destinationUsers.map((user) => ({
+          userId: user.id,
+          title: 'New Stock Send In Transit 🚚',
+          message: `${transferNo}: Stock dispatched from ${fromLocation.name}. Please acknowledge on receipt.`,
+          type: 'INFO',
+          link: '/admin/send-stock',
+        })),
+      })
+    } catch (e) {
+      console.error('[stock-send POST] notification error:', e)
+    }
   }
 
   await logActivity({
-    userId: session.user.id,
+    userId,
     action: 'SEND_CREATE',
     entity: 'StockOutRequest',
     entityId: rows[0]?.id,
@@ -254,7 +277,7 @@ export async function POST(request: NextRequest) {
       toLocationId: data.toLocationId,
       items: data.items,
     },
-    createdBy: session.user.id as string,
+    createdBy: userId,
   })
 
   await createNotification({
