@@ -34,7 +34,7 @@ export type PermissionKey =
 const permissionMatrix: Record<PermissionKey, AppRole[]> = {
   'users.manage': ['SUPER_ADMIN', 'ADMIN'],
   'users.resetPassword': ['SUPER_ADMIN'],
-  'products.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF', 'FINANCE'],
+  'products.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF', 'FINANCE', 'CUSTOMER'],
   'products.create': ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
   'products.update': ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
   'products.archive': ['SUPER_ADMIN', 'ADMIN'],

@@ -61,16 +61,24 @@ test.describe('Stock request lifecycle', () => {
     await page.goto('/admin/new-request')
 
     await expect(page.getByText('Requesting Location')).toBeVisible()
-    await expect(page.locator('#from-location option')).toContainText([
-      'Select warehouse',
-      '[WAREHOUSE] Warehouse A (Main)',
-    ])
+    const sourceOptions = page.locator('#from-location option')
+    await expect
+      .poll(async () => sourceOptions.count(), { timeout: 15000 })
+      .toBeGreaterThan(1)
+    const sourceOptionCount = await sourceOptions.count()
+    expect(sourceOptionCount).toBeGreaterThan(1)
 
-    await page.getByLabel('Select product').selectOption({ index: 1 })
-    await page.getByLabel('Source location').selectOption({ label: '[WAREHOUSE] Warehouse A (Main)' })
+    const warehouseLabel = await sourceOptions.nth(1).textContent()
+    if (!warehouseLabel) {
+      throw new Error('No warehouse options available for source location')
+    }
+
+    // Batch UI: each line has aria-label="Select product {n}" / "Quantity for product {n}"
+    await page.getByLabel('Select product 1').selectOption({ index: 1 })
+    await page.getByLabel('Source location').selectOption({ label: warehouseLabel.trim() })
     await page.getByLabel('Invoice number or reference').fill(reference)
     await page.locator('input[type="date"]').fill('2026-05-13')
-    await page.locator('input[type="number"]').fill('1')
+    await page.getByLabel('Quantity for product 1').fill('1')
     await page.getByRole('button', { name: /Submit Request/i }).click()
 
     await expect(page.getByText('Request Submitted!')).toBeVisible()

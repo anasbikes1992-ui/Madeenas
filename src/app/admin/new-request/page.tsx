@@ -279,6 +279,7 @@ export default function NewRequestPage() {
                     <label className="label">Product {index + 1}</label>
                     <select
                       required
+                      aria-label={`Select product ${index + 1}`}
                       className={`input ${isDuplicate ? 'border-amber-400 bg-amber-50' : ''}`}
                       value={item.productId}
                       onChange={(e) => updateItem(index, { productId: e.target.value })}
@@ -309,6 +310,7 @@ export default function NewRequestPage() {
                       min="0.01"
                       step="0.01"
                       required
+                      aria-label={`Quantity for product ${index + 1}`}
                       className="input"
                       value={item.quantityRequested}
                       onChange={(e) => updateItem(index, { quantityRequested: e.target.value })}

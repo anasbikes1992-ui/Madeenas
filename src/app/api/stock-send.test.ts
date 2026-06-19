@@ -67,7 +67,7 @@ describe('stock-send API', () => {
     ] as never)
     vi.mocked(prisma.stock.findMany).mockResolvedValue([{ productId: 'p1', quantity: 100 }] as never)
     vi.mocked(prisma.stockOutRequest.create).mockResolvedValue({ id: 's1' } as never)
-    vi.mocked(prisma.stock.update).mockResolvedValue({ id: 'st1' } as never)
+    vi.mocked(prisma.stock.upsert).mockResolvedValue({ id: 'st1' } as never)
     vi.mocked(prisma.user.findMany).mockResolvedValue([] as never)
 
     const request = new NextRequest('http://localhost/api/stock-send', {
@@ -83,7 +83,7 @@ describe('stock-send API', () => {
     const response = await stockSendPost(request)
     expect(response.status).toBe(201)
     expect(vi.mocked(prisma.stockOutRequest.create)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(prisma.stock.update)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(prisma.stock.upsert)).toHaveBeenCalledTimes(1)
   })
 
   it('requires discrepancy reason for partial acknowledge', async () => {

@@ -45,7 +45,7 @@ export default function LocationsPage() {
 
   function showToast(message: string) {
     setToast(message)
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 5000)
   }
 
   useEffect(() => {
@@ -55,7 +55,8 @@ export default function LocationsPage() {
   async function loadLocations() {
     setLoading(true)
     try {
-      const response = await fetch('/api/locations')
+      // ?all=true so inactive locations remain visible in admin settings
+      const response = await fetch('/api/locations?all=true')
       if (response.ok) {
         const data = await response.json()
         setLocations(Array.isArray(data) ? data : [])
@@ -85,8 +86,8 @@ export default function LocationsPage() {
       if (res.ok) {
         setShowForm(false)
         setForm({ name: '', code: '', type: 'WAREHOUSE', address: '' })
-        await loadLocations()
         showToast('Location created successfully!')
+        await loadLocations()
       } else {
         const data = await res.json()
         setFormError(data.error || 'Failed to create location')
@@ -129,8 +130,8 @@ export default function LocationsPage() {
 
       if (res.ok) {
         setEditLocation(null)
-        await loadLocations()
         showToast('Location updated successfully!')
+        await loadLocations()
       } else {
         const data = await res.json()
         setFormError(data.error || 'Failed to update location')
@@ -153,8 +154,8 @@ export default function LocationsPage() {
       })
 
       if (res.ok) {
-        await loadLocations()
         showToast(`Location ${location.isActive ? 'deactivated' : 'activated'}`)
+        await loadLocations()
       }
     } catch (error) {
       console.error('Failed to toggle location status:', error)
@@ -170,8 +171,8 @@ export default function LocationsPage() {
       })
 
       if (res.ok) {
-        await loadLocations()
         showToast('Location deactivated')
+        await loadLocations()
       } else {
         const data = await res.json()
         alert(data.error || 'Failed to deactivate location')
@@ -447,7 +448,7 @@ export default function LocationsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg fade-in">
+        <div className="toast-success fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg fade-in">
           {toast}
         </div>
       )}

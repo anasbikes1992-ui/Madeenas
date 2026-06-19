@@ -2,12 +2,15 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
 import { formatCurrency } from '@/lib/tax'
-import { EmptyState } from '@/components/shared/EmptyState'
 import { TableSkeleton } from '@/components/shared/LoadingSkeleton'
+import { Pagination } from '@/components/shared/Pagination'
+import { Package } from 'lucide-react'
+
+const PAGE_LIMIT = 10
 
 interface Order {
   id: string
@@ -18,136 +21,162 @@ interface Order {
   items: { product: { name: string } }[]
 }
 
+const STATUS_OPTIONS = [
+  { value: '', label: 'All Statuses' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'APPROVED', label: 'Approved' },
+  { value: 'PROCESSING', label: 'Processing' },
+  { value: 'SHIPPED', label: 'Shipped' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+]
+
 export default function OrdersPage() {
   const { status: sessionStatus } = useSession()
   const router = useRouter()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const totalPages = Math.ceil(total / PAGE_LIMIT)
 
   useEffect(() => {
-    if (sessionStatus === 'unauthenticated') {
-      router.push('/customer/login')
-    } else if (sessionStatus === 'authenticated') {
-      loadOrders()
-    }
-  }, [sessionStatus, router, statusFilter])
+    if (sessionStatus === 'unauthenticated') router.push('/customer/login')
+  }, [sessionStatus, router])
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
+    if (sessionStatus !== 'authenticated') return
+    setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (statusFilter) params.append('status', statusFilter)
-
-      const res = await fetch(`/api/orders?${params.toString()}`)
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_LIMIT) })
+      if (statusFilter) params.set('status', statusFilter)
+      const res = await fetch(`/api/orders?${params}`)
       const data = await res.json()
-
       if (data.success) {
-        setOrders(data.data)
+        setOrders(data.data || [])
+        setTotal(data.total || data.data?.length || 0)
       }
-    } catch (error) {
-      console.error('Failed to load orders:', error)
+    } catch {
+      console.error('Failed to load orders')
     } finally {
       setLoading(false)
     }
+  }, [sessionStatus, page, statusFilter])
+
+  useEffect(() => {
+    void loadOrders()
+  }, [loadOrders])
+
+  const handleStatusChange = (s: string) => {
+    setStatusFilter(s)
+    setPage(1)
   }
 
-  if (sessionStatus === 'loading' || loading) {
+  if (sessionStatus === 'loading') {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="bg-white rounded-2xl shadow-lg p-8">
-            <TableSkeleton rows={5} columns={4} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (orders.length === 0 && !statusFilter) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <EmptyState
-          icon="📦"
-          title="No orders yet"
-          description="You haven't placed any orders. Start shopping to create your first order!"
-          action={{
-            label: 'Browse Products',
-            onClick: () => router.push('/customer/products')
-          }}
-        />
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="card"><TableSkeleton rows={5} columns={4} /></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-slate-900">My Orders</h1>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">All Statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="PROCESSING">Processing</option>
-              <option value="SHIPPED">Shipped</option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-          </div>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Orders</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {total > 0 ? `${total} order${total !== 1 ? 's' : ''}` : 'Your order history'}
+          </p>
+        </div>
+        <select
+          value={statusFilter}
+          onChange={e => handleStatusChange(e.target.value)}
+          className="input w-auto min-w-[160px]"
+        >
+          {STATUS_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
 
-          {orders.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-4">🔍</div>
-              <p className="text-slate-600">No orders found with this status</p>
-              <button
-                onClick={() => setStatusFilter('')}
-                className="mt-4 text-indigo-600 hover:text-indigo-700 font-semibold"
-              >
+      {/* Content */}
+      <div className="card p-0 overflow-hidden">
+        {loading ? (
+          <div className="p-6"><TableSkeleton rows={5} columns={4} /></div>
+        ) : orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
+              <Package className="w-8 h-8 text-indigo-400" />
+            </div>
+            <h3 className="font-semibold text-slate-700 mb-1">
+              {statusFilter ? 'No orders with this status' : 'No orders yet'}
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              {statusFilter
+                ? 'Try a different status filter or clear it.'
+                : 'Start shopping to create your first order!'}
+            </p>
+            {statusFilter ? (
+              <button onClick={() => handleStatusChange('')} className="btn-secondary">
                 Clear Filter
               </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {orders.map(order => (
-                <Link
-                  key={order.id}
-                  href={`/customer/orders/${order.id}`}
-                  className="block border border-slate-200 rounded-xl p-6 hover:border-indigo-300 hover:shadow-md transition-all"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-bold text-slate-900">{order.orderNumber}</h3>
-                        <OrderStatusBadge status={order.status as any} />
-                      </div>
-                      <p className="text-sm text-slate-600 mb-1">
-                        {new Date(order.createdAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-slate-900">
-                        {formatCurrency(order.grandTotal)}
-                      </p>
-                    </div>
+            ) : (
+              <Link href="/customer/products" className="btn-primary">
+                Browse Products
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {orders.map(order => (
+              <Link
+                key={order.id}
+                href={`/customer/orders/${order.id}`}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 hover:bg-slate-50 transition-colors group"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                      {order.orderNumber}
+                    </span>
+                    <OrderStatusBadge status={order.status as never} />
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+                  <p className="text-sm text-slate-500">
+                    {new Date(order.createdAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                    <span className="mx-2 text-slate-300">·</span>
+                    {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-lg font-bold text-slate-900">{formatCurrency(order.grandTotal)}</p>
+                  <span className="text-slate-300 group-hover:text-indigo-400 transition-colors text-lg">→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={p => {
+            setPage(p)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          total={total}
+          limit={PAGE_LIMIT}
+        />
+      )}
     </div>
   )
 }

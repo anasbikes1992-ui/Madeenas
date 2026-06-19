@@ -52,7 +52,7 @@ export default function SendStockPage() {
 
   function showToast(message: string) {
     setToast(message)
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 5000)
   }
 
   async function load() {
@@ -211,15 +211,15 @@ export default function SendStockPage() {
 
   return (
     <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Direct Send Form</h1>
           <p className="text-sm text-slate-500">Send stock from warehouse/location to another location with mandatory acknowledgement.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary">+ New Send</button>
+        <button onClick={() => setShowForm(true)} className="btn-primary w-full sm:w-auto">+ New Send</button>
       </div>
 
-      <div className="table-container">
+      <div className="hidden md:block table-container">
         <table className="table">
           <thead>
             <tr>
@@ -275,9 +275,53 @@ export default function SendStockPage() {
         </table>
       </div>
 
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          [...Array(4)].map((_, i) => (
+            <div key={i} className="card h-24 bg-slate-100 animate-pulse" />
+          ))
+        ) : groupedRows.length === 0 ? (
+          <div className="card text-center py-8 text-slate-400">No sends yet.</div>
+        ) : (
+          groupedRows.map((group) => (
+            <div key={group.transferNo} className="card space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <code className="text-xs bg-slate-100 px-2 py-0.5 rounded break-all">{group.transferNo}</code>
+                <span className={STATUS_BADGE[group.status] || 'badge-gray'}>{group.status}</span>
+              </div>
+              <p className="text-xs text-slate-600">From: {group.source}</p>
+              <p className="text-xs text-slate-600">To: {group.destination}</p>
+              <p className="text-xs text-slate-500">{formatDate(group.createdAt)}</p>
+              <div className="space-y-2 pt-1 border-t border-slate-100">
+                {group.lines.map((line) => (
+                  <div key={line.id} className="rounded-lg bg-slate-50 p-2">
+                    <p className="text-xs text-slate-700">
+                      {line.product.name} ({line.quantityDispatched ?? line.quantityApproved ?? line.quantityRequested} {line.product.unit})
+                    </p>
+                    {line.status === 'IN_TRANSIT' && canAcknowledge(line) ? (
+                      <button
+                        onClick={() => {
+                          setAckModal(line)
+                          setAckQty(String(line.quantityDispatched || line.quantityApproved || line.quantityRequested || ''))
+                          setAckReason('')
+                          setAckNote('')
+                        }}
+                        className="btn-success btn-sm mt-2 w-full"
+                      >
+                        Acknowledge
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {showForm ? (
         <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowForm(false) }}>
-          <div className="modal max-w-3xl">
+          <div className="modal max-w-3xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Create Direct Send</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid md:grid-cols-2 gap-3">
@@ -388,7 +432,7 @@ export default function SendStockPage() {
 
       {ackModal ? (
         <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) setAckModal(null) }}>
-          <div className="modal max-w-lg">
+          <div className="modal max-w-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-2">Acknowledge Send</h2>
             <p className="text-sm text-slate-600 mb-4">{ackModal.product.name} | Dispatched: {ackModal.quantityDispatched ?? ackModal.quantityApproved ?? ackModal.quantityRequested}</p>
 

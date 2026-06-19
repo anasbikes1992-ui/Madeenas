@@ -247,10 +247,11 @@
 
   /* Toast */
   .toast {
-    @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium shadow-[0_18px_60px_rgba(15,23,42,0.14)];
+    @apply fixed bottom-6 right-6 flex max-w-sm items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium shadow-[0_18px_60px_rgba(15,23,42,0.14)];
+    z-index: 120;
     animation: fadeIn 0.3s ease-in-out;
   }
-  .toast-success { @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; animation: fadeIn 0.3s ease-in-out; }
-  .toast-error { @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; animation: fadeIn 0.3s ease-in-out; }
-  .toast-info { @apply fixed bottom-6 right-6 z-100 flex max-w-sm items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 text-sm font-medium text-indigo-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; animation: fadeIn 0.3s ease-in-out; }
+  .toast-success { @apply fixed bottom-6 right-6 flex max-w-sm items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; z-index: 120; animation: fadeIn 0.3s ease-in-out; }
+  .toast-error { @apply fixed bottom-6 right-6 flex max-w-sm items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; z-index: 120; animation: fadeIn 0.3s ease-in-out; }
+  .toast-info { @apply fixed bottom-6 right-6 flex max-w-sm items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 text-sm font-medium text-indigo-900 shadow-[0_18px_60px_rgba(15,23,42,0.14)]; z-index: 120; animation: fadeIn 0.3s ease-in-out; }
 }

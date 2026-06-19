@@ -18,7 +18,7 @@ export default function FinanceDashboardPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3000) }
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 5000) }
 
   async function load() {
     setLoading(true)

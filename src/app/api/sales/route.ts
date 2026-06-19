@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const locationId = searchParams.get('locationId')
   const receiptNo = searchParams.get('receiptNo')
+  const search = searchParams.get('search')
+  const paymentMode = searchParams.get('paymentMode')
+  const dateFrom = searchParams.get('dateFrom')
+  const dateTo = searchParams.get('dateTo')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
   const role = session.user.role as string
@@ -24,6 +28,22 @@ export async function GET(request: NextRequest) {
   const where: Prisma.SaleWhereInput = {}
   if (locationId) where.locationId = locationId
   if (receiptNo) where.receiptNo = receiptNo
+  if (paymentMode) where.paymentMode = paymentMode
+  if (search) {
+    where.OR = [
+      { receiptNo: { contains: search, mode: 'insensitive' } },
+      { customerName: { contains: search, mode: 'insensitive' } },
+      { customerPhone: { contains: search, mode: 'insensitive' } },
+      { location: { name: { contains: search, mode: 'insensitive' } } },
+      { soldBy: { name: { contains: search, mode: 'insensitive' } } },
+    ]
+  }
+  if (dateFrom || dateTo) {
+    where.createdAt = {
+      ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+      ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+    }
+  }
   
   // Shop staff only see their own location's sales
   if (role === 'SHOP_STAFF' || role === 'STORE_KEEPER') {

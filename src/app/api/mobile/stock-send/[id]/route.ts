@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { stockSendAcknowledgeSchema } from '@/lib/validations'
-import { logActivity } from '@/lib/audit'
+import { logActivity, createNotification } from '@/lib/audit'
 
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
 
@@ -32,6 +32,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       product: true,
       fromLocation: true,
       toLocation: true,
+      requestedByUser: { select: { id: true, name: true } },
     },
   })
 
@@ -109,6 +110,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     entityId: id,
     details: `Mobile acknowledge ${parsed.data.quantityReceived}/${dispatchedQty}`,
   })
+
+  if (sendLine.requestedByUser?.id) {
+    await createNotification({
+      userId: sendLine.requestedByUser.id,
+      title: 'Send Acknowledged ✅',
+      message: `${sendLine.transferNo || sendLine.id}: ${sendLine.product.name} acknowledged by destination${discrepancyQty > 0 ? ' with discrepancy' : ''}.`,
+      type: discrepancyQty > 0 ? 'WARNING' : 'SUCCESS',
+      link: '/admin/send-stock',
+    })
+  }
 
   return ok({ request: updated })
 }

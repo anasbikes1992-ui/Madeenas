@@ -198,5 +198,26 @@ export async function POST(request: NextRequest) {
     details: `Mobile direct send ${transferNo} from ${fromLocation.name} to ${toLocation.name}`,
   })
 
+  try {
+    const destinationUsers = await prisma.user.findMany({
+      where: { locationId: payload.toLocationId, isActive: true },
+      select: { id: true },
+    })
+
+    if (destinationUsers.length > 0) {
+      await prisma.notification.createMany({
+        data: destinationUsers.map((destinationUser) => ({
+          userId: destinationUser.id,
+          title: 'New Stock Send In Transit 🚚',
+          message: `${transferNo}: Stock dispatched from ${fromLocation.name}. Please acknowledge on receipt.`,
+          type: 'INFO',
+          link: '/admin/send-stock',
+        })),
+      })
+    }
+  } catch (error) {
+    console.error('[mobile stock-send POST] notification error:', error)
+  }
+
   return ok({ batch: { transferNo, count: rows.length, items: rows } }, 201)
 }

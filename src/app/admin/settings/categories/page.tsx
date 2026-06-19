@@ -31,7 +31,7 @@ export default function CategoriesSettingsPage() {
 
   function showToast(message: string) {
     setToast(message)
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 5000)
   }
 
   async function load() {
@@ -67,8 +67,8 @@ export default function CategoriesSettingsPage() {
     if (response.ok) {
       setShowForm(false)
       setForm({ name: '', slug: '', color: '#6366f1', icon: '' })
-      await load()
       showToast('Category created!')
+      await load()
     }
   }
 
@@ -91,8 +91,8 @@ export default function CategoriesSettingsPage() {
     setSaving(false)
     if (res.ok) {
       setEditCategory(null)
-      await load()
       showToast('Category updated!')
+      await load()
     } else {
       const data = await res.json().catch(() => ({}))
       setFormError(data.error || 'Failed to update category')
@@ -103,8 +103,8 @@ export default function CategoriesSettingsPage() {
     if (!confirm(`Delete "${cat.name}"? This cannot be undone.`)) return
     const res = await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' })
     if (res.ok) {
-      await load()
       showToast('Category deleted')
+      await load()
     } else {
       const data = await res.json().catch(() => ({}))
       alert(data.error || 'Failed to delete category')

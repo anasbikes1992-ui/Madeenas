@@ -62,7 +62,7 @@ export default function UsersPage() {
 
   function showToast(message: string) {
     setToast(message)
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 5000)
   }
 
   useEffect(() => {

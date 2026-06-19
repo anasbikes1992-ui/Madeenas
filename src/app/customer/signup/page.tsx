@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
+import { Eye, EyeOff, UserPlus } from 'lucide-react'
 
 export default function CustomerSignupPage() {
   const router = useRouter()
@@ -14,13 +15,11 @@ export default function CustomerSignupPage() {
     confirmPassword: '',
     phone: '',
   })
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }))
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,14 +29,12 @@ export default function CustomerSignupPage() {
       toast.error('Passwords do not match')
       return
     }
-
     if (formData.password.length < 7) {
       toast.error('Password must be at least 7 characters')
       return
     }
 
     setIsLoading(true)
-
     try {
       const res = await fetch('/api/signup', {
         method: 'POST',
@@ -48,16 +45,13 @@ export default function CustomerSignupPage() {
           password: formData.password,
           phone: formData.phone,
           role: 'CUSTOMER',
-        })
+        }),
       })
 
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Signup failed')
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Signup failed')
-      }
-
-      toast.success('Account created successfully! Please sign in.')
+      toast.success('Account created! Please sign in.')
       router.push('/customer/login')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create account')
@@ -67,19 +61,21 @@ export default function CustomerSignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Create Account</h1>
-            <p className="text-sm text-slate-600">Sign up to start shopping with us</p>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md fade-in">
+        {/* Branding */}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 flex items-center justify-center text-white text-xl font-bold shadow-lg mx-auto mb-4">
+            M
           </div>
+          <h1 className="text-2xl font-bold text-slate-900">Create account</h1>
+          <p className="text-sm text-slate-500 mt-1">Join Madeena and start shopping</p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
-                Full Name
-              </label>
+        <div className="card">
+          <form onSubmit={e => void handleSubmit(e)} className="space-y-4">
+            <div className="form-group">
+              <label htmlFor="name" className="label">Full Name</label>
               <input
                 id="name"
                 name="name"
@@ -87,64 +83,72 @@ export default function CustomerSignupPage() {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="input"
                 placeholder="John Doe"
+                autoComplete="name"
               />
             </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="you@example.com"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="form-group">
+                <label htmlFor="email" className="label">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="input"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="phone" className="label">Phone</label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
+                  className="input"
+                  placeholder="+94 7x xxx xxxx"
+                  autoComplete="tel"
+                />
+              </div>
             </div>
 
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="+94 7x xxx xxxx"
-              />
+            <div className="form-group">
+              <label htmlFor="password" className="label">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  minLength={7}
+                  className="input pr-10"
+                  placeholder="At least 7 characters"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                minLength={7}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
-                Confirm Password
-              </label>
+            <div className="form-group">
+              <label htmlFor="confirmPassword" className="label">Confirm Password</label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -153,34 +157,36 @@ export default function CustomerSignupPage() {
                 onChange={handleChange}
                 required
                 minLength={7}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="input"
                 placeholder="••••••••"
+                autoComplete="new-password"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full justify-center mt-2"
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              <UserPlus className="w-4 h-4" />
+              {isLoading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-5 pt-5 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-600">
               Already have an account?{' '}
-              <Link href="/customer/login" className="text-indigo-600 font-semibold hover:text-indigo-700">
+              <Link href="/customer/login" className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
                 Sign in
               </Link>
             </p>
           </div>
+        </div>
 
-          <div className="mt-6 pt-6 border-t border-slate-200 text-center">
-            <Link href="/" className="text-sm text-slate-600 hover:text-slate-900">
-              ← Back to home
-            </Link>
-          </div>
+        <div className="mt-4 text-center">
+          <Link href="/" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+            ← Back to home
+          </Link>
         </div>
       </div>
     </div>

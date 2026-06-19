@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -12,8 +12,12 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const { searchParams } = new URL(request.url)
+  // ?all=true returns all locations including inactive (used by admin settings)
+  const includeAll = searchParams.get('all') === 'true'
+
   const locations = await prisma.location.findMany({
-    where: { isActive: true },
+    where: includeAll ? undefined : { isActive: true },
     include: {
       stocks: {
         include: { product: { include: { category: true } } },

@@ -6,12 +6,27 @@ import { calculateMultipleItemsTax, formatCurrency, formatTaxRate } from '@/lib/
 import { VATBreakdown } from '@/components/shared/VATBreakdown'
 import { exportSaleInvoicePDF } from '@/lib/reports'
 
+interface Category {
+  id: string
+  name: string
+  color: string
+  icon?: string | null
+}
+
+interface ProductStock {
+  locationId: string
+  quantity: number
+}
+
 interface Product {
   id: string
   name: string
   sku: string
   costPrice?: number
   unit?: string
+  categoryId?: string
+  category?: { name: string; color: string; icon?: string | null }
+  stocks?: ProductStock[]
   [key: string]: unknown
 }
 
@@ -46,8 +61,10 @@ const DEFAULT_TAX_RATE = 18
 
 export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -57,7 +74,14 @@ export default function POSPage() {
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE)
 
   useEffect(() => {
-    fetch('/api/products')
+    // Load categories for filter tabs
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(d => setCategories(Array.isArray(d) ? d : []))
+      .catch(() => {})
+
+    // Load all active products (includes stocks array from API)
+    fetch('/api/products?limit=500')
       .then(res => res.json())
       .then(data => {
         setProducts(data.products || [])
@@ -70,11 +94,14 @@ export default function POSPage() {
   }, [])
 
   const filteredProducts = useMemo(() => {
-    return products.filter(p => 
-      p.name.toLowerCase().includes(search.toLowerCase()) || 
-      p.sku.toLowerCase().includes(search.toLowerCase())
-    )
-  }, [products, search])
+    return products.filter(p => {
+      const matchesSearch = !search ||
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.sku.toLowerCase().includes(search.toLowerCase())
+      const matchesCategory = !selectedCategory || p.categoryId === selectedCategory
+      return matchesSearch && matchesCategory
+    })
+  }, [products, search, selectedCategory])
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -231,18 +258,56 @@ export default function POSPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="flex min-h-136 flex-col overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-[0_24px_90px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50 p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-lg font-black text-slate-950">Products</h2>
-              <p className="text-sm text-slate-500">Tap a product to add it to the active sale.</p>
+          <div className="border-b border-slate-100 bg-slate-50 p-4 space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-slate-950">Products</h2>
+                <p className="text-sm text-slate-500">
+                  {filteredProducts.length} of {products.length} — tap to add to sale
+                </p>
+              </div>
+              <input
+                type="text"
+                placeholder="Search products or SKU..."
+                className="input max-w-md"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search products or SKU..."
-              className="input max-w-md"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            {/* Category filter tabs */}
+            {categories.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setSelectedCategory('')}
+                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                    !selectedCategory
+                      ? 'bg-slate-800 text-white border-slate-800'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  All ({products.length})
+                </button>
+                {categories.map(cat => {
+                  const count = products.filter(p => p.categoryId === cat.id).length
+                  if (count === 0) return null
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition-all border ${
+                        selectedCategory === cat.id
+                          ? 'text-white border-transparent'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                      style={selectedCategory === cat.id ? { backgroundColor: cat.color, borderColor: cat.color } : {}}
+                    >
+                      {cat.icon && <span>{cat.icon}</span>}
+                      {cat.name} ({count})
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-auto p-4">
@@ -252,22 +317,55 @@ export default function POSPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-                {filteredProducts.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    className="group flex flex-col items-start rounded-3xl border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-1 hover:border-indigo-300 hover:shadow-[0_18px_60px_rgba(79,70,229,0.14)]"
-                  >
-                    <span className="w-full truncate font-semibold text-slate-950">{p.name}</span>
-                    <span className="mt-1 text-xs text-slate-500">{p.sku}</span>
-                    <div className="mt-5 flex w-full items-center justify-between">
-                      <span className="text-sm font-bold text-indigo-600">
-                        {formatCurrency((p.costPrice || 0) * RETAIL_MARKUP)}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">/{p.unit}</span>
-                    </div>
-                  </button>
-                ))}
+                {filteredProducts.map((p) => {
+                  const totalStock = p.stocks ? (p.stocks as ProductStock[]).reduce((s, st) => s + (st.quantity || 0), 0) : null
+                  const isLowStock = totalStock !== null && totalStock <= 5
+                  const isOutOfStock = totalStock !== null && totalStock === 0
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => addToCart(p)}
+                      disabled={isOutOfStock}
+                      className={`group flex flex-col items-start rounded-3xl border bg-white p-4 text-left transition hover:-translate-y-1 hover:shadow-[0_18px_60px_rgba(79,70,229,0.14)] ${
+                        isOutOfStock
+                          ? 'border-slate-100 opacity-50 cursor-not-allowed'
+                          : isLowStock
+                          ? 'border-amber-200 hover:border-amber-300'
+                          : 'border-slate-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      {p.category && (
+                        <span
+                          className="mb-2 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                          style={{ backgroundColor: `${p.category.color}20`, color: p.category.color }}
+                        >
+                          {p.category.icon ? `${p.category.icon} ` : ''}{p.category.name}
+                        </span>
+                      )}
+                      <span className="w-full truncate font-semibold text-slate-950">{p.name}</span>
+                      <span className="mt-1 text-xs text-slate-500">{p.sku}</span>
+                      <div className="mt-3 flex w-full items-center justify-between gap-1">
+                        <span className="text-sm font-bold text-indigo-600">
+                          {formatCurrency((p.costPrice || 0) * RETAIL_MARKUP)}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">/{p.unit}</span>
+                      </div>
+                      {totalStock !== null && (
+                        <div className="mt-2 w-full">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isOutOfStock
+                              ? 'bg-red-100 text-red-700'
+                              : isLowStock
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {isOutOfStock ? 'Out of stock' : `Stock: ${totalStock} ${p.unit || ''}`}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
