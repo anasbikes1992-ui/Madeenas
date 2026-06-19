@@ -112,6 +112,13 @@ export default function SendStockPage() {
     setItems((current) => current.map((item, currentIndex) => (currentIndex === index ? { ...item, ...patch } : item)))
   }
 
+  function getAvailableQty(productId: string): number | null {
+    if (!header.fromLocationId || !productId) return null
+    const product = products.find((p: any) => p.id === productId)
+    if (!product) return null
+    return product.stocks?.find((s: any) => s.locationId === header.fromLocationId)?.quantity ?? 0
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setSaving(true)
@@ -126,6 +133,18 @@ export default function SendStockPage() {
     if (payload.items.length === 0) {
       setSaving(false)
       showToast('Please add at least one item line')
+      return
+    }
+
+    const overStockItem = payload.items.find((item) => {
+      const avail = getAvailableQty(item.productId)
+      return avail !== null && item.quantityDispatched > avail
+    })
+    if (overStockItem) {
+      setSaving(false)
+      const product = products.find((p: any) => p.id === overStockItem.productId)
+      const avail = getAvailableQty(overStockItem.productId) ?? 0
+      showToast(`Insufficient stock for ${product?.name ?? 'item'}. Available: ${avail}`)
       return
     }
 
@@ -287,18 +306,63 @@ export default function SendStockPage() {
                   <h3 className="text-sm font-semibold text-slate-800">Send Lines</h3>
                   <button type="button" className="btn-secondary btn-sm" onClick={addItem}>+ Add Line</button>
                 </div>
-                {items.map((item, index) => (
-                  <div key={index} className="grid md:grid-cols-[1fr_160px_auto] gap-3">
-                    <select title={`Product ${index + 1}`} className="input" value={item.productId} onChange={(event) => updateItem(index, { productId: event.target.value })}>
-                      <option value="">Select product</option>
-                      {products.map((product: any) => (
-                        <option key={product.id} value={product.id}>{product.name} ({product.sku})</option>
-                      ))}
-                    </select>
-                    <input type="number" min="0.01" step="0.01" className="input" placeholder="Qty" value={item.quantityDispatched} onChange={(event) => updateItem(index, { quantityDispatched: event.target.value })} />
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => removeItem(index)}>Remove</button>
-                  </div>
-                ))}
+                {!header.fromLocationId && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                    ⚠ Select a source location first to see available stock quantities.
+                  </p>
+                )}
+                {items.map((item, index) => {
+                  const selectedProductIds = new Set(
+                    items.filter((_, i) => i !== index).map((it) => it.productId).filter(Boolean)
+                  )
+                  const selectedProduct = products.find((p: any) => p.id === item.productId) as any
+                  const availableQty = getAvailableQty(item.productId)
+                  const enteredQty = Number(item.quantityDispatched)
+                  const isOverStock = availableQty !== null && enteredQty > 0 && enteredQty > availableQty
+
+                  return (
+                    <div key={index} className="space-y-1">
+                      <div className="grid md:grid-cols-[1fr_180px_auto] gap-3 items-start">
+                        <select
+                          title={`Product ${index + 1}`}
+                          className="input"
+                          value={item.productId}
+                          onChange={(event) => updateItem(index, { productId: event.target.value, quantityDispatched: '' })}
+                        >
+                          <option value="">Select product</option>
+                          {products.map((product: any) => (
+                            <option key={product.id} value={product.id} disabled={selectedProductIds.has(product.id)}>
+                              {product.name} ({product.sku})
+                            </option>
+                          ))}
+                        </select>
+                        <div>
+                          <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            className={`input w-full ${isOverStock ? 'border-red-400 focus:ring-red-300' : ''}`}
+                            placeholder={selectedProduct ? `Qty (${selectedProduct.unit})` : 'Qty'}
+                            value={item.quantityDispatched}
+                            onChange={(event) => updateItem(index, { quantityDispatched: event.target.value })}
+                          />
+                          {item.productId && header.fromLocationId && (
+                            <p className={`text-xs mt-1 ${isOverStock ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                              {isOverStock
+                                ? `⚠ Exceeds available — `
+                                : 'Available: '}
+                              <span className="font-semibold">{availableQty ?? 0}</span>
+                              {selectedProduct ? ` ${selectedProduct.unit}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <button type="button" className="btn-secondary btn-sm mt-1" onClick={() => removeItem(index)} disabled={items.length === 1}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
               <div className="flex gap-3">
