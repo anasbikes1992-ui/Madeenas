@@ -10,66 +10,66 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
-  password      String
-  role          String   @default("STORE_KEEPER") // ADMIN, STORE_KEEPER, FINANCE, CUSTOMER
-  locationId    String?
-  location      Location? @relation(fields: [locationId], references: [id])
-  isActive      Boolean  @default(true)
-  
+  id         String    @id @default(cuid())
+  name       String
+  email      String    @unique
+  password   String
+  role       String    @default("STORE_KEEPER") // ADMIN, STORE_KEEPER, FINANCE, CUSTOMER
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+  isActive   Boolean   @default(true)
+
   // 2FA fields
   twoFactorEnabled     Boolean  @default(false)
   twoFactorSecret      String?
   twoFactorBackupCodes String[] @default([])
-  
+
   // Multi-tenant support
-  tenantId      String?
-  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  stockIns        StockIn[]
-  stockAdjustments StockAdjustment[]
-  stockOutRequests StockOutRequest[] @relation("RequestedBy")
-  approvedRequests StockOutRequest[] @relation("ApprovedBy")
+  stockIns           StockIn[]
+  stockAdjustments   StockAdjustment[]
+  stockOutRequests   StockOutRequest[] @relation("RequestedBy")
+  approvedRequests   StockOutRequest[] @relation("ApprovedBy")
   dispatchedRequests StockOutRequest[] @relation("DispatchedBy")
-  receivedRequests  StockOutRequest[] @relation("ReceivedBy")
-  customerOrders  CustomerOrder[]
-  financeReviews  FinanceReview[]
-  auditLogs       AuditLog[]
-  historyEvents   EntityHistory[]
-  sales           Sale[]
-  carts           Cart[]
-  
+  receivedRequests   StockOutRequest[] @relation("ReceivedBy")
+  customerOrders     CustomerOrder[]
+  financeReviews     FinanceReview[]
+  auditLogs          AuditLog[]
+  historyEvents      EntityHistory[]
+  sales              Sale[]
+  carts              Cart[]
+
   // Returns relations
-  returns              Return[]              @relation
-  returnsApproved      Return[]              @relation("ReturnApprovedBy")
-  returnsRejected      Return[]              @relation("ReturnRejectedBy")
-  returnsReceived      Return[]              @relation("ReturnReceivedBy")
-  returnsProcessed     Return[]              @relation("ReturnProcessedBy")
+  returns          Return[] @relation
+  returnsApproved  Return[] @relation("ReturnApprovedBy")
+  returnsRejected  Return[] @relation("ReturnRejectedBy")
+  returnsReceived  Return[] @relation("ReturnReceivedBy")
+  returnsProcessed Return[] @relation("ReturnProcessedBy")
 }
 
 model Tenant {
-  id                String   @id @default(cuid())
-  name              String
-  subdomain         String   @unique
-  domain            String?
-  plan              String   @default("FREE") // FREE, PRO, ENTERPRISE
-  maxUsers          Int      @default(5)
-  maxProducts       Int      @default(100)
-  whatsappEnabled   Boolean  @default(false)
-  customBranding    Boolean  @default(false)
-  isActive          Boolean  @default(true)
-  trialEndsAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  id              String    @id @default(cuid())
+  name            String
+  subdomain       String    @unique
+  domain          String?
+  plan            String    @default("FREE") // FREE, PRO, ENTERPRISE
+  maxUsers        Int       @default(5)
+  maxProducts     Int       @default(100)
+  whatsappEnabled Boolean   @default(false)
+  customBranding  Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  trialEndsAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   // Relations
-  users             User[]
+  users User[]
 }
 
 model Category {
@@ -83,34 +83,129 @@ model Category {
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  design       String
-  color        String
-  colorHex     String   @default("#000000")
-  sku          String   @unique
-  categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id])
-  unit         String   @default("meters")
-  alternateUnit String?
+  id               String   @id @default(cuid())
+  name             String
+  design           String
+  color            String
+  colorHex         String   @default("#000000")
+  sku              String   @unique
+  categoryId       String
+  category         Category @relation(fields: [categoryId], references: [id])
+  unit             String   @default("meters")
+  alternateUnit    String?
   conversionFactor Float?
-  description  String?
-  images       String   @default("[]")
-  barcodeType  String   @default("CODE128")
-  isActive     Boolean  @default(true)
-  lowStockAt   Float    @default(10)
-  costPrice    Float?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  description      String?
+  images           String   @default("[]")
+  barcodeType      String   @default("CODE128")
+  isActive         Boolean  @default(true)
+  lowStockAt       Float    @default(10)
+  costPrice        Float?
 
-  stocks          Stock[]
-  stockIns        StockIn[]
+  // New: Variant support flag
+  hasVariants Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks           Stock[]
+  stockIns         StockIn[]
   stockAdjustments StockAdjustment[]
   stockOutRequests StockOutRequest[]
-  saleItems       SaleItem[]
-  cartItems       CartItem[]
-  orderItems      OrderItem[]
-  returnItems     ReturnItem[]
+  saleItems        SaleItem[]
+  cartItems        CartItem[]
+  orderItems       OrderItem[]
+  returnItems      ReturnItem[]
+
+  // New: Product variants
+  variants ProductVariant[]
+}
+
+// Master Color Catalog
+model ColorMaster {
+  id        String   @id @default(cuid())
+  code      String   @unique // "457", "458", "Navy Blue"
+  name      String? // Optional display name
+  hexValue  String? // #1E3A8A
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  productColors ProductColor[]
+
+  @@index([code])
+}
+
+// Shade/ItemCode (Product Variants)
+model ProductVariant {
+  id          String   @id @default(cuid())
+  productId   String
+  code        String // "NF-003", "NF-006"
+  design      String? // Design pattern name
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Pricing & Units (can inherit from parent or override)
+  costPrice        Float?
+  unit             String?
+  alternateUnit    String?
+  conversionFactor Float?
+
+  // Media
+  images String @default("[]")
+
+  // Relations
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colors  ProductColor[]
+  stocks  StockVariant[]
+
+  @@unique([productId, code])
+  @@index([productId])
+  @@index([code])
+}
+
+// Product Variant Colors (Junction with stock tracking)
+model ProductColor {
+  id        String   @id @default(cuid())
+  variantId String
+  colorId   String
+  sku       String   @unique // Auto-generated: CAT-PROD-VARIANT-COLOR
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Pricing overrides (optional)
+  costPrice Float?
+
+  // Relations
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  color   ColorMaster    @relation(fields: [colorId], references: [id])
+  stocks  StockVariant[]
+
+  // For transfers/orders
+  stockOutRequests StockOutRequest[] @relation("ProductColorStockOut")
+
+  @@unique([variantId, colorId])
+  @@index([variantId])
+  @@index([colorId])
+  @@index([sku])
+}
+
+// New Stock Tracking (by Variant + Color + Location)
+model StockVariant {
+  id             String   @id @default(cuid())
+  productColorId String
+  locationId     String
+  quantity       Float    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  productColor     ProductColor    @relation(fields: [productColorId], references: [id], onDelete: Cascade)
+  location         Location        @relation(fields: [locationId], references: [id])
+  ProductVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
+  productVariantId String?
+
+  @@unique([productColorId, locationId])
+  @@index([productColorId])
+  @@index([locationId])
 }
 
 model Location {
@@ -129,6 +224,9 @@ model Location {
   stockOutFrom     StockOutRequest[] @relation("FromLocation")
   stockOutTo       StockOutRequest[] @relation("ToLocation")
   sales            Sale[]
+
+  // New: Variant stock tracking
+  stockVariants StockVariant[]
 }
 
 model Stock {
@@ -144,11 +242,11 @@ model Stock {
 }
 
 model StockIn {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   productId   String
-  product     Product  @relation(fields: [productId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
   locationId  String
-  location    Location @relation(fields: [locationId], references: [id])
+  location    Location  @relation(fields: [locationId], references: [id])
   quantity    Float
   batchNumber String?
   supplierId  String?
@@ -156,8 +254,8 @@ model StockIn {
   costPrice   Float?
   note        String?
   receivedBy  String
-  user        User     @relation(fields: [receivedBy], references: [id])
-  createdAt   DateTime @default(now())
+  user        User      @relation(fields: [receivedBy], references: [id])
+  createdAt   DateTime  @default(now())
 }
 
 model StockAdjustment {
@@ -180,17 +278,22 @@ model StockAdjustment {
 }
 
 model StockOutRequest {
-  id                 String   @id @default(cuid())
-  transferNo         String?  @unique
-  flowType           String   @default("REQUEST")
+  id         String  @id @default(cuid())
+  transferNo String? @unique
+
+  // New: Support for variant-based products
+  productColorId String?
+  productColor   ProductColor? @relation("ProductColorStockOut", fields: [productColorId], references: [id])
+
+  flowType           String    @default("REQUEST")
   productId          String
-  product            Product  @relation(fields: [productId], references: [id])
+  product            Product   @relation(fields: [productId], references: [id])
   fromLocationId     String
-  fromLocation       Location @relation("FromLocation", fields: [fromLocationId], references: [id])
+  fromLocation       Location  @relation("FromLocation", fields: [fromLocationId], references: [id])
   toLocationId       String?
   toLocation         Location? @relation("ToLocation", fields: [toLocationId], references: [id])
   requestedBy        String
-  requestedByUser    User     @relation("RequestedBy", fields: [requestedBy], references: [id])
+  requestedByUser    User      @relation("RequestedBy", fields: [requestedBy], references: [id])
   quantityRequested  Float
   quantityApproved   Float?
   quantityDispatched Float?
@@ -198,63 +301,63 @@ model StockOutRequest {
   discrepancyQty     Float?
   discrepancyReason  String?
   acknowledgeNote    String?
-  status             String   @default("PENDING")
+  status             String    @default("PENDING")
   referenceInvoice   String?
   invoiceDate        DateTime?
   approvedBy         String?
-  approvedByUser     User?    @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  approvedByUser     User?     @relation("ApprovedBy", fields: [approvedBy], references: [id])
   approvedAt         DateTime?
   dispatchedBy       String?
-  dispatchedByUser   User?    @relation("DispatchedBy", fields: [dispatchedBy], references: [id])
+  dispatchedByUser   User?     @relation("DispatchedBy", fields: [dispatchedBy], references: [id])
   dispatchedAt       DateTime?
   receivedBy         String?
-  receivedByUser     User?    @relation("ReceivedBy", fields: [receivedBy], references: [id])
+  receivedByUser     User?     @relation("ReceivedBy", fields: [receivedBy], references: [id])
   receivedAt         DateTime?
   acknowledgedAt     DateTime?
   rejectionReason    String?
   note               String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   financeReviews FinanceReview[]
 }
 
 model CustomerOrder {
-  id              String      @id @default(cuid())
-  orderNumber     String      @unique // e.g., "ORD-2026-0001"
-  customerId      String
-  customer        User        @relation(fields: [customerId], references: [id])
-  
+  id          String @id @default(cuid())
+  orderNumber String @unique // e.g., "ORD-2026-0001"
+  customerId  String
+  customer    User   @relation(fields: [customerId], references: [id])
+
   // Order items (multiple products)
-  items           OrderItem[]
-  
+  items OrderItem[]
+
   // Status tracking
-  status          OrderStatus @default(PENDING)
-  
+  status OrderStatus @default(PENDING)
+
   // Amounts with VAT
-  subTotal        Float
-  taxRate         Float       @default(18)
-  taxAmount       Float
-  grandTotal      Float
-  
+  subTotal   Float
+  taxRate    Float @default(18)
+  taxAmount  Float
+  grandTotal Float
+
   // Shipping & Contact
   shippingAddress String
   billingAddress  String?
   phoneNumber     String
-  
+
   // Workflow tracking
-  approvedBy      String?
-  approvedAt      DateTime?
-  fulfilledBy     String?
-  fulfilledAt     DateTime?
-  
+  approvedBy  String?
+  approvedAt  DateTime?
+  fulfilledBy String?
+  fulfilledAt DateTime?
+
   // Link to Sale after fulfillment
-  saleId          String?     @unique
-  sale            Sale?       @relation(fields: [saleId], references: [id])
-  
-  note            String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  saleId String? @unique
+  sale   Sale?   @relation(fields: [saleId], references: [id])
+
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum OrderStatus {
@@ -268,18 +371,18 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id          String        @id @default(cuid())
-  orderId     String
-  order       CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product       @relation(fields: [productId], references: [id])
-  quantity    Float
-  unitPrice   Float
-  subTotal    Float
-  taxRate     Float         @default(18)
-  taxAmount   Float
-  total       Float
-  createdAt   DateTime      @default(now())
+  id        String        @id @default(cuid())
+  orderId   String
+  order     CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product       @relation(fields: [productId], references: [id])
+  quantity  Float
+  unitPrice Float
+  subTotal  Float
+  taxRate   Float         @default(18)
+  taxAmount Float
+  total     Float
+  createdAt DateTime      @default(now())
 }
 
 model Supplier {
@@ -320,17 +423,17 @@ model AuditLog {
 }
 
 model EntityHistory {
-  id          String   @id @default(cuid())
-  entityType  String
-  entityId    String
-  eventType   String
-  title       String
-  details     String?
-  payloadJson String?
-  createdBy   String
-  createdByUser User   @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  entityType    String
+  entityId      String
+  eventType     String
+  title         String
+  details       String?
+  payloadJson   String?
+  createdBy     String
+  createdByUser User     @relation(fields: [createdBy], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([entityType, entityId, createdAt])
   @@index([createdBy, createdAt])
@@ -353,82 +456,82 @@ model Notification {
 // =============================================================================
 
 model PriceRule {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String
-  ruleType      String   // BULK_DISCOUNT, CUSTOMER_SEGMENT, STOCK_LEVEL, TIME_BASED, PRODUCT_CATEGORY
-  discountType  String   // PERCENTAGE, FIXED_AMOUNT, FIXED_PRICE
+  ruleType      String // BULK_DISCOUNT, CUSTOMER_SEGMENT, STOCK_LEVEL, TIME_BASED, PRODUCT_CATEGORY
+  discountType  String // PERCENTAGE, FIXED_AMOUNT, FIXED_PRICE
   discountValue Float
-  priority      Int      @default(0) // Higher = applied first
-  conditions    Json     // RuleConditions object
-  isActive      Boolean  @default(true)
+  priority      Int       @default(0) // Higher = applied first
+  conditions    Json // RuleConditions object
+  isActive      Boolean   @default(true)
   startsAt      DateTime?
   endsAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   @@index([ruleType, isActive])
   @@index([priority])
 }
 
 model Customer {
-  id              String   @id @default(cuid())
-  name            String
-  phone           String?  @unique
-  email           String?
-  isCreditEligible Boolean @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  phone            String?  @unique
+  email            String?
+  isCreditEligible Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  sales           Sale[]
+  sales Sale[]
 }
 
 // Shopping Cart for Customer Portal
 model Cart {
-  id          String     @id @default(cuid())
-  customerId  String     @unique // One cart per customer
-  customer    User       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  items       CartItem[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  customerId String     @unique // One cart per customer
+  customer   User       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items      CartItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }
 
 model CartItem {
-  id          String   @id @default(cuid())
-  cartId      String
-  cart        Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  quantity    Float
-  unitPrice   Float    // Captured at time of adding to cart
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Float
+  unitPrice Float // Captured at time of adding to cart
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([cartId, productId]) // One entry per product in cart
 }
 
 model Sale {
-  id            String     @id @default(cuid())
-  receiptNo     String     @unique
+  id            String    @id @default(cuid())
+  receiptNo     String    @unique
   locationId    String
-  location      Location   @relation(fields: [locationId], references: [id])
+  location      Location  @relation(fields: [locationId], references: [id])
   soldById      String
-  soldBy        User       @relation(fields: [soldById], references: [id])
+  soldBy        User      @relation(fields: [soldById], references: [id])
   customerId    String?
-  customer      Customer?  @relation(fields: [customerId], references: [id])
+  customer      Customer? @relation(fields: [customerId], references: [id])
   customerName  String?
   customerPhone String?
-  
+
   // VAT calculations
-  subTotal      Float      // Sum of all items before tax
-  taxRate       Float      @default(18) // VAT percentage (default 18%)
-  taxAmount     Float      // Calculated tax
-  grandTotal    Float      // subTotal + taxAmount (replaces totalAmount)
-  totalAmount   Float      // Legacy field, keep for backward compatibility
-  
-  paymentMode   String     @default("CASH") // CASH, BANK_TRANSFER, CHEQUE, CREDIT
-  note          String?
-  createdAt     DateTime   @default(now())
-  
+  subTotal    Float // Sum of all items before tax
+  taxRate     Float @default(18) // VAT percentage (default 18%)
+  taxAmount   Float // Calculated tax
+  grandTotal  Float // subTotal + taxAmount (replaces totalAmount)
+  totalAmount Float // Legacy field, keep for backward compatibility
+
+  paymentMode String   @default("CASH") // CASH, BANK_TRANSFER, CHEQUE, CREDIT
+  note        String?
+  createdAt   DateTime @default(now())
+
   // Relations
   items         SaleItem[]
   customerOrder CustomerOrder?
@@ -436,18 +539,18 @@ model Sale {
 }
 
 model SaleItem {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   saleId    String
-  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
   quantity  Float
   unitPrice Float
-  subTotal  Float    // quantity × unitPrice
-  taxRate   Float    @default(18) // VAT percentage
-  taxAmount Float    // Calculated tax for this item
-  total     Float    // subTotal + taxAmount
-  
+  subTotal  Float // quantity × unitPrice
+  taxRate   Float   @default(18) // VAT percentage
+  taxAmount Float // Calculated tax for this item
+  total     Float // subTotal + taxAmount
+
   // Returns relation
   returnItems ReturnItem[]
 }
@@ -468,54 +571,54 @@ enum ReturnStatus {
 }
 
 model Return {
-  id                    String       @id @default(cuid())
-  returnNumber          String       @unique
-  saleId                String
-  sale                  Sale         @relation(fields: [saleId], references: [id])
-  customerId            String
-  customer              User         @relation(fields: [customerId], references: [id])
-  
+  id           String @id @default(cuid())
+  returnNumber String @unique
+  saleId       String
+  sale         Sale   @relation(fields: [saleId], references: [id])
+  customerId   String
+  customer     User   @relation(fields: [customerId], references: [id])
+
   // Request details
-  status                ReturnStatus @default(PENDING)
-  customerNote          String?      @db.Text
-  preferredResolution   String       // REFUND, EXCHANGE, STORE_CREDIT
-  
+  status              ReturnStatus @default(PENDING)
+  customerNote        String?      @db.Text
+  preferredResolution String // REFUND, EXCHANGE, STORE_CREDIT
+
   // Financial
-  totalRefundAmount     Float
-  approvedRefundAmount  Float?
-  
+  totalRefundAmount    Float
+  approvedRefundAmount Float?
+
   // Approval workflow
-  approvedBy            String?
-  approvedAt            DateTime?
-  approvedByUser        User?        @relation("ReturnApprovedBy", fields: [approvedBy], references: [id])
-  adminNote             String?      @db.Text
-  
+  approvedBy     String?
+  approvedAt     DateTime?
+  approvedByUser User?     @relation("ReturnApprovedBy", fields: [approvedBy], references: [id])
+  adminNote      String?   @db.Text
+
   // Rejection
-  rejectedBy            String?
-  rejectedAt            DateTime?
-  rejectedByUser        User?        @relation("ReturnRejectedBy", fields: [rejectedBy], references: [id])
-  rejectionReason       String?      @db.Text
-  
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectedByUser  User?     @relation("ReturnRejectedBy", fields: [rejectedBy], references: [id])
+  rejectionReason String?   @db.Text
+
   // Items received
-  itemsReceivedAt       DateTime?
-  receivedBy            String?
-  receivedByUser        User?        @relation("ReturnReceivedBy", fields: [receivedBy], references: [id])
-  inspectionNote        String?      @db.Text
-  itemCondition         String?      // GOOD, ACCEPTABLE, DAMAGED
-  
+  itemsReceivedAt DateTime?
+  receivedBy      String?
+  receivedByUser  User?     @relation("ReturnReceivedBy", fields: [receivedBy], references: [id])
+  inspectionNote  String?   @db.Text
+  itemCondition   String? // GOOD, ACCEPTABLE, DAMAGED
+
   // Refund processing
-  refundProcessedAt     DateTime?
-  refundMethod          String?      // BANK_TRANSFER, STORE_CREDIT, ORIGINAL_METHOD
-  refundTransactionRef  String?
-  processedBy           String?
-  processedByUser       User?        @relation("ReturnProcessedBy", fields: [processedBy], references: [id])
-  
+  refundProcessedAt    DateTime?
+  refundMethod         String? // BANK_TRANSFER, STORE_CREDIT, ORIGINAL_METHOD
+  refundTransactionRef String?
+  processedBy          String?
+  processedByUser      User?     @relation("ReturnProcessedBy", fields: [processedBy], references: [id])
+
   // Timestamps
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  items                 ReturnItem[]
+  items ReturnItem[]
 }
 
 enum ReturnReason {
@@ -530,21 +633,21 @@ enum ReturnReason {
 }
 
 model ReturnItem {
-  id            String       @id @default(cuid())
-  returnId      String
-  return        Return       @relation(fields: [returnId], references: [id], onDelete: Cascade)
-  saleItemId    String
-  saleItem      SaleItem     @relation(fields: [saleItemId], references: [id])
-  productId     String
-  product       Product      @relation(fields: [productId], references: [id])
-  
-  quantity      Float
-  unitPrice     Float
-  refundAmount  Float
-  
-  reason        ReturnReason
-  note          String?      @db.Text
-  images        String[]     // Array of image URLs
-  
-  createdAt     DateTime     @default(now())
+  id         String   @id @default(cuid())
+  returnId   String
+  return     Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItemId String
+  saleItem   SaleItem @relation(fields: [saleItemId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+
+  quantity     Float
+  unitPrice    Float
+  refundAmount Float
+
+  reason ReturnReason
+  note   String?      @db.Text
+  images String[] // Array of image URLs
+
+  createdAt DateTime @default(now())
 }
