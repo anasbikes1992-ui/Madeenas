@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { formatDate } from '@/lib/utils'
+import { HierarchicalProductSelector, type SelectedItem } from '@/components/stock/HierarchicalProductSelector'
 
 type SendLine = {
   id: string
   transferNo: string | null
   status: string
   product: { id: string; name: string; sku: string; unit: string }
+  productColor?: { id: string; sku: string } | null
   fromLocation: { id: string; name: string }
   toLocation: { id: string; name: string } | null
   quantityDispatched: number | null
