@@ -33,7 +33,6 @@ export default function SendStockPage() {
   const { data: session } = useSession()
   const [rows, setRows] = useState<SendLine[]>([])
   const [locations, setLocations] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -50,7 +49,7 @@ export default function SendStockPage() {
     referenceInvoice: '',
     invoiceDate: '',
   })
-  const [items, setItems] = useState([{ productId: '', quantityDispatched: '' }])
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
 
   function showToast(message: string) {
     setToast(message)
@@ -59,15 +58,13 @@ export default function SendStockPage() {
 
   async function load() {
     setLoading(true)
-    const [sendRes, locationRes, productRes] = await Promise.all([
+    const [sendRes, locationRes] = await Promise.all([
       fetch('/api/stock-send?limit=100').then((r) => r.json()),
       fetch('/api/locations').then((r) => r.json()),
-      fetch('/api/products?limit=200').then((r) => r.json()),
     ])
 
     setRows(sendRes.requests || [])
     setLocations(locationRes || [])
-    setProducts(productRes.products || [])
     setLoading(false)
   }
 
@@ -102,55 +99,30 @@ export default function SendStockPage() {
     }))
   }, [rows])
 
-  function addItem() {
-    setItems((current) => [...current, { productId: '', quantityDispatched: '' }])
-  }
-
-  function removeItem(index: number) {
-    setItems((current) => current.filter((_, currentIndex) => currentIndex !== index))
-  }
-
-  function updateItem(index: number, patch: Record<string, string>) {
-    setItems((current) => current.map((item, currentIndex) => (currentIndex === index ? { ...item, ...patch } : item)))
-  }
-
-  function getAvailableQty(productId: string): number | null {
-    if (!header.fromLocationId || !productId) return null
-    const product = products.find((p: any) => p.id === productId)
-    if (!product) return null
-    return product.stocks?.find((s: any) => s.locationId === header.fromLocationId)?.quantity ?? 0
-  }
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setSaving(true)
 
+    if (selectedItems.length === 0) {
+      setSaving(false)
+      showToast('Please add at least one product')
+      return
+    }
+
+    // Use stock-send-v2 API for hierarchical products
     const payload = {
-      ...header,
-      items: items
-        .filter((item) => item.productId && item.quantityDispatched)
-        .map((item) => ({ productId: item.productId, quantityDispatched: Number(item.quantityDispatched) })),
+      fromLocationId: header.fromLocationId,
+      toLocationId: header.toLocationId,
+      note: header.note,
+      referenceInvoice: header.referenceInvoice,
+      invoiceDate: header.invoiceDate,
+      items: selectedItems.map((item) => ({
+        productColorId: item.productColorId,
+        quantityDispatched: item.quantity,
+      })),
     }
 
-    if (payload.items.length === 0) {
-      setSaving(false)
-      showToast('Please add at least one item line')
-      return
-    }
-
-    const overStockItem = payload.items.find((item) => {
-      const avail = getAvailableQty(item.productId)
-      return avail !== null && item.quantityDispatched > avail
-    })
-    if (overStockItem) {
-      setSaving(false)
-      const product = products.find((p: any) => p.id === overStockItem.productId)
-      const avail = getAvailableQty(overStockItem.productId) ?? 0
-      showToast(`Insufficient stock for ${product?.name ?? 'item'}. Available: ${avail}`)
-      return
-    }
-
-    const response = await fetch('/api/stock-send', {
+    const response = await fetch('/api/stock-send-v2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -173,7 +145,7 @@ export default function SendStockPage() {
     showToast('Stock send created and dispatched')
     setShowForm(false)
     setHeader({ fromLocationId: '', toLocationId: '', note: '', referenceInvoice: '', invoiceDate: '' })
-    setItems([{ productId: '', quantityDispatched: '' }])
+    setSelectedItems([])
     await load()
   }
 
@@ -360,67 +332,18 @@ export default function SendStockPage() {
               </div>
 
               <div className="rounded-xl border border-slate-200 p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-800">Send Lines</h3>
-                  <button type="button" className="btn-secondary btn-sm" onClick={addItem}>+ Add Line</button>
-                </div>
-                {!header.fromLocationId && (
+                <h3 className="text-sm font-semibold text-slate-800 mb-2">Select Products</h3>
+                {!header.fromLocationId ? (
                   <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                    ⚠ Select a source location first to see available stock quantities.
+                    ⚠ Select a source location first to see available stock.
                   </p>
+                ) : (
+                  <HierarchicalProductSelector
+                    locationId={header.fromLocationId}
+                    selectedItems={selectedItems}
+                    onSelectionChange={setSelectedItems}
+                  />
                 )}
-                {items.map((item, index) => {
-                  const selectedProductIds = new Set(
-                    items.filter((_, i) => i !== index).map((it) => it.productId).filter(Boolean)
-                  )
-                  const selectedProduct = products.find((p: any) => p.id === item.productId) as any
-                  const availableQty = getAvailableQty(item.productId)
-                  const enteredQty = Number(item.quantityDispatched)
-                  const isOverStock = availableQty !== null && enteredQty > 0 && enteredQty > availableQty
-
-                  return (
-                    <div key={index} className="space-y-1">
-                      <div className="grid md:grid-cols-[1fr_180px_auto] gap-3 items-start">
-                        <select
-                          title={`Product ${index + 1}`}
-                          className="input"
-                          value={item.productId}
-                          onChange={(event) => updateItem(index, { productId: event.target.value, quantityDispatched: '' })}
-                        >
-                          <option value="">Select product</option>
-                          {products.map((product: any) => (
-                            <option key={product.id} value={product.id} disabled={selectedProductIds.has(product.id)}>
-                              {product.name} ({product.sku})
-                            </option>
-                          ))}
-                        </select>
-                        <div>
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            className={`input w-full ${isOverStock ? 'border-red-400 focus:ring-red-300' : ''}`}
-                            placeholder={selectedProduct ? `Qty (${selectedProduct.unit})` : 'Qty'}
-                            value={item.quantityDispatched}
-                            onChange={(event) => updateItem(index, { quantityDispatched: event.target.value })}
-                          />
-                          {item.productId && header.fromLocationId && (
-                            <p className={`text-xs mt-1 ${isOverStock ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
-                              {isOverStock
-                                ? `⚠ Exceeds available — `
-                                : 'Available: '}
-                              <span className="font-semibold">{availableQty ?? 0}</span>
-                              {selectedProduct ? ` ${selectedProduct.unit}` : ''}
-                            </p>
-                          )}
-                        </div>
-                        <button type="button" className="btn-secondary btn-sm mt-1" onClick={() => removeItem(index)} disabled={items.length === 1}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
 
               <div className="flex gap-3">
