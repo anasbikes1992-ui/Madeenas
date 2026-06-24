@@ -1,30 +1,12 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-
-interface ProductStock {
-  locationId: string
-  quantity: number
-}
-
-interface ProductOption {
-  id: string
-  name: string
-  sku: string
-  unit: string
-  category?: { name?: string | null } | null
-  stocks?: ProductStock[]
-}
+import { HierarchicalProductSelector, type SelectedItem } from '@/components/stock/HierarchicalProductSelector'
 
 interface LocationOption {
   id: string
   name: string
   type: string
-}
-
-interface RequestItemState {
-  productId: string
-  quantityRequested: string
 }
 
 interface RequestHeaderState {
@@ -37,7 +19,6 @@ interface RequestHeaderState {
 
 export default function NewRequestPage() {
   const { data: session } = useSession()
-  const [products, setProducts] = useState<ProductOption[]>([])
   const [locations, setLocations] = useState<LocationOption[]>([])
   const [header, setHeader] = useState<RequestHeaderState>({
     fromLocationId: '',
@@ -46,11 +27,7 @@ export default function NewRequestPage() {
     invoiceDate: '',
     note: '',
   })
-  const [items, setItems] = useState<RequestItemState[]>([
-    { productId: '', quantityRequested: '' },
-    { productId: '', quantityRequested: '' },
-    { productId: '', quantityRequested: '' },
-  ])
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -63,61 +40,16 @@ export default function NewRequestPage() {
   const requestDestination = locations.find((location) => location.id === effectiveToLocationId)
 
   useEffect(() => {
-    fetch('/api/products?limit=200').then(r => r.json()).then(d => setProducts(d.products || []))
     fetch('/api/locations').then(r => r.json()).then(d => setLocations(d))
   }, [])
-
-  function updateItem(index: number, patch: Partial<RequestItemState>) {
-    setItems((currentItems) =>
-      currentItems.map((item, currentIndex) => (currentIndex === index ? { ...item, ...patch } : item))
-    )
-  }
-
-  function addItem() {
-    setItems((currentItems) => [...currentItems, { productId: '', quantityRequested: '' }])
-  }
-
-  function removeItem(index: number) {
-    setItems((currentItems) => currentItems.filter((_, currentIndex) => currentIndex !== index))
-  }
-
-  const filledItemsCount = useMemo(
-    () => items.filter(item => item.productId.trim() && item.quantityRequested.trim()).length,
-    [items]
-  )
-
-  const selectedProductIds = useMemo(
-    () => items.filter(item => item.productId.trim()).map(item => item.productId),
-    [items]
-  )
-
-  const duplicateProductIds = useMemo(() => {
-    const counts = new Map<string, number>()
-    selectedProductIds.forEach((id: string) => counts.set(id, (counts.get(id) || 0) + 1))
-    return Array.from(counts.entries()).filter(([, count]) => count > 1).map(([id]) => id)
-  }, [selectedProductIds])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setSaving(true)
 
-    const cleanedItems = items
-      .filter((item) => item.productId.trim() && item.quantityRequested.trim())
-      .map((item) => ({
-        productId: item.productId,
-        quantityRequested: Number(item.quantityRequested),
-      }))
-
-    if (cleanedItems.length === 0) {
-      setError('You must fill at least 1 item row.')
-      setSaving(false)
-      return
-    }
-
-    const uniqueProducts = new Set(cleanedItems.map(item => item.productId))
-    if (uniqueProducts.size !== cleanedItems.length) {
-      setError(`Duplicate products detected. Each item must be a different product.`)
+    if (selectedItems.length === 0) {
+      setError('You must select at least 1 product.')
       setSaving(false)
       return
     }
@@ -128,7 +60,10 @@ export default function NewRequestPage() {
       referenceInvoice: header.referenceInvoice || undefined,
       invoiceDate: header.invoiceDate || undefined,
       note: header.note || undefined,
-      items: cleanedItems,
+      items: selectedItems.map((item) => ({
+        productColorId: item.productColorId,
+        quantityRequested: item.quantity,
+      })),
     }
 
     const res = await fetch('/api/stock-out', {
@@ -253,86 +188,13 @@ export default function NewRequestPage() {
           />
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-800">Movement Lines</h2>
-              <p className="text-xs text-slate-500">
-                Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
-              </p>
-            </div>
-            <button type="button" onClick={addItem} className="btn-secondary btn-sm">
-              + Add Item
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {items.map((item, index) => {
-              const selectedProduct = products.find((product) => product.id === item.productId) ?? null
-              const stockLevel =
-                selectedProduct?.stocks?.find((entry) => entry.locationId === header.fromLocationId)?.quantity ?? null
-              const isDuplicate = item.productId && duplicateProductIds.includes(item.productId)
-
-              return (
-                <div key={index} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
-                  <div className="form-group mb-0">
-                    <label className="label">Product {index + 1}</label>
-                    <select
-                      required
-                      aria-label={`Select product ${index + 1}`}
-                      className={`input ${isDuplicate ? 'border-amber-400 bg-amber-50' : ''}`}
-                      value={item.productId}
-                      onChange={(e) => updateItem(index, { productId: e.target.value })}
-                    >
-                      <option value="">Select a product</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} — {product.sku}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedProduct && header.fromLocationId && (
-                      <p className={`mt-2 text-xs font-medium ${stockLevel !== null && stockLevel < Number(item.quantityRequested || 0) ? 'text-red-600' : 'text-slate-500'}`}>
-                        Available at source: <strong>{stockLevel ?? 0} {selectedProduct.unit}</strong>
-                      </p>
-                    )}
-                    {isDuplicate && (
-                      <p className="mt-1 text-xs font-medium text-amber-600">
-                        ⚠️ Duplicate product – batch needs distinct products
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="form-group mb-0">
-                    <label className="label">Quantity</label>
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      required
-                      aria-label={`Quantity for product ${index + 1}`}
-                      className="input"
-                      value={item.quantityRequested}
-                      onChange={(e) => updateItem(index, { quantityRequested: e.target.value })}
-                      placeholder="0"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <button type="button" onClick={() => removeItem(index)} className="btn-secondary btn-sm w-full md:w-auto">
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {duplicateProductIds.length > 0 && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-              ⚠️ Duplicate products detected. Each batch line should be a different product.
-            </div>
-          )}
+        <div className="space-y-3">
+          <HierarchicalProductSelector
+            locationId={header.fromLocationId}
+            selectedItems={selectedItems}
+            onSelectionChange={setSelectedItems}
+            disabled={!header.fromLocationId}
+          />
         </div>
 
         {error && (

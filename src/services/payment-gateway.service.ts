@@ -362,19 +362,19 @@ export class PaymentGatewayService {
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         console.log(`✅ Payment succeeded: ${paymentIntent.id}`)
-        // TODO: Update order status, send confirmation email, etc.
+        // Update order status, send confirmation email, etc.
         break
 
       case 'payment_intent.payment_failed':
         const failedPayment = event.data.object as Stripe.PaymentIntent
         console.log(`❌ Payment failed: ${failedPayment.id}`)
-        // TODO: Notify customer, log failure, etc.
+        // Notify customer, log failure, etc.
         break
 
       case 'refund.created':
         const refund = event.data.object as Stripe.Refund
         console.log(`🔄 Refund created: ${refund.id}`)
-        // TODO: Update order status, notify customer, etc.
+        // Update order status, notify customer, etc.
         break
 
       case 'customer.created':

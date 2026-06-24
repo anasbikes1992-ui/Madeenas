@@ -117,13 +117,13 @@ export async function GET(request: NextRequest) {
         alternateUnit: variant.alternateUnit || product.alternateUnit,
         conversionFactor: variant.conversionFactor || product.conversionFactor,
         costPrice: pc.costPrice || variant.costPrice || product.costPrice,
-        // Formatted display
-        display: `${category.name} > ${product.name} > ${color.code} > ${variant.code}`,
-        groupKey: `${product.id}-${color.id}`, // Product + color grouping
+        // Formatted display - Fixed hierarchy: Category > Product > Shade > Color
+        display: `${category.name} > ${product.name} > ${variant.code} > ${color.code}`,
+        groupKey: `${product.id}-${variant.id}`, // Product + variant (shade) grouping
       };
     });
 
-    // Group by product + color with shades inside
+    // Group by product + shade with colors inside
     const grouped = transformed.reduce((acc, item) => {
       const key = item.groupKey;
       if (!acc[key]) {
@@ -132,14 +132,13 @@ export async function GET(request: NextRequest) {
           categoryId: item.categoryId,
           product: item.product,
           productId: item.productId,
-          color: item.color,
-          colorId: item.colorId,
-          colorName: item.colorName,
-          colorHex: item.colorHex,
-          shades: [],
+          variant: item.variant,
+          variantId: item.variantId,
+          design: item.design,
+          colors: [],
         };
       }
-      acc[key].shades.push(item);
+      acc[key].colors.push(item);
       return acc;
     }, {} as Record<string, any>);
 

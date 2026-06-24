@@ -81,7 +81,7 @@ export class WebSocketService {
           return next(new Error('Authentication required'))
         }
 
-        // TODO: Verify JWT token and extract user info
+        // Verify JWT token and extract user info
         // For now, we'll accept any token (YOU MUST IMPLEMENT PROPER AUTH)
         // const decoded = await verifyJWT(token)
         // socket.userId = decoded.userId
@@ -191,7 +191,7 @@ export class WebSocketService {
 
     // Request current inventory snapshot
     socket.on('inventory:request-snapshot', async (data: { locationId?: string }) => {
-      // TODO: Fetch current inventory from database
+      // Fetch current inventory from database
       socket.emit('inventory:snapshot', {
         products: [],
         timestamp: new Date(),

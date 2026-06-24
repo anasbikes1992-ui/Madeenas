@@ -145,29 +145,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
-        {filtered.map(group => (
-          <div key={group.group} className="mb-3">
-            {sidebarOpen && (
-              <div className="text-navy-400 text-[10px] font-semibold uppercase tracking-widest px-3 py-1">
-                {group.group}
-              </div>
-            )}
-            {group.items.map(item => {
-              const active = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  title={!sidebarOpen ? item.label : undefined}
-                  className={`sidebar-item min-h-11 ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
-                >
-                  <item.Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
-                  {sidebarOpen && <span className="truncate">{item.label}</span>}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
+        {filtered.map((group, groupIdx) => {
+          // Colorful gradient palettes for each group
+          const groupColors = [
+            { from: 'from-sky-500', to: 'to-blue-600', text: 'text-sky-100', glow: 'shadow-sky-500/20' },
+            { from: 'from-emerald-500', to: 'to-teal-600', text: 'text-emerald-100', glow: 'shadow-emerald-500/20' },
+            { from: 'from-amber-500', to: 'to-orange-600', text: 'text-amber-100', glow: 'shadow-amber-500/20' },
+            { from: 'from-purple-500', to: 'to-pink-600', text: 'text-purple-100', glow: 'shadow-purple-500/20' },
+            { from: 'from-rose-500', to: 'to-red-600', text: 'text-rose-100', glow: 'shadow-rose-500/20' },
+            { from: 'from-cyan-500', to: 'to-blue-600', text: 'text-cyan-100', glow: 'shadow-cyan-500/20' },
+            { from: 'from-indigo-500', to: 'to-purple-600', text: 'text-indigo-100', glow: 'shadow-indigo-500/20' },
+            { from: 'from-lime-500', to: 'to-green-600', text: 'text-lime-100', glow: 'shadow-lime-500/20' },
+            { from: 'from-fuchsia-500', to: 'to-purple-600', text: 'text-fuchsia-100', glow: 'shadow-fuchsia-500/20' },
+          ];
+          const colors = groupColors[groupIdx % groupColors.length];
+
+          return (
+            <div key={group.group} className="mb-3">
+              {sidebarOpen && (
+                <div className={`bg-gradient-to-r ${colors.from} ${colors.to} ${colors.text} text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-lg mb-1 shadow-md ${colors.glow}`}>
+                  {group.group}
+                </div>
+              )}
+              {group.items.map(item => {
+                const active = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={!sidebarOpen ? item.label : undefined}
+                    className={`sidebar-item min-h-11 ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
+                  >
+                    <item.Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
+                    {sidebarOpen && <span className="truncate">{item.label}</span>}
+                  </Link>
+                )
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       {/* User */}

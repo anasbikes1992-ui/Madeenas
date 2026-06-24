@@ -98,6 +98,7 @@ const stockInSingleSchema = z.object({
 
 const stockOutSingleSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
+  productColorId: z.string().optional(),
   fromLocationId: z.string().min(1, 'From location is required'),
   toLocationId: z.string().optional().nullable(),
   quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
@@ -124,6 +125,7 @@ export const stockInSchema = z.union([stockInSingleSchema, stockInBatchSchema]);
 
 const stockOutItemSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
+  productColorId: z.string().optional(),
   quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
 });
 

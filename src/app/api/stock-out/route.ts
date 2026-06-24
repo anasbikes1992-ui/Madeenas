@@ -90,29 +90,31 @@ export async function POST(request: NextRequest) {
 
   const userLocationId = session.user.locationId as string | null
   const isBatchPayload = 'items' in b
-  const items = isBatchPayload ? b.items : [{ productId: b.productId, quantityRequested: b.quantityRequested }]
+  const items = isBatchPayload ? b.items : [{ productId: b.productId, productColorId: b.productColorId, quantityRequested: b.quantityRequested }]
 
   if (isBatchPayload && items.length === 0) {
     return NextResponse.json({ error: 'Batch requires at least 1 item line' }, { status: 400 })
   }
 
-  // Check for duplicate products (each product should appear only once)
+  // Check for duplicate productColorIds (each variant+color combo should appear only once)
   if (isBatchPayload) {
-    const uniqueProductCount = new Set(items.map((item) => item.productId)).size
-    if (uniqueProductCount !== items.length) {
-      return NextResponse.json({ error: 'Duplicate products detected. Each item must be a different product.' }, { status: 400 })
+    const uniqueProductColorCount = new Set(items.map((item) => item.productColorId || item.productId)).size
+    if (uniqueProductColorCount !== items.length) {
+      return NextResponse.json({ error: 'Duplicate products detected. Each item must be unique.' }, { status: 400 })
     }
   }
 
   const consolidatedItems = Array.from(
     items.reduce((map, item) => {
-      const current = map.get(item.productId)
-      map.set(item.productId, {
+      const key = item.productColorId || item.productId
+      const current = map.get(key)
+      map.set(key, {
         productId: item.productId,
+        productColorId: item.productColorId,
         quantityRequested: (current?.quantityRequested ?? 0) + item.quantityRequested,
       })
       return map
-    }, new Map<string, { productId: string; quantityRequested: number }>()).values()
+    }, new Map<string, { productId: string; productColorId?: string; quantityRequested: number }>()).values()
   )
 
   let effectiveToLocationId = role === 'SHOP_STAFF' ? userLocationId : b.toLocationId ?? null
@@ -149,20 +151,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Source and destination locations must be different' }, { status: 400 })
   }
 
-  const [fromLocation, toLocation, products, stocks] = await Promise.all([
+  // Fetch ProductColor for variant-based items
+  const productColorIds = consolidatedItems.filter((item) => item.productColorId).map((item) => item.productColorId!)
+  const productIds = consolidatedItems.map((item) => item.productId)
+
+  const [fromLocation, toLocation, products, productColors, stocks, stockVariants] = await Promise.all([
     prisma.location.findUnique({ where: { id: b.fromLocationId }, select: { id: true, isActive: true } }),
     prisma.location.findUnique({ where: { id: effectiveToLocationId }, select: { id: true, isActive: true } }),
     prisma.product.findMany({
-      where: { id: { in: consolidatedItems.map((item) => item.productId) } },
-      select: { id: true, name: true, unit: true, isActive: true },
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, unit: true, isActive: true, hasVariants: true },
     }),
+    productColorIds.length > 0 ? prisma.productColor.findMany({
+      where: { id: { in: productColorIds } },
+      include: { variant: true, color: true },
+    }) : Promise.resolve([]),
     prisma.stock.findMany({
       where: {
         locationId: b.fromLocationId,
-        productId: { in: consolidatedItems.map((item) => item.productId) },
+        productId: { in: productIds },
       },
       select: { productId: true, quantity: true },
     }),
+    productColorIds.length > 0 ? prisma.stockVariant.findMany({
+      where: {
+        locationId: b.fromLocationId,
+        productColorId: { in: productColorIds },
+      },
+      select: { productColorId: true, quantity: true },
+    }) : Promise.resolve([]),
   ])
 
   if (!fromLocation || !fromLocation.isActive) {
@@ -174,14 +191,30 @@ export async function POST(request: NextRequest) {
   }
 
   const productMap = new Map(products.map((product) => [product.id, product]))
+  const productColorMap = new Map(productColors.map((pc) => [pc.id, pc]))
   const stockMap = new Map(stocks.map((stock) => [stock.productId, stock.quantity]))
+  const stockVariantMap = new Map(stockVariants.map((sv) => [sv.productColorId, sv.quantity]))
 
   for (const item of consolidatedItems) {
     const product = productMap.get(item.productId)
     if (!product || !product.isActive) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
-    const available = stockMap.get(item.productId) ?? 0
+
+    // Check stock availability
+    let available = 0
+    if (item.productColorId) {
+      // Variant-based product
+      const productColor = productColorMap.get(item.productColorId)
+      if (!productColor || !productColor.isActive) {
+        return NextResponse.json({ error: 'Product variant not found' }, { status: 404 })
+      }
+      available = stockVariantMap.get(item.productColorId) ?? 0
+    } else {
+      // Regular product
+      available = stockMap.get(item.productId) ?? 0
+    }
+
     if (available < item.quantityRequested) {
       return NextResponse.json({ error: `Insufficient stock for ${product.name} at selected location` }, { status: 400 })
     }
@@ -199,6 +232,7 @@ export async function POST(request: NextRequest) {
         data: {
           flowType: 'REQUEST',
           productId: item.productId,
+          productColorId: item.productColorId || undefined,
           fromLocationId: b.fromLocationId,
           toLocationId: effectiveToLocationId,
           requestedBy: session.user.id as string,
@@ -209,6 +243,7 @@ export async function POST(request: NextRequest) {
         },
         include: {
           product: true,
+          productColor: { include: { variant: true, color: true } },
           fromLocation: true,
           toLocation: true,
           requestedByUser: { select: { id: true, name: true } },
