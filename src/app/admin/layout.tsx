@@ -137,7 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         {sidebarOpen && (
           <div className="overflow-hidden">
-            <div className="text-white font-bold text-sm leading-tight">Madeena Tex</div>
+            <div className="text-white font-bold text-sm leading-tight">Nexus Inventory</div>
             <div className="text-navy-300 text-xs">{ROLE_LABELS[role] || role}</div>
           </div>
         )}
@@ -148,23 +148,65 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {filtered.map((group, groupIdx) => {
           // Colorful gradient palettes for each group
           const groupColors = [
-            { from: 'from-sky-500', to: 'to-blue-600', text: 'text-sky-100', glow: 'shadow-sky-500/20' },
-            { from: 'from-emerald-500', to: 'to-teal-600', text: 'text-emerald-100', glow: 'shadow-emerald-500/20' },
-            { from: 'from-amber-500', to: 'to-orange-600', text: 'text-amber-100', glow: 'shadow-amber-500/20' },
-            { from: 'from-purple-500', to: 'to-pink-600', text: 'text-purple-100', glow: 'shadow-purple-500/20' },
-            { from: 'from-rose-500', to: 'to-red-600', text: 'text-rose-100', glow: 'shadow-rose-500/20' },
-            { from: 'from-cyan-500', to: 'to-blue-600', text: 'text-cyan-100', glow: 'shadow-cyan-500/20' },
-            { from: 'from-indigo-500', to: 'to-purple-600', text: 'text-indigo-100', glow: 'shadow-indigo-500/20' },
-            { from: 'from-lime-500', to: 'to-green-600', text: 'text-lime-100', glow: 'shadow-lime-500/20' },
-            { from: 'from-fuchsia-500', to: 'to-purple-600', text: 'text-fuchsia-100', glow: 'shadow-fuchsia-500/20' },
+            { 
+              from: 'from-sky-500', to: 'to-blue-600', text: 'text-sky-100', glow: 'shadow-sky-500/20',
+              hover: 'hover:from-sky-500/20 hover:to-blue-500/20', active: 'from-sky-500/30 to-blue-600/40',
+              iconBg: 'bg-sky-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(14,165,233,0.3)]'
+            },
+            { 
+              from: 'from-emerald-500', to: 'to-teal-600', text: 'text-emerald-100', glow: 'shadow-emerald-500/20',
+              hover: 'hover:from-emerald-500/20 hover:to-teal-500/20', active: 'from-emerald-500/30 to-teal-600/40',
+              iconBg: 'bg-emerald-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(16,185,129,0.3)]'
+            },
+            { 
+              from: 'from-amber-500', to: 'to-orange-600', text: 'text-amber-100', glow: 'shadow-amber-500/20',
+              hover: 'hover:from-amber-500/20 hover:to-orange-500/20', active: 'from-amber-500/30 to-orange-600/40',
+              iconBg: 'bg-amber-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(245,158,11,0.3)]'
+            },
+            { 
+              from: 'from-purple-500', to: 'to-pink-600', text: 'text-purple-100', glow: 'shadow-purple-500/20',
+              hover: 'hover:from-purple-500/20 hover:to-pink-500/20', active: 'from-purple-500/30 to-pink-600/40',
+              iconBg: 'bg-purple-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(168,85,247,0.3)]'
+            },
+            { 
+              from: 'from-rose-500', to: 'to-red-600', text: 'text-rose-100', glow: 'shadow-rose-500/20',
+              hover: 'hover:from-rose-500/20 hover:to-red-500/20', active: 'from-rose-500/30 to-red-600/40',
+              iconBg: 'bg-rose-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(244,63,94,0.3)]'
+            },
+            { 
+              from: 'from-cyan-500', to: 'to-blue-600', text: 'text-cyan-100', glow: 'shadow-cyan-500/20',
+              hover: 'hover:from-cyan-500/20 hover:to-blue-500/20', active: 'from-cyan-500/30 to-blue-600/40',
+              iconBg: 'bg-cyan-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(6,182,212,0.3)]'
+            },
+            { 
+              from: 'from-indigo-500', to: 'to-purple-600', text: 'text-indigo-100', glow: 'shadow-indigo-500/20',
+              hover: 'hover:from-indigo-500/20 hover:to-purple-500/20', active: 'from-indigo-500/30 to-purple-600/40',
+              iconBg: 'bg-indigo-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(99,102,241,0.3)]'
+            },
+            { 
+              from: 'from-lime-500', to: 'to-green-600', text: 'text-lime-100', glow: 'shadow-lime-500/20',
+              hover: 'hover:from-lime-500/20 hover:to-green-500/20', active: 'from-lime-500/30 to-green-600/40',
+              iconBg: 'bg-lime-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(132,204,22,0.3)]'
+            },
+            { 
+              from: 'from-fuchsia-500', to: 'to-purple-600', text: 'text-fuchsia-100', glow: 'shadow-fuchsia-500/20',
+              hover: 'hover:from-fuchsia-500/20 hover:to-purple-500/20', active: 'from-fuchsia-500/30 to-purple-600/40',
+              iconBg: 'bg-fuchsia-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(217,70,239,0.3)]'
+            },
           ];
           const colors = groupColors[groupIdx % groupColors.length];
 
           return (
             <div key={group.group} className="mb-3">
               {sidebarOpen && (
-                <div className={`bg-gradient-to-r ${colors.from} ${colors.to} ${colors.text} text-[10px] font-bold uppercase tracking-widest px-3 py-2 rounded-lg mb-1 shadow-md ${colors.glow}`}>
-                  {group.group}
+                <div className={`flex items-center gap-2 px-3 py-2 mb-1.5 bg-gradient-to-r ${colors.from} ${colors.to} ${colors.text} rounded-xl shadow-lg ${colors.glow} hover:shadow-xl transition-all duration-200`}>
+                  <div className={`p-1.5 rounded-lg ${colors.iconBg} backdrop-blur-sm`}>
+                    {(() => {
+                      const FirstIcon = group.items[0]?.Icon
+                      return FirstIcon ? <FirstIcon className="w-4 h-4" /> : null
+                    })()}
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{group.group}</span>
                 </div>
               )}
               {group.items.map(item => {
@@ -174,9 +216,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     key={item.href}
                     href={item.href}
                     title={!sidebarOpen ? item.label : undefined}
-                    className={`sidebar-item min-h-11 ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
+                    className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      active 
+                        ? `bg-gradient-to-r ${colors.active} text-white ${colors.activeShadow}`
+                        : `text-slate-300 bg-gradient-to-r ${colors.hover} hover:text-white hover:shadow-md`
+                    } ${!sidebarOpen ? 'justify-center px-2' : ''}`}
                   >
-                    <item.Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
+                    <div className={active ? `${colors.iconBg} p-1.5 rounded-lg` : ''}>
+                      <item.Icon className="w-4.5 h-4.5 shrink-0" strokeWidth={active ? 2 : 1.75} />
+                    </div>
                     {sidebarOpen && <span className="truncate">{item.label}</span>}
                   </Link>
                 )
@@ -259,7 +307,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </svg>
             </button>
             <nav className="hidden sm:flex items-center gap-1 text-sm text-slate-500">
-              <span>Madeena Tex</span>
+              <span>Nexus Inventory</span>
               <span>/</span>
               <span className="text-slate-900 font-medium capitalize mr-4">
                 {pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || 'Dashboard'}
