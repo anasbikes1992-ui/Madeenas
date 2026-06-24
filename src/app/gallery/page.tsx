@@ -1,5 +1,5 @@
-import StorefrontPage from '@/components/storefront/StorefrontPage'
+import EnhancedGallery from '@/components/gallery/EnhancedGallery'
 
 export default function GalleryPage() {
-  return <StorefrontPage />
+  return <EnhancedGallery />
 }
