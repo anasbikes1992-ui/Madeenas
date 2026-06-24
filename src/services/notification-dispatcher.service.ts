@@ -315,13 +315,29 @@ async function createInAppNotification(
   data: any
 ): Promise<void> {
   const message = getInAppMessage(type, event, data)
+  const notificationType = getNotificationType(event)
+  const title = getNotificationTitle(type, event)
 
   await createNotification({
-    type: event,
+    type: notificationType,
     userId,
+    title,
     message,
-    metadata: JSON.stringify(data),
   })
+}
+
+function getNotificationType(event: string): 'INFO' | 'SUCCESS' | 'WARNING' | 'DANGER' {
+  if (event.includes('CREATED') || event.includes('CONFIRMED')) return 'SUCCESS'
+  if (event.includes('CANCELLED') || event.includes('REJECTED')) return 'DANGER'
+  if (event.includes('PENDING') || event.includes('LOW_STOCK')) return 'WARNING'
+  return 'INFO'
+}
+
+function getNotificationTitle(type: 'order' | 'return' | 'stock', event: string): string {
+  if (type === 'order') return 'Order Update'
+  if (type === 'return') return 'Return Update'
+  if (type === 'stock') return 'Stock Alert'
+  return 'Notification'
 }
 
 function getInAppMessage(type: 'order' | 'return' | 'stock', event: string, data: any): string {
