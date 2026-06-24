@@ -58,20 +58,25 @@ interface GroupedResult {
 interface HierarchicalProductSelectorProps {
   locationId: string;
   onSelectionChange: (items: SelectedItem[]) => void;
-  initialItems?: SelectedItem[];
+  selectedItems?: SelectedItem[];
   disabled?: boolean;
 }
 
 export function HierarchicalProductSelector({
   locationId,
   onSelectionChange,
-  initialItems = [],
+  selectedItems: externalSelectedItems = [],
   disabled = false,
 }: HierarchicalProductSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>(initialItems);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>(externalSelectedItems);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Sync external selectedItems and notify parent on changes
+  useEffect(() => {
+    onSelectionChange(selectedItems);
+  }, [selectedItems, onSelectionChange]);
 
   // Search products
   const { data: searchData, isLoading } = useQuery({
@@ -201,14 +206,27 @@ export function HierarchicalProductSelector({
           ) : (
             groupedResults.map((group) => (
               <Card key={`${group.product}-${group.variant}`}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">
-                    {group.category} &gt; {group.product} ({group.variant})
-                  </CardTitle>
-                  {group.design && <CardDescription>{group.design}</CardDescription>}
+                <CardHeader className="pb-2">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      {group.category}
+                    </div>
+                    <CardTitle className="text-sm font-bold">
+                      {group.product}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        Shade/Item Code: {group.variant}
+                      </Badge>
+                      {group.design && (
+                        <span className="text-xs text-gray-600">{group.design}</span>
+                      )}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
+                    <div className="text-xs font-semibold text-gray-600 mb-2">Colors:</div>
                     {group.colors.map((color) => {
                       const isSelected = selectedItems.some(
                         (i) => i.productColorId === color.id
@@ -218,7 +236,7 @@ export function HierarchicalProductSelector({
                       return (
                         <div
                           key={color.id}
-                          className="flex items-center justify-between p-2 hover:bg-gray-50 rounded"
+                          className="flex items-center justify-between p-2 hover:bg-gray-50 rounded border border-gray-100"
                         >
                           <div className="flex items-center gap-3">
                             {color.colorHex && (
@@ -229,7 +247,7 @@ export function HierarchicalProductSelector({
                               />
                             )}
                             <div>
-                              <div className="font-medium">{color.color}</div>
+                              <div className="font-medium text-sm">{color.color}</div>
                               {color.colorName && (
                                 <div className="text-xs text-gray-500">{color.colorName}</div>
                               )}
