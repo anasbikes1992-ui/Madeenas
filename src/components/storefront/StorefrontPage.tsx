@@ -349,7 +349,7 @@ export default function StorefrontPage() {
               M
             </div>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Madeena Tex</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Nexus Inventory</p>
               <p className="text-sm text-slate-600">{t.brandTag}</p>
             </div>
             <span className="hidden rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 lg:inline-flex">

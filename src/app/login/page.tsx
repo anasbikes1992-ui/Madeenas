@@ -114,9 +114,9 @@ function LoginForm() {
           <div className="grid grid-cols-2 gap-2 text-xs">
             {[
               { role: 'Super Admin', email: 'anasbikes1992@gmail.com', pass: '123456' },
-              { role: 'Manager', email: 'manager@madeena.app', pass: 'password123' },
-              { role: 'Store Keeper', email: 'storekeeper@madeena.app', pass: 'password123' },
-              { role: 'Finance', email: 'finance@madeena.app', pass: 'password123' },
+              { role: 'Manager', email: 'manager@Nexus.app', pass: 'password123' },
+              { role: 'Store Keeper', email: 'storekeeper@Nexus.app', pass: 'password123' },
+              { role: 'Finance', email: 'finance@Nexus.app', pass: 'password123' },
             ].map(u => (
               <button
                 key={u.email}
@@ -145,7 +145,7 @@ export default function LoginPage() {
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-lg font-black">MT</div>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100">Madeena Tex</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100">Nexus Inventory</p>
                 <p className="text-sm text-indigo-100">Secure staff, customer, and management access</p>
               </div>
             </div>

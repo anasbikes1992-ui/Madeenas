@@ -46,7 +46,7 @@ function buildOrderMessage(target: NotificationTarget, payload: OrderNotificatio
 
   if (target === 'customer') {
     return [
-      'Madeena Tex confirmation',
+      'Nexus Inventory confirmation',
       'Your order request has been received.',
       `Product: ${payload.productName}`,
       `Quantity: ${payload.quantity}`,
@@ -154,7 +154,7 @@ function buildInvoiceMessage(payload: InvoiceNotificationPayload) {
     payload.createdAt instanceof Date ? payload.createdAt.toISOString() : payload.createdAt
 
   return [
-    'Madeena Tex invoice',
+    'Nexus Inventory invoice',
     `Receipt: ${payload.receiptNo}`,
     `Customer: ${payload.customerName || 'Walk-in customer'}`,
     `Amount: LKR ${payload.grandTotal.toFixed(2)}`,

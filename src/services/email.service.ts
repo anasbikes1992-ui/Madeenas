@@ -71,8 +71,8 @@ export class EmailService {
       this.resend = new Resend(apiKey)
     }
     
-    this.fromEmail = process.env.EMAIL_FROM || 'noreply@madeenas.com'
-    this.fromName = process.env.EMAIL_FROM_NAME || 'Madeena Textiles'
+    this.fromEmail = process.env.EMAIL_FROM || 'noreply@Nexuss.com'
+    this.fromName = process.env.EMAIL_FROM_NAME || 'Nexus Inventorytiles'
   }
 
   private async send(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
@@ -114,7 +114,7 @@ export class EmailService {
     
     return this.send({
       to,
-      subject: `Order Confirmation #${data.orderNumber} - Madeena Textiles`,
+      subject: `Order Confirmation #${data.orderNumber} - Nexus Inventorytiles`,
       html,
     })
   }
@@ -158,7 +158,7 @@ export class EmailService {
 
     return this.send({
       to,
-      subject: `Invoice #${data.invoiceNumber} - Madeena Textiles`,
+      subject: `Invoice #${data.invoiceNumber} - Nexus Inventorytiles`,
       html,
       attachments,
     })
@@ -193,7 +193,7 @@ export class EmailService {
             <div class="content">
               <p>Hello ${userName},</p>
               
-              <p>We received a request to reset your password for your Madeena Textiles account.</p>
+              <p>We received a request to reset your password for your Nexus Inventorytiles account.</p>
               
               <p style="text-align: center;">
                 <a href="${resetUrl}" class="button">Reset Password</a>
@@ -205,10 +205,10 @@ export class EmailService {
               
               <p>If you didn't request this password reset, please ignore this email or contact support if you're concerned about your account security.</p>
               
-              <p>Best regards,<br>Madeena Textiles Team</p>
+              <p>Best regards,<br>Nexus Inventorytiles Team</p>
             </div>
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Madeena Textiles. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Nexus Inventorytiles. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
           </div>
@@ -218,7 +218,7 @@ export class EmailService {
 
     return this.send({
       to,
-      subject: '🔐 Password Reset Request - Madeena Textiles',
+      subject: '🔐 Password Reset Request - Nexus Inventorytiles',
       html,
     })
   }
@@ -302,11 +302,11 @@ export class EmailService {
               
               <p>If you have any questions, please don't hesitate to contact us.</p>
               
-              <p>Best regards,<br>Madeena Textiles Team</p>
+              <p>Best regards,<br>Nexus Inventorytiles Team</p>
             </div>
             <div class="footer">
               <p>Order Date: ${data.orderDate.toLocaleDateString()}</p>
-              <p>© ${new Date().getFullYear()} Madeena Textiles. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Nexus Inventorytiles. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -460,7 +460,7 @@ export class EmailService {
         <body>
           <div class="container">
             <div class="header">
-              <h1>MADEENA TEXTILES</h1>
+              <h1>Nexus InventoryTILES</h1>
               <p>Tax Invoice</p>
             </div>
             <div class="content">

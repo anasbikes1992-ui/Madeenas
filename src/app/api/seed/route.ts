@@ -54,29 +54,29 @@ async function runSeed(req: Request) {
       create: { name: 'Anas (Super Admin)', email: 'anasbikes1992@gmail.com', password: pass123456, role: 'SUPER_ADMIN' }
     })
     await prisma.user.upsert({
-      where: { email: 'madeenas.lk@gmail.com' },
+      where: { email: 'nexus.local@gmail.com' },
       update: { role: 'SUPER_ADMIN', isActive: true },
-      create: { name: 'Madeena Admin', email: 'madeenas.lk@gmail.com', password: pass123456, role: 'SUPER_ADMIN' }
+      create: { name: 'Nexus Admin', email: 'nexus.local@gmail.com', password: pass123456, role: 'SUPER_ADMIN' }
     })
     await prisma.user.upsert({
-      where: { email: 'finance@textilestock.com' },
+      where: { email: 'finance@nexus.local' },
       update: {},
-      create: { name: 'Finance Dept', email: 'finance@textilestock.com', password: pass123, role: 'FINANCE' }
+      create: { name: 'Finance Dept', email: 'finance@nexus.local', password: pass123, role: 'FINANCE' }
     })
     await prisma.user.upsert({
-      where: { email: 'manager.wh@textilestock.com' },
+      where: { email: 'manager.wh@nexus.local' },
       update: {},
-      create: { name: 'WH Manager', email: 'manager.wh@textilestock.com', password: pass123, role: 'MANAGER', locationId: warehouseA.id }
+      create: { name: 'WH Manager', email: 'manager.wh@nexus.local', password: pass123, role: 'MANAGER', locationId: warehouseA.id }
     })
     await prisma.user.upsert({
-      where: { email: 'storekeeper@textilestock.com' },
+      where: { email: 'storekeeper@nexus.local' },
       update: {},
-      create: { name: 'Store Keeper', email: 'storekeeper@textilestock.com', password: pass123, role: 'STORE_KEEPER', locationId: warehouseA.id }
+      create: { name: 'Store Keeper', email: 'storekeeper@nexus.local', password: pass123, role: 'STORE_KEEPER', locationId: warehouseA.id }
     })
     await prisma.user.upsert({
-      where: { email: 'shop.a@textilestock.com' },
+      where: { email: 'shop.a@nexus.local' },
       update: {},
-      create: { name: 'Shop A Staff', email: 'shop.a@textilestock.com', password: pass123, role: 'SHOP_STAFF', locationId: shopA.id }
+      create: { name: 'Shop A Staff', email: 'shop.a@nexus.local', password: pass123, role: 'SHOP_STAFF', locationId: shopA.id }
     })
 
     // ── Categories ─────────────────────────────────────────────────────────

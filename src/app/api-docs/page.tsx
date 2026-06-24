@@ -43,7 +43,7 @@ export default function ApiDocsPage() {
       <div className="mx-auto max-w-6xl space-y-8">
         <section className="rounded-[2rem] border border-slate-200/70 bg-white/90 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)] backdrop-blur">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-500">API Reference</p>
-          <h1 className="mt-3 text-4xl font-black text-slate-950">Madeena Textile API docs for Sri Lanka trade operations</h1>
+          <h1 className="mt-3 text-4xl font-black text-slate-950">Nexus Inventorytile API docs for Sri Lanka trade operations</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
             This reference covers the operational endpoints that power customer ordering, admin sales, inventory-linked fulfillment,
             and VAT-aware invoicing in LKR.

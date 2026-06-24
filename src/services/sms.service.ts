@@ -109,7 +109,7 @@ export class SMSService {
   async sendOTP(phoneNumber: string, otp: string, expiryMinutes: number = 5) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Your Madeena Textiles verification code is: ${otp}\n\nValid for ${expiryMinutes} minutes.\n\nDo not share this code with anyone.`,
+      message: `Your Nexus Inventorytiles verification code is: ${otp}\n\nValid for ${expiryMinutes} minutes.\n\nDo not share this code with anyone.`,
     })
   }
 
@@ -119,7 +119,7 @@ export class SMSService {
   async sendOrderConfirmation(phoneNumber: string, orderNumber: string, total: number) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Order confirmed! #${orderNumber}\nTotal: LKR ${total.toFixed(2)}\n\nThank you for shopping at Madeena Textiles!`,
+      message: `Order confirmed! #${orderNumber}\nTotal: LKR ${total.toFixed(2)}\n\nThank you for shopping at Nexus Inventorytiles!`,
     })
   }
 
@@ -129,7 +129,7 @@ export class SMSService {
   async sendOrderReady(phoneNumber: string, orderNumber: string, customerName: string) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Hi ${customerName}, your order #${orderNumber} is ready for pickup at Madeena Textiles! Visit us during business hours.`,
+      message: `Hi ${customerName}, your order #${orderNumber} is ready for pickup at Nexus Inventorytiles! Visit us during business hours.`,
     })
   }
 
@@ -138,8 +138,8 @@ export class SMSService {
    */
   async sendDeliveryNotification(phoneNumber: string, orderNumber: string, trackingNumber?: string) {
     const message = trackingNumber
-      ? `Your order #${orderNumber} has been dispatched. Tracking: ${trackingNumber}. Thank you - Madeena Textiles`
-      : `Your order #${orderNumber} is out for delivery. You'll receive it soon! - Madeena Textiles`
+      ? `Your order #${orderNumber} has been dispatched. Tracking: ${trackingNumber}. Thank you - Nexus Inventorytiles`
+      : `Your order #${orderNumber} is out for delivery. You'll receive it soon! - Nexus Inventorytiles`
 
     return this.sendSMS({
       to: phoneNumber,
@@ -153,7 +153,7 @@ export class SMSService {
   async sendPaymentReminder(phoneNumber: string, invoiceNumber: string, amount: number, dueDate: string) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Payment reminder: Invoice #${invoiceNumber} - LKR ${amount.toFixed(2)} is due on ${dueDate}. Pay at Madeena Textiles or online.`,
+      message: `Payment reminder: Invoice #${invoiceNumber} - LKR ${amount.toFixed(2)} is due on ${dueDate}. Pay at Nexus Inventorytiles or online.`,
     })
   }
 
@@ -163,7 +163,7 @@ export class SMSService {
   async sendAppointmentReminder(phoneNumber: string, customerName: string, appointmentDate: string, appointmentTime: string) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Reminder: ${customerName}, your appointment at Madeena Textiles is on ${appointmentDate} at ${appointmentTime}. See you there!`,
+      message: `Reminder: ${customerName}, your appointment at Nexus Inventorytiles is on ${appointmentDate} at ${appointmentTime}. See you there!`,
     })
   }
 
@@ -172,8 +172,8 @@ export class SMSService {
    */
   async sendPromotion(phoneNumber: string, offerDetails: string, validUntil: string, promoCode?: string) {
     const message = promoCode
-      ? `SPECIAL OFFER! ${offerDetails}\nUse code: ${promoCode}\nValid until: ${validUntil}\n\n- Madeena Textiles`
-      : `SPECIAL OFFER! ${offerDetails}\nValid until: ${validUntil}\n\n- Madeena Textiles`
+      ? `SPECIAL OFFER! ${offerDetails}\nUse code: ${promoCode}\nValid until: ${validUntil}\n\n- Nexus Inventorytiles`
+      : `SPECIAL OFFER! ${offerDetails}\nValid until: ${validUntil}\n\n- Nexus Inventorytiles`
 
     return this.sendSMS({
       to: phoneNumber,
@@ -187,7 +187,7 @@ export class SMSService {
   async sendFlashSaleAlert(phoneNumbers: string[], discount: number, endsAt: string) {
     return this.sendBulkSMS({
       recipients: phoneNumbers,
-      message: `FLASH SALE! ${discount}% OFF - Ends ${endsAt}! Shop now at Madeena Textiles. Limited stock!`,
+      message: `FLASH SALE! ${discount}% OFF - Ends ${endsAt}! Shop now at Nexus Inventorytiles. Limited stock!`,
     })
   }
 
@@ -197,7 +197,7 @@ export class SMSService {
   async sendStockAlert(phoneNumber: string, productName: string) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Good news! ${productName} is back in stock at Madeena Textiles. Order now before it's gone!`,
+      message: `Good news! ${productName} is back in stock at Nexus Inventorytiles. Order now before it's gone!`,
     })
   }
 
@@ -207,7 +207,7 @@ export class SMSService {
   async sendAccountActivation(phoneNumber: string, userName: string, activationLink: string) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Welcome ${userName}! Activate your Madeena Textiles account: ${activationLink}`,
+      message: `Welcome ${userName}! Activate your Nexus Inventorytiles account: ${activationLink}`,
     })
   }
 
@@ -217,7 +217,7 @@ export class SMSService {
   async sendPasswordReset(phoneNumber: string, resetCode: string) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Your password reset code: ${resetCode}\n\nValid for 10 minutes. Do not share this code.\n\n- Madeena Textiles`,
+      message: `Your password reset code: ${resetCode}\n\nValid for 10 minutes. Do not share this code.\n\n- Nexus Inventorytiles`,
     })
   }
 
@@ -237,7 +237,7 @@ export class SMSService {
   async sendLoyaltyPointsUpdate(phoneNumber: string, customerName: string, points: number, totalPoints: number) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `${customerName}, you earned ${points} points! Total: ${totalPoints} points. Redeem at Madeena Textiles anytime!`,
+      message: `${customerName}, you earned ${points} points! Total: ${totalPoints} points. Redeem at Nexus Inventorytiles anytime!`,
     })
   }
 
@@ -247,7 +247,7 @@ export class SMSService {
   async sendReturnConfirmation(phoneNumber: string, returnId: string, refundAmount: number) {
     return this.sendSMS({
       to: phoneNumber,
-      message: `Return approved! Return ID: ${returnId}. Refund of LKR ${refundAmount.toFixed(2)} will be processed in 3-5 business days. - Madeena Textiles`,
+      message: `Return approved! Return ID: ${returnId}. Refund of LKR ${refundAmount.toFixed(2)} will be processed in 3-5 business days. - Nexus Inventorytiles`,
     })
   }
 

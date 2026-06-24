@@ -143,7 +143,7 @@ export default function HomeLandingPage() {
               M
             </div>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Madeena Tex</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Nexus Inventory</p>
               <p className="text-sm text-slate-600">Raw materials planning, stock operations, and sales coordination in one platform</p>
             </div>
           </div>

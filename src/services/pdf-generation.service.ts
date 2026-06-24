@@ -81,11 +81,11 @@ export class PDFGenerationService {
 
   constructor() {
     this.companyInfo = {
-      name: process.env.COMPANY_NAME || 'Madeena Textiles',
+      name: process.env.COMPANY_NAME || 'Nexus Inventorytiles',
       address: process.env.COMPANY_ADDRESS || '123 Main Street, Colombo, Sri Lanka',
       phone: process.env.COMPANY_PHONE || '+94 11 234 5678',
-      email: process.env.COMPANY_EMAIL || 'info@madeena.lk',
-      website: process.env.COMPANY_WEBSITE || 'www.madeena.lk',
+      email: process.env.COMPANY_EMAIL || 'info@Nexus.lk',
+      website: process.env.COMPANY_WEBSITE || 'www.Nexus.lk',
       taxId: process.env.COMPANY_TAX_ID || 'VAT123456789',
     }
   }

@@ -279,7 +279,7 @@ export default function CheckoutPage() {
                 <p className="text-sm font-semibold text-slate-800">Bank Transfer (Sri Lanka)</p>
                 <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600">
                   <span className="font-medium text-slate-500">Bank</span><span>Commercial Bank PLC</span>
-                  <span className="font-medium text-slate-500">Account Name</span><span>Madeena Textile Management</span>
+                  <span className="font-medium text-slate-500">Account Name</span><span>Nexus Inventorytile Management</span>
                   <span className="font-medium text-slate-500">Account No.</span><span className="font-mono font-semibold text-slate-800">101245789633</span>
                   <span className="font-medium text-slate-500">Branch</span><span>Pettah</span>
                 </div>

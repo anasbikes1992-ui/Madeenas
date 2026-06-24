@@ -85,7 +85,7 @@ export async function generateBackupArtifact(): Promise<BackupArtifact> {
     generatedAt,
     database: {
       provider: 'postgresql',
-      app: env.NEXT_PUBLIC_APP_NAME ?? 'Madeena Textile Stock',
+      app: env.NEXT_PUBLIC_APP_NAME ?? 'Nexus Inventorytile Stock',
     },
     notes: {
       strategy: 'logical-json-snapshot',
@@ -97,7 +97,7 @@ export async function generateBackupArtifact(): Promise<BackupArtifact> {
 
   const json = JSON.stringify(backupPayload)
   const gzBuffer = gzipSync(Buffer.from(json, 'utf-8'))
-  const fileName = `madeena-backup-${generatedAt.replace(/[:.]/g, '-')}.json.gz`
+  const fileName = `Nexus-backup-${generatedAt.replace(/[:.]/g, '-')}.json.gz`
 
   return {
     fileName,

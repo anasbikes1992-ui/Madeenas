@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 
-const baseUrl = process.env.NEXTAUTH_URL || 'https://madeenas.vercel.app'
+const baseUrl = process.env.NEXTAUTH_URL || 'https://Nexuss.vercel.app'
 
 const openApiDocument = {
   openapi: '3.1.0',
   info: {
-    title: 'Madeena Textile Stock API',
+    title: 'Nexus Inventorytile Stock API',
     version: '2.0.0',
     description:
       'API for Sri Lankan textile trading workflows including storefront browsing, cart checkout, customer orders, sales, and VAT-aware invoicing.',

@@ -10,61 +10,59 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Soft Blues (Ocean/Slate)
+        // Slate / Indigo Theme
         navy: {
-          50: '#F0F4F8',
-          100: '#D9E2EC',
-          200: '#BCCCDC',
-          300: '#9FB3C8',
-          400: '#829AB1',
-          500: '#627D98', // Main soft blue
-          600: '#486581', 
-          700: '#334E68', // Deep blue
-          800: '#243B53',
-          900: '#102A43',
-          950: '#0B1C2D',
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b', // Base Slate
+          600: '#475569', 
+          700: '#334155', // Deep Slate
+          800: '#1e293b',
+          900: '#0f172a',
+          950: '#020617',
         },
-        // Warm Earth Tones (Terracotta/Sand)
         gold: {
-          50: '#FBF5EC',
-          100: '#F6E6D1',
-          200: '#EFD1A4',
-          300: '#E6BB75',
-          400: '#DCA247',
-          500: '#D38D1C', // Warm terracotta/gold
-          600: '#B47113',
-          700: '#91580F',
-          800: '#73440B',
-          900: '#5F3609',
-          metallic: '#C88D36', 
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1', // Indigo Accent
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
+          metallic: '#4f46e5', 
         },
-        // Supporting Colors
         cream: {
-          DEFAULT: '#FAF8F5',
-          50: '#FCFBF9',
-          100: '#FAF8F5',
+          DEFAULT: '#ffffff',
+          50: '#f8fafc',
+          100: '#f1f5f9',
         },
-        pearl: '#FDFCFB',
-        'navy-light': '#486581',
+        pearl: '#ffffff',
+        'navy-light': '#64748b',
       },
       fontFamily: {
-        heading: ['var(--font-manrope)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         body: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        premium: '0 18px 60px rgba(15, 23, 42, 0.10)',
-        'premium-lg': '0 28px 80px rgba(15, 23, 42, 0.14)',
-        gold: '0 14px 30px rgba(196, 144, 28, 0.18)',
-        'gold-lg': '0 18px 40px rgba(196, 144, 28, 0.24)',
-        navy: '0 14px 30px rgba(30, 64, 175, 0.18)',
-        'navy-lg': '0 18px 40px rgba(30, 64, 175, 0.24)',
+        premium: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+        'premium-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+        gold: '0 4px 6px -1px rgba(79, 70, 229, 0.1), 0 2px 4px -1px rgba(79, 70, 229, 0.06)',
+        'gold-lg': '0 10px 15px -3px rgba(79, 70, 229, 0.1), 0 4px 6px -2px rgba(79, 70, 229, 0.05)',
+        navy: '0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -1px rgba(15, 23, 42, 0.06)',
+        'navy-lg': '0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -2px rgba(15, 23, 42, 0.05)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-premium': 'linear-gradient(160deg, #ffffff 0%, #f8fafc 46%, #eef4ff 100%)',
-        'gradient-navy': 'linear-gradient(135deg, #1E3A8A 0%, #0F172A 100%)',
-        'gradient-gold': 'linear-gradient(135deg, #D4AF37 0%, #B88915 100%)',
+        'gradient-premium': 'linear-gradient(160deg, #ffffff 0%, #f8fafc 46%, #e2e8f0 100%)',
+        'gradient-navy': 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        'gradient-gold': 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
       },
       animation: {
         'shimmer': 'shimmer 2s linear infinite',

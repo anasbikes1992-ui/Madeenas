@@ -9,13 +9,13 @@ const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope' })
 
 export const metadata: Metadata = {
   title: {
-    default: 'Madeena Tex — Raw Materials Management',
-    template: '%s | Madeena Tex',
+    default: 'Nexus Inventory — Raw Materials Management',
+    template: '%s | Nexus Inventory',
   },
-  description: 'Madeena Tex — professional inventory and stock management for modern businesses.',
+  description: 'Nexus Inventory — professional inventory and stock management for modern businesses.',
   manifest: '/manifest.json',
   keywords: ['inventory', 'stock management', 'warehouse', 'operations', 'catalog'],
-  authors: [{ name: 'Madeena Tex' }],
+  authors: [{ name: 'Nexus Inventory' }],
   robots: 'index, follow',
 }
 

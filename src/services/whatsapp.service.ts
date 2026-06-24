@@ -112,7 +112,7 @@ export class WhatsAppService {
   async sendOrderConfirmation(phoneNumber: string, orderNumber: string, total: number) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `✅ *Order Confirmed!*\n\nYour order #${orderNumber} has been confirmed.\n\n💰 Total: LKR ${total.toFixed(2)}\n\nWe'll notify you when it's ready for pickup.\n\nThank you for choosing Madeena Textiles! 🧵`,
+      message: `✅ *Order Confirmed!*\n\nYour order #${orderNumber} has been confirmed.\n\n💰 Total: LKR ${total.toFixed(2)}\n\nWe'll notify you when it's ready for pickup.\n\nThank you for choosing Nexus Inventorytiles! 🧵`,
     })
   }
 
@@ -122,7 +122,7 @@ export class WhatsAppService {
   async sendOrderReady(phoneNumber: string, orderNumber: string, customerName: string) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `🎉 *Order Ready for Pickup!*\n\nHello ${customerName},\n\nYour order #${orderNumber} is ready!\n\nYou can collect it from our store during business hours.\n\nSee you soon! 👋\n\n- Madeena Textiles`,
+      message: `🎉 *Order Ready for Pickup!*\n\nHello ${customerName},\n\nYour order #${orderNumber} is ready!\n\nYou can collect it from our store during business hours.\n\nSee you soon! 👋\n\n- Nexus Inventorytiles`,
     })
   }
 
@@ -132,7 +132,7 @@ export class WhatsAppService {
   async sendDeliveryNotification(phoneNumber: string, orderNumber: string, estimatedTime: string) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `🚚 *Order Out for Delivery*\n\nYour order #${orderNumber} is on its way!\n\n⏰ Estimated delivery: ${estimatedTime}\n\nPlease keep your phone handy.\n\n- Madeena Textiles`,
+      message: `🚚 *Order Out for Delivery*\n\nYour order #${orderNumber} is on its way!\n\n⏰ Estimated delivery: ${estimatedTime}\n\nPlease keep your phone handy.\n\n- Nexus Inventorytiles`,
     })
   }
 
@@ -142,7 +142,7 @@ export class WhatsAppService {
   async sendPaymentReminder(phoneNumber: string, customerName: string, invoiceNumber: string, amount: number, dueDate: string) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `💰 *Payment Reminder*\n\nDear ${customerName},\n\nThis is a friendly reminder that invoice #${invoiceNumber} is due.\n\nAmount: LKR ${amount.toFixed(2)}\nDue Date: ${dueDate}\n\nPlease process payment at your earliest convenience.\n\nThank you!\n- Madeena Textiles`,
+      message: `💰 *Payment Reminder*\n\nDear ${customerName},\n\nThis is a friendly reminder that invoice #${invoiceNumber} is due.\n\nAmount: LKR ${amount.toFixed(2)}\nDue Date: ${dueDate}\n\nPlease process payment at your earliest convenience.\n\nThank you!\n- Nexus Inventorytiles`,
     })
   }
 
@@ -151,8 +151,8 @@ export class WhatsAppService {
    */
   async sendStockAvailability(phoneNumber: string, productName: string, available: boolean, quantity?: number) {
     const message = available
-      ? `✅ *Product Available*\n\n${productName}\n\n📦 Stock: ${quantity} units available\n\nVisit us or place an order online!\n\n- Madeena Textiles`
-      : `❌ *Currently Out of Stock*\n\n${productName}\n\nWe'll notify you when it's back in stock.\n\nBrowse similar items on our website.\n\n- Madeena Textiles`
+      ? `✅ *Product Available*\n\n${productName}\n\n📦 Stock: ${quantity} units available\n\nVisit us or place an order online!\n\n- Nexus Inventorytiles`
+      : `❌ *Currently Out of Stock*\n\n${productName}\n\nWe'll notify you when it's back in stock.\n\nBrowse similar items on our website.\n\n- Nexus Inventorytiles`
 
     return this.sendMessage({
       to: phoneNumber,
@@ -166,7 +166,7 @@ export class WhatsAppService {
   async sendNewProductAnnouncement(phoneNumber: string, productName: string, price: number, imageUrl?: string) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `🆕 *New Arrival!*\n\n${productName}\n\n💰 Only LKR ${price.toFixed(2)}\n\nCheck it out in-store or online!\n\n- Madeena Textiles`,
+      message: `🆕 *New Arrival!*\n\n${productName}\n\n💰 Only LKR ${price.toFixed(2)}\n\nCheck it out in-store or online!\n\n- Nexus Inventorytiles`,
       mediaUrl: imageUrl,
     })
   }
@@ -177,7 +177,7 @@ export class WhatsAppService {
   async sendFlashSale(phoneNumber: string, discount: number, endTime: string) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `🔥 *FLASH SALE!*\n\n${discount}% OFF on selected items!\n\n⏰ Ends: ${endTime}\n\nHurry! Limited time offer!\n\n🛒 Shop now at Madeena Textiles`,
+      message: `🔥 *FLASH SALE!*\n\n${discount}% OFF on selected items!\n\n⏰ Ends: ${endTime}\n\nHurry! Limited time offer!\n\n🛒 Shop now at Nexus Inventorytiles`,
     })
   }
 
@@ -191,7 +191,7 @@ export class WhatsAppService {
       message += `\n💵 Refund Amount: LKR ${refundAmount.toFixed(2)}\n`
     }
 
-    message += `\nThank you for your patience.\n\n- Madeena Textiles`
+    message += `\nThank you for your patience.\n\n- Nexus Inventorytiles`
 
     return this.sendMessage({
       to: phoneNumber,
@@ -205,7 +205,7 @@ export class WhatsAppService {
   async sendSupportAcknowledgment(phoneNumber: string, ticketNumber: string, customerName: string) {
     return this.sendMessage({
       to: phoneNumber,
-      message: `🎫 *Support Ticket Created*\n\nHello ${customerName},\n\nYour ticket #${ticketNumber} has been created.\n\nOur team will respond within 24 hours.\n\nThank you for contacting us!\n\n- Madeena Textiles Support`,
+      message: `🎫 *Support Ticket Created*\n\nHello ${customerName},\n\nYour ticket #${ticketNumber} has been created.\n\nOur team will respond within 24 hours.\n\nThank you for contacting us!\n\n- Nexus Inventorytiles Support`,
     })
   }
 

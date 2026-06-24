@@ -7,7 +7,7 @@ import { generateSecret, generateURI, verify } from 'otplib'
 import QRCode from 'qrcode'
 import { prisma } from '@/lib/db'
 
-const APP_NAME = 'Madeena Textiles'
+const APP_NAME = 'Nexus Inventorytiles'
 
 export interface Setup2FAResult {
   secret: string

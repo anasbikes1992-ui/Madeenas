@@ -43,7 +43,7 @@ export async function exportInventoryMatrixPDF(data: any[], products: any[], loc
   // Header
   doc.setFontSize(20)
   doc.setTextColor(79, 70, 229) // Indigo-600
-  doc.text('Madeena Tex Inventory Matrix', 14, 20)
+  doc.text('Nexus Inventory Inventory Matrix', 14, 20)
   
   doc.setFontSize(10)
   doc.setTextColor(100)
@@ -145,7 +145,7 @@ export async function exportSaleInvoicePDF(sale: SaleInvoiceData, options?: Expo
   doc.setTextColor(255, 255, 255)
   doc.text('TAX INVOICE', 14, 16)
   doc.setFontSize(11)
-  doc.text('Madeena Textile Management', 14, 24)
+  doc.text('Nexus Inventorytile Management', 14, 24)
   doc.text('Colombo, Sri Lanka', 14, 30)
 
   doc.setFontSize(10)
@@ -204,7 +204,7 @@ export async function exportSaleInvoicePDF(sale: SaleInvoiceData, options?: Expo
   doc.setFontSize(9)
   doc.setTextColor(100)
   doc.text('All amounts are shown in Sri Lankan Rupees (LKR).', 14, 284)
-  doc.text('Thank you for trading with Madeena Textile Management.', 14, 289)
+  doc.text('Thank you for trading with Nexus Inventorytile Management.', 14, 289)
 
   if (options?.print) {
     doc.autoPrint()
