@@ -15,9 +15,9 @@
  */
 
 import { createNotification } from '@/lib/audit'
-import { sendEmail } from './email.service'
-import { sendWhatsAppNotification } from './whatsapp.service'
-import { sendSMS } from './sms.service'
+import { emailService } from './email.service'
+import { whatsappService } from './whatsapp.service'
+import { smsService } from './sms.service'
 import { CustomerOrder, Sale, StockOutRequest, Return } from '@prisma/client'
 import { prisma } from '@/lib/db'
 
@@ -225,7 +225,7 @@ async function sendOrderEmail(to: string, event: OrderEvent, order: any): Promis
   }
 
   const template = templates[event]
-  await sendEmail(to, template.subject, template.html)
+  await emailService.sendEmail(to, template.subject, template.html)
 }
 
 async function sendAdminOrderAlert(event: OrderEvent, order: any): Promise<void> {
@@ -241,7 +241,7 @@ async function sendAdminOrderAlert(event: OrderEvent, order: any): Promise<void>
     <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders/${order.id}">View Order</a></p>
   `
 
-  await sendEmail(adminEmail, subject, html)
+  await emailService.sendEmail(adminEmail, subject, html)
 }
 
 async function sendReturnEmail(to: string, event: ReturnEvent, returnItem: any): Promise<void> {
@@ -253,7 +253,7 @@ async function sendReturnEmail(to: string, event: ReturnEvent, returnItem: any):
   }
 
   const template = templates[event]
-  await sendEmail(to, template.subject, template.html)
+  await emailService.sendEmail(to, template.subject, template.html)
 }
 
 async function sendAdminStockAlert(event: StockEvent, data: any): Promise<void> {
@@ -267,7 +267,7 @@ async function sendAdminStockAlert(event: StockEvent, data: any): Promise<void> 
     ${data.threshold ? `<p><strong>Threshold:</strong> ${data.threshold}</p>` : ''}
   `
 
-  await sendEmail(adminEmail, subject, html)
+  await emailService.sendEmail(adminEmail, subject, html)
 }
 
 // ============================================================================
@@ -284,7 +284,7 @@ async function sendOrderWhatsApp(phone: string, event: OrderEvent, order: any): 
     ORDER_DELIVERED: `Your order #${order.orderNumber} has been delivered. Thank you for shopping with us!`,
   }
 
-  await sendWhatsAppNotification(phone, messages[event])
+  await whatsappService.sendMessage({ to: phone, message: messages[event] })
 }
 
 // ============================================================================
@@ -301,7 +301,7 @@ async function sendOrderSMS(phone: string, event: OrderEvent, order: any): Promi
     ORDER_DELIVERED: `Madeena: Order #${order.orderNumber} delivered`,
   }
 
-  await sendSMS(phone, messages[event])
+  await smsService.sendSMS({ to: phone, message: messages[event] })
 }
 
 // ============================================================================

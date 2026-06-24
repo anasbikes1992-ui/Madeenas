@@ -107,6 +107,14 @@ export class EmailService {
   }
 
   /**
+   * Send a simple email with custom subject and HTML body
+   * Public method for notification dispatcher and other services
+   */
+  async sendEmail(to: string, subject: string, html: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    return this.send({ to, subject, html })
+  }
+
+  /**
    * Send order confirmation email to customer
    */
   async sendOrderConfirmation(to: string, data: OrderConfirmationData) {
