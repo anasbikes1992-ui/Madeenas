@@ -1,11 +1,11 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { formatDate } from '@/lib/utils'
 import { PremiumCard } from '@/components/ui/PremiumCard'
 import { GoldButton } from '@/components/ui/GoldButton'
 import { NavyButton } from '@/components/ui/NavyButton'
 import { motion } from 'framer-motion'
-import { Package, Clock, AlertTriangle, ShoppingBag } from 'lucide-react'
+import { Package, Clock, AlertTriangle, ShoppingBag, type LucideIcon } from 'lucide-react'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -28,6 +28,50 @@ interface DashboardStats {
   recentStockOuts: any[]
   lowStockItems: any[]
 }
+
+interface StatCardConfig {
+  label: string
+  Icon: LucideIcon
+  gradient: string
+  cardTone: string
+  change: string
+  valueKey: 'totalProducts' | 'pendingRequests' | 'lowStockCount' | 'newCustomerOrders'
+}
+
+const STAT_CARDS_CONFIG: StatCardConfig[] = [
+  {
+    label: 'Total Products',
+    Icon: Package,
+    gradient: 'from-sky-500 to-indigo-600',
+    cardTone: 'from-sky-50 via-white to-indigo-50',
+    change: 'Active SKUs',
+    valueKey: 'totalProducts',
+  },
+  {
+    label: 'Pending Requests',
+    Icon: Clock,
+    gradient: 'from-amber-500 to-orange-600',
+    cardTone: 'from-amber-50 via-white to-orange-50',
+    change: 'Awaiting approval',
+    valueKey: 'pendingRequests',
+  },
+  {
+    label: 'Low Stock Items',
+    Icon: AlertTriangle,
+    gradient: 'from-rose-500 to-red-600',
+    cardTone: 'from-rose-50 via-white to-red-50',
+    change: 'Need restocking',
+    valueKey: 'lowStockCount',
+  },
+  {
+    label: 'Customer Orders',
+    Icon: ShoppingBag,
+    gradient: 'from-emerald-500 to-teal-600',
+    cardTone: 'from-emerald-50 via-white to-teal-50',
+    change: 'New inquiries',
+    valueKey: 'newCustomerOrders',
+  },
+]
 
 const STATUS_CLASSES: Record<string, string> = {
   PENDING: 'badge-amber',
@@ -189,40 +233,13 @@ export default function DashboardPage() {
     </div>
   )
 
-  const statCards = [
-    {
-      label: 'Total Products',
-      value: stats.totalProducts,
-      Icon: Package,
-      gradient: 'from-sky-500 to-indigo-600',
-      cardTone: 'from-sky-50 via-white to-indigo-50',
-      change: 'Active SKUs',
-    },
-    {
-      label: 'Pending Requests',
-      value: stats.pendingRequests,
-      Icon: Clock,
-      gradient: 'from-amber-500 to-orange-600',
-      cardTone: 'from-amber-50 via-white to-orange-50',
-      change: 'Awaiting approval',
-    },
-    {
-      label: 'Low Stock Items',
-      value: stats.lowStockCount,
-      Icon: AlertTriangle,
-      gradient: 'from-rose-500 to-red-600',
-      cardTone: 'from-rose-50 via-white to-red-50',
-      change: 'Need restocking',
-    },
-    {
-      label: 'Customer Orders',
-      value: stats.newCustomerOrders,
-      Icon: ShoppingBag,
-      gradient: 'from-emerald-500 to-teal-600',
-      cardTone: 'from-emerald-50 via-white to-teal-50',
-      change: 'New inquiries',
-    },
-  ]
+  const statCards = useMemo(() => 
+    STAT_CARDS_CONFIG.map(config => ({
+      ...config,
+      value: stats[config.valueKey],
+    })),
+    [stats]
+  )
 
   return (
     <motion.div 

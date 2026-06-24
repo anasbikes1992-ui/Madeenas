@@ -99,13 +99,15 @@ export default function SendStockPage() {
     const shadeCode = line.productColor?.variant?.code
     const shadeDesign = line.productColor?.variant?.design
 
-    const hierarchy = [
+    // Only include color/shade if they exist to avoid malformed output
+    const hierarchyParts = [
       category,
       product,
-      colorCode || '—',
-      shadeCode || '—',
-    ].join(' > ')
+      colorCode && `Color: ${colorCode}`,
+      shadeCode && `Shade: ${shadeCode}`,
+    ].filter(Boolean)
 
+    const hierarchy = hierarchyParts.join(' > ')
     const design = shadeDesign ? ` (${shadeDesign})` : ''
     return `${hierarchy}${design} (${qty} ${line.product.unit})`
   }
