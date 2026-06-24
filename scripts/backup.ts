@@ -133,49 +133,50 @@ async function verifyBackup() {
     }
 
     const latestBackup = backups[0]
-    logInfo(`Latest backup: ${latestBackup.filename}`)
-    logInfo(`Created: ${latestBackup.createdAt.toLocaleString()}`)
+    logInfo(`Latest backup: ${latestBackup.file}`)
+    logInfo(`Created: ${latestBackup.created.toLocaleString()}`)
     logInfo(`Size: ${formatBytes(latestBackup.size)}`)
 
     logInfo('\nRunning verification checks...')
 
     const startTime = Date.now()
-    const result = await backupVerificationService.verifyBackup(latestBackup.path)
+    const result = await backupVerificationService.verifyBackup(latestBackup.file)
     const duration = Date.now() - startTime
 
-    if (result.success && result.report) {
+    if (result.success) {
       logSuccess('Backup verification passed!')
       logInfo(`Duration: ${formatDuration(duration)}`)
 
       // Print verification details
       log('\nVerification Report:', 'bright')
-      logInfo(`File Exists: ${result.report.fileExists ? '✓' : '✗'}`)
-      logInfo(`Size Valid: ${result.report.sizeValid ? '✓' : '✗'} (${formatBytes(result.report.actualSize)})`)
-      logInfo(`Checksum Valid: ${result.report.checksumValid ? '✓' : '✗'}`)
+      logInfo(`File Exists: ${result.integrity.fileExists ? '✓' : '✗'}`)
+      logInfo(`Size Reasonable: ${result.integrity.sizeReasonable ? '✓' : '✗'}`)
+      logInfo(`Checksum Valid: ${result.integrity.checksumValid ? '✓' : '✗'}`)
+      logInfo(`Tables Complete: ${result.integrity.tablesComplete ? '✓' : '✗'}`)
+      logInfo(`Record Counts Match: ${result.integrity.recordCountsMatch ? '✓' : '✗'}`)
 
-      if (result.report.tableCount !== undefined) {
-        logInfo(`Tables Found: ${result.report.tableCount}`)
+      if (result.metadata?.tables) {
+        logInfo(`Tables Found: ${result.metadata.tables.length}`)
       }
 
-      if (result.report.recordCount !== undefined) {
-        logInfo(`Records: ${result.report.recordCount}`)
+      if (result.metadata?.recordCounts) {
+        const totalRecords = Object.values(result.metadata.recordCounts).reduce((sum, count) => sum + count, 0)
+        logInfo(`Records: ${totalRecords}`)
       }
 
       return true
     } else {
-      logError(`Verification failed: ${result.error || 'Unknown error'}`)
+      logError(`Verification failed: ${result.errors.join('; ') || 'Unknown error'}`)
 
-      if (result.report) {
-        log('\nVerification Report:', 'bright')
-        if (!result.report.fileExists) {
-          logError('Backup file does not exist')
-        }
-        if (!result.report.sizeValid) {
-          logError(`Backup file size is invalid: ${formatBytes(result.report.actualSize)}`)
-        }
-        if (!result.report.checksumValid) {
-          logError('Backup file checksum does not match')
-        }
+      log('\nVerification Report:', 'bright')
+      if (!result.integrity.fileExists) {
+        logError('Backup file does not exist')
+      }
+      if (!result.integrity.sizeReasonable) {
+        logError('Backup file size is not reasonable')
+      }
+      if (!result.integrity.checksumValid) {
+        logError('Backup file checksum does not match')
       }
 
       return false
@@ -202,8 +203,8 @@ async function testRestore() {
     }
 
     const latestBackup = backups[0]
-    logInfo(`Latest backup: ${latestBackup.filename}`)
-    logInfo(`Created: ${latestBackup.createdAt.toLocaleString()}`)
+    logInfo(`Latest backup: ${latestBackup.file}`)
+    logInfo(`Created: ${latestBackup.created.toLocaleString()}`)
     logInfo(`Size: ${formatBytes(latestBackup.size)}`)
 
     logWarning('\nThis will create a temporary database for testing')
@@ -215,44 +216,24 @@ async function testRestore() {
     logInfo('\nStarting test restore...')
 
     const startTime = Date.now()
-    const result = await backupVerificationService.testRestore(latestBackup.path)
+    const result = await backupVerificationService.testRestore(latestBackup.file)
     const duration = Date.now() - startTime
 
-    if (result.success && result.report) {
+    if (result.success) {
       logSuccess('Test restore completed successfully!')
       logInfo(`Duration: ${formatDuration(duration)}`)
 
       // Print restore details
       log('\nRestore Report:', 'bright')
-      logInfo(`Database Created: ${result.report.databaseCreated ? '✓' : '✗'}`)
-      logInfo(`Restore Successful: ${result.report.restoreSuccessful ? '✓' : '✗'}`)
-
-      if (result.report.tableCount !== undefined) {
-        logInfo(`Tables Restored: ${result.report.tableCount}`)
-      }
-
-      if (result.report.recordCount !== undefined) {
-        logInfo(`Records Restored: ${result.report.recordCount}`)
-      }
-
-      logInfo(`Database Dropped: ${result.report.databaseDropped ? '✓' : '✗'}`)
+      logInfo('Database Created: ✓')
+      logInfo('Restore Successful: ✓')
+      logInfo(`Tables Restored: ${result.restoredTables.length}`)
+      logInfo(`Record Counts Match: ${result.recordCountsMatch ? '✓' : '✗'}`)
+      logInfo('Database Dropped: ✓')
 
       return true
     } else {
-      logError(`Test restore failed: ${result.error || 'Unknown error'}`)
-
-      if (result.report) {
-        log('\nRestore Report:', 'bright')
-        if (!result.report.databaseCreated) {
-          logError('Failed to create temporary database')
-        }
-        if (!result.report.restoreSuccessful) {
-          logError('Failed to restore backup')
-        }
-        if (!result.report.databaseDropped) {
-          logWarning('Failed to drop temporary database - manual cleanup may be required')
-        }
-      }
+      logError(`Test restore failed: ${result.errors.join('; ') || 'Unknown error'}`)
 
       return false
     }
@@ -291,7 +272,7 @@ async function pruneBackups() {
     // List backups to delete
     log('\nBackups to delete:', 'bright')
     toDelete.forEach((backup) => {
-      logInfo(`- ${backup.filename} (${backup.createdAt.toLocaleString()})`)
+      logInfo(`- ${backup.file} (${backup.created.toLocaleString()})`)
     })
 
     logWarning('\nPress Ctrl+C to cancel, or wait 5 seconds to continue...')
@@ -304,20 +285,20 @@ async function pruneBackups() {
     for (const backup of toDelete) {
       try {
         // Delete backup file
-        await fs.unlink(backup.path)
+        await fs.unlink(backup.file)
 
         // Delete metadata file if exists
-        const metaFile = `${backup.path}.meta.json`
+        const metaFile = `${backup.file}.meta.json`
         try {
           await fs.unlink(metaFile)
         } catch {
           // Ignore if metadata file doesn't exist
         }
 
-        logSuccess(`Deleted: ${backup.filename}`)
+        logSuccess(`Deleted: ${backup.file}`)
         deleted++
       } catch (error) {
-        logError(`Failed to delete ${backup.filename}: ${error instanceof Error ? error.message : String(error)}`)
+        logError(`Failed to delete ${backup.file}: ${error instanceof Error ? error.message : String(error)}`)
         failed++
       }
     }

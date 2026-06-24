@@ -288,7 +288,7 @@ export default function CustomerOrdersPage() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-3">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-500">Customer requests</p>
-            <h1 className="text-3xl font-black text-slate-950 sm:text-4xl">Order management built for fast textile trading operations.</h1>
+            <h1 className="text-3xl font-black text-slate-950 sm:text-4xl">Order management built for fast-moving operations.</h1>
             <p className="text-sm leading-7 text-slate-600">Search quickly, bulk-approve pending requests, and fulfill confirmed orders into sales with complete LKR + VAT visibility.</p>
           </div>
 

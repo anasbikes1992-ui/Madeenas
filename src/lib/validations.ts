@@ -152,6 +152,21 @@ export const stockSendCreateSchema = z.object({
   items: z.array(stockSendItemSchema).min(1, 'At least one line is required'),
 })
 
+// V2: Hierarchical variant-based stock send (productColorId + StockVariant)
+const stockSendV2ItemSchema = z.object({
+  productColorId: z.string().min(1, 'Product color variant is required'),
+  quantityDispatched: z.coerce.number().positive('Quantity must be greater than 0'),
+})
+
+export const stockSendV2CreateSchema = z.object({
+  fromLocationId: z.string().min(1, 'From location is required'),
+  toLocationId: z.string().min(1, 'To location is required'),
+  note: z.string().trim().max(500).optional().nullable(),
+  referenceInvoice: z.string().trim().max(120).optional().nullable(),
+  invoiceDate: z.string().trim().optional().nullable(),
+  items: z.array(stockSendV2ItemSchema).min(1, 'At least one line is required'),
+})
+
 export const stockSendAcknowledgeSchema = z.object({
   action: z.literal('acknowledge'),
   quantityReceived: z.coerce.number().positive('Received quantity must be greater than 0'),

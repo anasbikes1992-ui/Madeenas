@@ -35,7 +35,7 @@ export class PaymentGatewayService {
 
     if (stripeSecretKey && stripeSecretKey !== 'your_stripe_secret_key_here') {
       this.stripe = new Stripe(stripeSecretKey, {
-        apiVersion: '2024-11-20.acacia',
+        apiVersion: '2025-08-27.basil',
         typescript: true,
       })
       this.isConfigured = true
@@ -199,7 +199,7 @@ export class PaymentGatewayService {
       return {
         success: true,
         refundId: refund.id,
-        status: refund.status,
+        status: refund.status ?? undefined,
       }
     } catch (error) {
       console.error('❌ Refund creation failed:', error)

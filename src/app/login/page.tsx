@@ -114,9 +114,9 @@ function LoginForm() {
           <div className="grid grid-cols-2 gap-2 text-xs">
             {[
               { role: 'Super Admin', email: 'anasbikes1992@gmail.com', pass: '123456' },
-              { role: 'Manager', email: 'manager.wh@textilestock.com', pass: 'password123' },
-              { role: 'Store Keeper', email: 'storekeeper@textilestock.com', pass: 'password123' },
-              { role: 'Finance', email: 'finance@textilestock.com', pass: 'password123' },
+              { role: 'Manager', email: 'manager@madeena.app', pass: 'password123' },
+              { role: 'Store Keeper', email: 'storekeeper@madeena.app', pass: 'password123' },
+              { role: 'Finance', email: 'finance@madeena.app', pass: 'password123' },
             ].map(u => (
               <button
                 key={u.email}

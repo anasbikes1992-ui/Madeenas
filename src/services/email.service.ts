@@ -1,4 +1,4 @@
-import Resend from 'resend'
+import { Resend } from 'resend'
 
 // Email templates will be in /emails folder
 interface EmailOptions {
@@ -87,11 +87,11 @@ export class EmailService {
         to: options.to,
         subject: options.subject,
         html: options.html,
-        reply_to: options.replyTo,
+        replyTo: options.replyTo,
         attachments: options.attachments,
       })
 
-      if ('id' in result) {
+      if ('id' in result && typeof result.id === 'string') {
         console.log(`✅ Email sent successfully: ${result.id}`)
         return { success: true, messageId: result.id }
       }

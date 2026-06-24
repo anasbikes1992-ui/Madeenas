@@ -12,9 +12,9 @@ export const metadata: Metadata = {
     default: 'Madeena Tex — Raw Materials Management',
     template: '%s | Madeena Tex',
   },
-  description: 'Professional textile raw materials stock management system for warehouses and shops.',
+  description: 'Madeena Tex — professional inventory and stock management for modern businesses.',
   manifest: '/manifest.json',
-  keywords: ['textile', 'stock management', 'warehouse', 'inventory', 'raw materials'],
+  keywords: ['inventory', 'stock management', 'warehouse', 'operations', 'catalog'],
   authors: [{ name: 'Madeena Tex' }],
   robots: 'index, follow',
 }

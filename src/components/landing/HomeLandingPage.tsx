@@ -45,7 +45,7 @@ const highlights = [
 ]
 
 const metrics = [
-  { value: '200+', label: 'raw material SKUs managed in one catalog', icon: Store },
+  { value: '200+', label: 'product variants managed in one catalog', icon: Store },
   { value: '7', label: 'team roles with controlled permissions', icon: Users },
   { value: '<2 min', label: 'to capture and process stock requests', icon: Sparkles },
 ]
@@ -53,9 +53,9 @@ const metrics = [
 const workflows = [
   {
     title: 'Procurement',
-    description: 'Review materials, raise requests, and keep purchase actions aligned with demand.',
+    description: 'Review products, raise requests, and keep purchase actions aligned with demand.',
     icon: ShoppingBag,
-    cta: 'Open materials catalog',
+    cta: 'Open catalog',
     href: '/gallery',
   },
   {
@@ -170,7 +170,7 @@ export default function HomeLandingPage() {
         <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
           <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-indigo-500 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
             <Sparkles className="h-4 w-4 text-gold-500" />
-            Built for textile business operations
+            Built for modern business operations
           </motion.div>
 
           <motion.h1 variants={fadeUp} className="max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl">
@@ -178,12 +178,12 @@ export default function HomeLandingPage() {
           </motion.h1>
 
           <motion.p variants={fadeUp} className="max-w-2xl text-lg leading-8 text-slate-600">
-            Give every team one source of truth: materials catalog, stock movement, dispatch workflow, and financial visibility with role-based controls.
+            Give every team one source of truth: product catalog, stock movement, dispatch workflow, and financial visibility with role-based controls.
           </motion.p>
 
           <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row">
             <Link href="/gallery" className="btn-primary btn-lg">
-              View materials catalog
+              View catalog
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/signup" className="btn-secondary btn-lg">

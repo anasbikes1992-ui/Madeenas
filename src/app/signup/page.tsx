@@ -66,7 +66,7 @@ export default function SignupPage() {
           <div className="space-y-4">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">Customer sign up</p>
             <h1 className="text-4xl font-black leading-tight text-slate-950 sm:text-5xl">
-              Create your account and keep your textile orders in one place.
+              Create your account and keep your orders in one place.
             </h1>
             <p className="max-w-xl text-base leading-7 text-slate-600">
               Registration gives customers a faster path back into the gallery and prepares the flow for order history, quotes, and confirmations later in the release.

@@ -5,6 +5,7 @@ import { PremiumCard } from '@/components/ui/PremiumCard'
 import { GoldButton } from '@/components/ui/GoldButton'
 import { NavyButton } from '@/components/ui/NavyButton'
 import { motion } from 'framer-motion'
+import { Package, Clock, AlertTriangle, ShoppingBag } from 'lucide-react'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -189,10 +190,10 @@ export default function DashboardPage() {
   )
 
   const statCards = [
-    { label: 'Total Products', value: stats.totalProducts, icon: '📦', gradient: 'from-navy-500 to-navy-600', change: 'Active SKUs' },
-    { label: 'Pending Requests', value: stats.pendingRequests, icon: '⏳', gradient: 'from-gold-500 to-gold-600', change: 'Awaiting approval' },
-    { label: 'Low Stock Items', value: stats.lowStockCount, icon: '⚠️', gradient: 'from-red-500 to-red-600', change: 'Need restocking' },
-    { label: 'Customer Orders', value: stats.newCustomerOrders, icon: '🛍️', gradient: 'from-emerald-500 to-emerald-600', change: 'New inquiries' },
+    { label: 'Total Products', value: stats.totalProducts, Icon: Package, gradient: 'from-navy-500 to-navy-600', change: 'Active SKUs' },
+    { label: 'Pending Requests', value: stats.pendingRequests, Icon: Clock, gradient: 'from-gold-500 to-gold-600', change: 'Awaiting approval' },
+    { label: 'Low Stock Items', value: stats.lowStockCount, Icon: AlertTriangle, gradient: 'from-red-500 to-red-600', change: 'Need restocking' },
+    { label: 'Customer Orders', value: stats.newCustomerOrders, Icon: ShoppingBag, gradient: 'from-emerald-500 to-emerald-600', change: 'New inquiries' },
   ]
 
   return (
@@ -205,10 +206,10 @@ export default function DashboardPage() {
       {/* Header */}
       <motion.div variants={fadeIn} className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-heading font-bold bg-gradient-to-r from-navy-600 to-navy-800 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-heading font-bold text-navy-900">
             Dashboard
           </h1>
-          <p className="text-navy-600/70 text-lg mt-2">Overview of your textile stock operations</p>
+          <p className="text-navy-600/70 text-lg mt-2">Overview of your inventory and operations</p>
         </div>
         <div className="flex gap-3">
           <input
@@ -250,7 +251,7 @@ export default function DashboardPage() {
             Export CSV
           </NavyButton>
           <a href="/admin/stock-in">
-            <NavyButton size="sm">⬇️ Stock In</NavyButton>
+            <NavyButton size="sm">Stock In</NavyButton>
           </a>
           <a href="/admin/new-request">
             <GoldButton size="sm">+ New Request</GoldButton>
@@ -270,7 +271,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-navy-500">{s.change}</p>
               </div>
               <div className={`p-4 rounded-xl bg-gradient-to-br ${s.gradient} shadow-premium`}>
-                <span className="text-2xl">{s.icon}</span>
+                <s.Icon className="w-6 h-6 text-white" strokeWidth={1.75} />
               </div>
             </div>
           </PremiumCard>
@@ -293,7 +294,7 @@ export default function DashboardPage() {
               {stats.recentStockOuts.map((req: any) => (
                 <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-50 to-navy-50/30 rounded-xl border border-navy-100 hover:border-navy-200 transition-all">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-navy-100 flex items-center justify-center text-navy-600 text-lg shrink-0">📦</div>
+                    <div className="w-10 h-10 rounded-lg bg-navy-100 flex items-center justify-center text-navy-600 shrink-0"><Package className="w-5 h-5" strokeWidth={1.75} /></div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-navy-900 truncate">{req.product.name}</p>
                       <p className="text-xs text-navy-600/70">

@@ -1,6 +1,5 @@
 import { Server as HTTPServer } from 'http'
 import { Server as SocketIOServer, Socket } from 'socket.io'
-import { DefaultEventsMap } from 'socket.io/dist/typed-events'
 
 interface AuthenticatedSocket extends Socket {
   userId?: string
@@ -408,7 +407,9 @@ export class WebSocketService {
     if (!this.io) return []
     
     const sockets = await this.io.in(`role:${role}`).fetchSockets()
-    return sockets.map(socket => (socket as AuthenticatedSocket).userId).filter((id): id is string => !!id)
+    return sockets
+      .map(socket => (socket as unknown as AuthenticatedSocket).userId)
+      .filter((id): id is string => !!id)
   }
 
   /**

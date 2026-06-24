@@ -73,11 +73,6 @@ export function HierarchicalProductSelector({
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Sync external selectedItems and notify parent on changes
-  useEffect(() => {
-    onSelectionChange(selectedItems);
-  }, [selectedItems, onSelectionChange]);
-
   // Search products
   const { data: searchData, isLoading } = useQuery({
     queryKey: ['product-search', debouncedSearch, locationId],

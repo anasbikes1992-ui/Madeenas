@@ -270,7 +270,7 @@ export class BackupVerificationService {
   /**
    * List all backups in backup directory
    */
-  async listBackups(): Promise<Array<{ file: string; size: number; created: Date; metadata?: BackupMetadata }>> {
+  async listBackups(): Promise<Array<{ file: string; size: number; created: Date; metadata?: BackupMetadata | null }>> {
     try {
       const files = await fs.readdir(this.backupDir)
       const backupFiles = files.filter(f => f.endsWith('.sql') || f.endsWith('.dump'))

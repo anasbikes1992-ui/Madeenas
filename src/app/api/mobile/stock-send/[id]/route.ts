@@ -67,15 +67,33 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       throw new Error('Destination location missing')
     }
 
-    await tx.stock.upsert({
-      where: { productId_locationId: { productId: sendLine.productId, locationId: sendLine.toLocationId } },
-      create: {
-        productId: sendLine.productId,
-        locationId: sendLine.toLocationId,
-        quantity: parsed.data.quantityReceived,
-      },
-      update: { quantity: { increment: parsed.data.quantityReceived } },
-    })
+    // Hierarchical variant send — credit StockVariant; legacy flat send — credit Stock.
+    if (sendLine.productColorId) {
+      await tx.stockVariant.upsert({
+        where: {
+          productColorId_locationId: {
+            productColorId: sendLine.productColorId,
+            locationId: sendLine.toLocationId,
+          },
+        },
+        create: {
+          productColorId: sendLine.productColorId,
+          locationId: sendLine.toLocationId,
+          quantity: parsed.data.quantityReceived,
+        },
+        update: { quantity: { increment: parsed.data.quantityReceived } },
+      })
+    } else {
+      await tx.stock.upsert({
+        where: { productId_locationId: { productId: sendLine.productId, locationId: sendLine.toLocationId } },
+        create: {
+          productId: sendLine.productId,
+          locationId: sendLine.toLocationId,
+          quantity: parsed.data.quantityReceived,
+        },
+        update: { quantity: { increment: parsed.data.quantityReceived } },
+      })
+    }
 
     const result = await tx.stockOutRequest.updateMany({
       where: { id, status: { in: ['IN_TRANSIT', 'DISPATCHED'] } },

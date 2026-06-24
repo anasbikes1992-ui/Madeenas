@@ -3,78 +3,97 @@ import { usePathname, useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import type { LucideIcon } from 'lucide-react'
+import {
+  LayoutDashboard, Package, BarChart2, ArrowDownToLine, SlidersHorizontal,
+  BookOpen, ClipboardList, Send, PlusCircle, Truck, Bell, History,
+  ShoppingBag, Image, ShoppingCart, Receipt, DollarSign, TrendingUp,
+  FileText, Users, Building2, Tag, Boxes,
+} from 'lucide-react'
 import { ROLE_LABELS, getDashboardPath } from '@/lib/constants'
 import { getInitials } from '@/lib/utils'
 import NotificationBell from '@/components/NotificationBell'
 
-const navItems = [
+interface NavItem {
+  href: string
+  label: string
+  Icon: LucideIcon
+  roles: string[]
+}
+
+interface NavGroup {
+  group: string
+  items: NavItem[]
+}
+
+const navItems: NavGroup[] = [
   {
     group: 'Overview',
     items: [
-      { href: '/admin/dashboard', label: 'Dashboard', icon: '⊞', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/dashboard', label: 'Dashboard', Icon: LayoutDashboard, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
     ]
   },
   {
     group: 'Inventory',
     items: [
-      { href: '/admin/products', label: 'Products', icon: '📦', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER'] },
-      { href: '/admin/inventory', label: 'Inventory Matrix', icon: '📊', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
-      { href: '/admin/stock-in', label: 'Stock In', icon: '⬇️', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
-      { href: '/admin/stock-adjustments', label: 'Stock Adjustments', icon: '⚖️', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
-      { href: '/admin/stock-journal', label: 'Stock Journal', icon: '📜', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
+      { href: '/admin/products', label: 'Products', Icon: Package, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER'] },
+      { href: '/admin/inventory', label: 'Inventory Matrix', Icon: BarChart2, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/stock-in', label: 'Stock In', Icon: ArrowDownToLine, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/stock-adjustments', label: 'Adjustments', Icon: SlidersHorizontal, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/stock-journal', label: 'Stock Journal', Icon: BookOpen, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
     ]
   },
   {
     group: 'Stock Requests',
     items: [
-      { href: '/admin/stock-out', label: 'All Requests', icon: '📋', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
-      { href: '/admin/my-requests', label: 'My Requests', icon: '📤', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
-      { href: '/admin/new-request', label: 'New Request', icon: '➕', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
-      { href: '/admin/send-stock', label: 'Send Stock', icon: '🚚', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/stock-out', label: 'All Requests', Icon: ClipboardList, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/my-requests', label: 'My Requests', Icon: Send, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/new-request', label: 'New Request', Icon: PlusCircle, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/send-stock', label: 'Send Stock', Icon: Truck, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
     ]
   },
   {
     group: 'Activity',
     items: [
-      { href: '/admin/notifications', label: 'Notifications', icon: '🔔', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
-      { href: '/admin/history', label: 'History', icon: '🕘', roles: ['SUPER_ADMIN'] },
+      { href: '/admin/notifications', label: 'Notifications', Icon: Bell, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF','FINANCE'] },
+      { href: '/admin/history', label: 'History', Icon: History, roles: ['SUPER_ADMIN'] },
     ]
   },
   {
     group: 'Customers',
     items: [
-      { href: '/admin/customer-orders', label: 'Order Requests', icon: '🛍️', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
-      { href: '/gallery', label: 'View Gallery', icon: '🖼️', roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/customer-orders', label: 'Order Requests', Icon: ShoppingBag, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/gallery', label: 'View Gallery', Icon: Image, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
     ]
   },
   {
     group: 'Sales & POS',
     items: [
-      { href: '/admin/pos', label: 'Point of Sale', icon: '🛒', roles: ['SUPER_ADMIN','ADMIN','SHOP_STAFF'] },
-      { href: '/admin/sales', label: 'Sales History', icon: '🧾', roles: ['SUPER_ADMIN','ADMIN','MANAGER','FINANCE','SHOP_STAFF'] },
+      { href: '/admin/pos', label: 'Point of Sale', Icon: ShoppingCart, roles: ['SUPER_ADMIN','ADMIN','SHOP_STAFF'] },
+      { href: '/admin/sales', label: 'Sales History', Icon: Receipt, roles: ['SUPER_ADMIN','ADMIN','MANAGER','FINANCE','SHOP_STAFF'] },
     ]
   },
   {
     group: 'Finance',
     items: [
-      { href: '/admin/finance/dashboard', label: 'Finance Overview', icon: '💰', roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
-      { href: '/admin/finance/reviews', label: 'Tally Reviews', icon: '🧾', roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
+      { href: '/admin/finance/dashboard', label: 'Finance Overview', Icon: DollarSign, roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
+      { href: '/admin/finance/reviews', label: 'Tally Reviews', Icon: TrendingUp, roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
     ]
   },
   {
     group: 'Reports',
     items: [
-      { href: '/admin/reports', label: 'Reports', icon: '📈', roles: ['SUPER_ADMIN','ADMIN','MANAGER','FINANCE'] },
-      { href: '/admin/reports/audit-logs', label: 'Audit Logs', icon: '📜', roles: ['SUPER_ADMIN','ADMIN'] },
+      { href: '/admin/reports', label: 'Reports', Icon: BarChart2, roles: ['SUPER_ADMIN','ADMIN','MANAGER','FINANCE'] },
+      { href: '/admin/reports/audit-logs', label: 'Audit Logs', Icon: FileText, roles: ['SUPER_ADMIN','ADMIN'] },
     ]
   },
   {
     group: 'Settings',
     items: [
-      { href: '/admin/settings/users', label: 'Users', icon: '👥', roles: ['SUPER_ADMIN','ADMIN'] },
-      { href: '/admin/settings/locations', label: 'Locations', icon: '🏭', roles: ['SUPER_ADMIN','ADMIN'] },
-      { href: '/admin/settings/categories', label: 'Categories', icon: '🏷️', roles: ['SUPER_ADMIN','ADMIN'] },
-      { href: '/admin/settings/suppliers', label: 'Suppliers', icon: '🚛', roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/settings/users', label: 'Users', Icon: Users, roles: ['SUPER_ADMIN','ADMIN'] },
+      { href: '/admin/settings/locations', label: 'Locations', Icon: Building2, roles: ['SUPER_ADMIN','ADMIN'] },
+      { href: '/admin/settings/categories', label: 'Categories', Icon: Tag, roles: ['SUPER_ADMIN','ADMIN'] },
+      { href: '/admin/settings/suppliers', label: 'Suppliers', Icon: Boxes, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
     ]
   },
 ]
@@ -108,7 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   })).filter(g => g.items.length > 0)
 
   const Sidebar = (
-    <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 bg-linear-to-b from-indigo-900 via-navy-900 to-slate-950 flex h-full flex-col`}>
+    <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 bg-linear-to-b from-navy-950 via-navy-900 to-navy-950 flex h-full flex-col`}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
         <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -119,7 +138,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {sidebarOpen && (
           <div className="overflow-hidden">
             <div className="text-white font-bold text-sm leading-tight">Madeena Tex</div>
-            <div className="text-indigo-300 text-xs">{ROLE_LABELS[role] || role}</div>
+            <div className="text-navy-300 text-xs">{ROLE_LABELS[role] || role}</div>
           </div>
         )}
       </div>
@@ -129,7 +148,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {filtered.map(group => (
           <div key={group.group} className="mb-3">
             {sidebarOpen && (
-              <div className="text-indigo-400 text-[10px] font-semibold uppercase tracking-widest px-3 py-1">
+              <div className="text-navy-400 text-[10px] font-semibold uppercase tracking-widest px-3 py-1">
                 {group.group}
               </div>
             )}
@@ -142,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   title={!sidebarOpen ? item.label : undefined}
                   className={`sidebar-item min-h-11 ${active ? 'active' : ''} ${!sidebarOpen ? 'justify-center px-2' : ''}`}
                 >
-                  <span className="text-base shrink-0">{item.icon}</span>
+                  <item.Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={1.75} />
                   {sidebarOpen && <span className="truncate">{item.label}</span>}
                 </Link>
               )
@@ -154,20 +173,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* User */}
       <div className="p-3 border-t border-white/10">
         <div className={`flex ${sidebarOpen ? 'items-center gap-3' : 'justify-center'}`}>
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-navy-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
             {getInitials(session?.user?.name || 'U')}
           </div>
           {sidebarOpen && (
             <div className="flex-1 overflow-hidden">
               <div className="text-white text-sm font-medium truncate">{session?.user?.name}</div>
-              <div className="text-indigo-300 text-xs truncate">{session?.user?.email}</div>
+              <div className="text-navy-300 text-xs truncate">{session?.user?.email}</div>
             </div>
           )}
           {sidebarOpen && (
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               title="Sign out"
-              className="text-indigo-400 hover:text-white transition-colors"
+              className="text-navy-400 hover:text-white transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -229,7 +248,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="text-slate-900 font-medium capitalize mr-4">
                 {pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || 'Dashboard'}
               </span>
-              <div className="bg-slate-100 px-3 py-1 rounded-full font-mono text-xs text-indigo-600 border border-slate-200">
+              <div className="bg-slate-100 px-3 py-1 rounded-full font-mono text-xs text-navy-600 border border-slate-200">
                 {mounted ? time.toLocaleTimeString('en-LK', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
               </div>
             </nav>
