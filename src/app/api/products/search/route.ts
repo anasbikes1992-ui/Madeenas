@@ -118,12 +118,12 @@ export async function GET(request: NextRequest) {
         conversionFactor: variant.conversionFactor || product.conversionFactor,
         costPrice: pc.costPrice || variant.costPrice || product.costPrice,
         // Formatted display
-        display: `${category.name} > ${product.name} (${variant.code}) - ${color.code}`,
-        groupKey: `${product.id}-${variant.id}`, // For grouping in UI
+        display: `${category.name} > ${product.name} > ${color.code} > ${variant.code}`,
+        groupKey: `${product.id}-${color.id}`, // Product + color grouping
       };
     });
 
-    // Group by product + variant for easier rendering
+    // Group by product + color with shades inside
     const grouped = transformed.reduce((acc, item) => {
       const key = item.groupKey;
       if (!acc[key]) {
@@ -132,13 +132,14 @@ export async function GET(request: NextRequest) {
           categoryId: item.categoryId,
           product: item.product,
           productId: item.productId,
-          variant: item.variant,
-          variantId: item.variantId,
-          design: item.design,
-          colors: [],
+          color: item.color,
+          colorId: item.colorId,
+          colorName: item.colorName,
+          colorHex: item.colorHex,
+          shades: [],
         };
       }
-      acc[key].colors.push(item);
+      acc[key].shades.push(item);
       return acc;
     }, {} as Record<string, any>);
 

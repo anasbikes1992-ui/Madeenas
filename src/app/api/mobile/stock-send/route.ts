@@ -55,7 +55,13 @@ export async function GET(request: NextRequest) {
     prisma.stockOutRequest.findMany({
       where,
       include: {
-        product: { select: { name: true, sku: true, unit: true } },
+        product: { include: { category: true } },
+        productColor: {
+          include: {
+            variant: { select: { code: true, design: true } },
+            color: { select: { code: true, name: true, hexValue: true } },
+          },
+        },
         fromLocation: { select: { name: true } },
         toLocation: { select: { name: true } },
       },

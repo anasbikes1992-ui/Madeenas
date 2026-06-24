@@ -190,10 +190,38 @@ export default function DashboardPage() {
   )
 
   const statCards = [
-    { label: 'Total Products', value: stats.totalProducts, Icon: Package, gradient: 'from-navy-500 to-navy-600', change: 'Active SKUs' },
-    { label: 'Pending Requests', value: stats.pendingRequests, Icon: Clock, gradient: 'from-gold-500 to-gold-600', change: 'Awaiting approval' },
-    { label: 'Low Stock Items', value: stats.lowStockCount, Icon: AlertTriangle, gradient: 'from-red-500 to-red-600', change: 'Need restocking' },
-    { label: 'Customer Orders', value: stats.newCustomerOrders, Icon: ShoppingBag, gradient: 'from-emerald-500 to-emerald-600', change: 'New inquiries' },
+    {
+      label: 'Total Products',
+      value: stats.totalProducts,
+      Icon: Package,
+      gradient: 'from-sky-500 to-indigo-600',
+      cardTone: 'from-sky-50 via-white to-indigo-50',
+      change: 'Active SKUs',
+    },
+    {
+      label: 'Pending Requests',
+      value: stats.pendingRequests,
+      Icon: Clock,
+      gradient: 'from-amber-500 to-orange-600',
+      cardTone: 'from-amber-50 via-white to-orange-50',
+      change: 'Awaiting approval',
+    },
+    {
+      label: 'Low Stock Items',
+      value: stats.lowStockCount,
+      Icon: AlertTriangle,
+      gradient: 'from-rose-500 to-red-600',
+      cardTone: 'from-rose-50 via-white to-red-50',
+      change: 'Need restocking',
+    },
+    {
+      label: 'Customer Orders',
+      value: stats.newCustomerOrders,
+      Icon: ShoppingBag,
+      gradient: 'from-emerald-500 to-teal-600',
+      cardTone: 'from-emerald-50 via-white to-teal-50',
+      change: 'New inquiries',
+    },
   ]
 
   return (
@@ -204,7 +232,12 @@ export default function DashboardPage() {
       variants={stagger}
     >
       {/* Header */}
-      <motion.div variants={fadeIn} className="flex items-center justify-between">
+      <motion.div
+        variants={fadeIn}
+        className="relative overflow-hidden rounded-[1.75rem] border border-sky-100 bg-[linear-gradient(120deg,#ffffff_0%,#f6fbff_52%,#eef5ff_100%)] p-6 shadow-[0_20px_54px_rgba(30,64,175,0.12)]"
+      >
+        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-sky-200/40 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-16 left-20 h-36 w-36 rounded-full bg-amber-200/30 blur-2xl" />
         <div>
           <h1 className="text-4xl font-heading font-bold text-navy-900">
             Dashboard
@@ -263,7 +296,7 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <motion.div variants={fadeIn} className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map(s => (
-          <PremiumCard key={s.label} hover>
+          <PremiumCard key={s.label} hover className={`bg-[linear-gradient(145deg,var(--tw-gradient-stops))] ${s.cardTone} border border-white/70`}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-navy-600/70 mb-2 font-medium">{s.label}</p>
@@ -292,7 +325,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {stats.recentStockOuts.map((req: any) => (
-                <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-50 to-navy-50/30 rounded-xl border border-navy-100 hover:border-navy-200 transition-all">
+                <div key={req.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-sky-50 via-white to-indigo-50/60 rounded-xl border border-sky-100 hover:border-indigo-200 transition-all">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-lg bg-navy-100 flex items-center justify-center text-navy-600 shrink-0"><Package className="w-5 h-5" strokeWidth={1.75} /></div>
                     <div className="min-w-0">
@@ -345,7 +378,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {stats.recentStockIns.map((entry: any) => (
-                <div key={entry.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-emerald-50 to-navy-50/20 rounded-xl border border-emerald-100 hover:border-emerald-200 transition-all">
+                <div key={entry.id} className="flex items-center justify-between p-4 bg-gradient-to-br from-emerald-50 via-white to-teal-50 rounded-xl border border-emerald-100 hover:border-teal-200 transition-all">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-navy-900 truncate">{entry.product.name}</p>
                     <p className="text-xs text-navy-600/70">To {entry.location.name}</p>

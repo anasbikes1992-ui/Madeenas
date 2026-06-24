@@ -9,8 +9,19 @@ type SendLine = {
   id: string
   transferNo: string | null
   status: string
-  product: { id: string; name: string; sku: string; unit: string }
-  productColor?: { id: string; sku: string } | null
+  product: {
+    id: string
+    name: string
+    sku: string
+    unit: string
+    category?: { id: string; name: string } | null
+  }
+  productColor?: {
+    id: string
+    sku: string
+    variant?: { code: string; design?: string | null } | null
+    color?: { code: string; name?: string | null; hexValue?: string | null } | null
+  } | null
   fromLocation: { id: string; name: string }
   toLocation: { id: string; name: string } | null
   quantityDispatched: number | null
@@ -78,6 +89,25 @@ export default function SendStockPage() {
   const canAcknowledge = (row: SendLine) => {
     if (['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) return true
     return Boolean(userLocationId && row.toLocation?.id === userLocationId)
+  }
+
+  const lineLabel = (line: SendLine) => {
+    const qty = line.quantityDispatched ?? line.quantityApproved ?? line.quantityRequested
+    const category = line.product.category?.name || 'Uncategorized'
+    const product = line.product.name
+    const colorCode = line.productColor?.color?.code
+    const shadeCode = line.productColor?.variant?.code
+    const shadeDesign = line.productColor?.variant?.design
+
+    const hierarchy = [
+      category,
+      product,
+      colorCode || '—',
+      shadeCode || '—',
+    ].join(' > ')
+
+    const design = shadeDesign ? ` (${shadeDesign})` : ''
+    return `${hierarchy}${design} (${qty} ${line.product.unit})`
   }
 
   const groupedRows = useMemo(() => {
@@ -223,7 +253,7 @@ export default function SendStockPage() {
                   <div className="space-y-1">
                     {group.lines.map((line) => (
                       <div key={line.id} className="flex items-center gap-2 text-xs">
-                        <span>{line.product.name} ({line.quantityDispatched ?? line.quantityApproved ?? line.quantityRequested} {line.product.unit})</span>
+                        <span>{lineLabel(line)}</span>
                         {line.status === 'IN_TRANSIT' && canAcknowledge(line) ? (
                           <button
                             onClick={() => {
@@ -270,7 +300,7 @@ export default function SendStockPage() {
                 {group.lines.map((line) => (
                   <div key={line.id} className="rounded-lg bg-slate-50 p-2">
                     <p className="text-xs text-slate-700">
-                      {line.product.name} ({line.quantityDispatched ?? line.quantityApproved ?? line.quantityRequested} {line.product.unit})
+                      {lineLabel(line)}
                     </p>
                     {line.status === 'IN_TRANSIT' && canAcknowledge(line) ? (
                       <button

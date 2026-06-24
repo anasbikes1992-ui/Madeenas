@@ -29,7 +29,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const sendLine = await prisma.stockOutRequest.findUnique({
     where: { id },
     include: {
-      product: true,
+      product: { include: { category: true } },
+      productColor: {
+        include: {
+          variant: { select: { code: true, design: true } },
+          color: { select: { code: true, name: true } },
+        },
+      },
       fromLocation: true,
       toLocation: true,
       requestedByUser: { select: { id: true, name: true } },
@@ -130,10 +136,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   })
 
   if (sendLine.requestedByUser?.id) {
+    const colorCode = sendLine.productColor?.color?.code
+    const shadeCode = sendLine.productColor?.variant?.code
+    const productPath = [
+      sendLine.product.category?.name || 'Uncategorized',
+      sendLine.product.name,
+      colorCode || '—',
+      shadeCode || '—',
+    ].join(' > ')
+
     await createNotification({
       userId: sendLine.requestedByUser.id,
       title: 'Send Acknowledged ✅',
-      message: `${sendLine.transferNo || sendLine.id}: ${sendLine.product.name} acknowledged by destination${discrepancyQty > 0 ? ' with discrepancy' : ''}.`,
+      message: `${sendLine.transferNo || sendLine.id}: ${productPath} acknowledged by destination${discrepancyQty > 0 ? ' with discrepancy' : ''}.`,
       type: discrepancyQty > 0 ? 'WARNING' : 'SUCCESS',
       link: '/admin/send-stock',
     })

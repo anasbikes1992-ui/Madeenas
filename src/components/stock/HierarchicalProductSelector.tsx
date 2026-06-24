@@ -55,6 +55,19 @@ interface GroupedResult {
   colors: SearchResult[];
 }
 
+interface ColorGroupedResult {
+  color: string;
+  colorName?: string | null;
+  colorHex?: string | null;
+  shades: SearchResult[];
+}
+
+interface ProductGroupedResult {
+  category: string;
+  product: string;
+  colors: ColorGroupedResult[];
+}
+
 interface HierarchicalProductSelectorProps {
   locationId: string;
   onSelectionChange: (items: SelectedItem[]) => void;
@@ -86,10 +99,45 @@ export function HierarchicalProductSelector({
     enabled: debouncedSearch.length >= 2 && !!locationId,
   });
 
-  // Group results by product+variant
-  const groupedResults = useMemo(() => {
-    return searchData?.grouped || [];
-  }, [searchData]);
+  // Group results by Category > Product > Color > Shade
+  const groupedResults = useMemo<ProductGroupedResult[]>(() => {
+    const source = searchData?.results || [];
+    const productMap = new Map<string, { category: string; product: string; colors: Map<string, ColorGroupedResult> }>();
+
+    for (const item of source) {
+      const productKey = `${item.category}::${item.product}`;
+      if (!productMap.has(productKey)) {
+        productMap.set(productKey, {
+          category: item.category,
+          product: item.product,
+          colors: new Map(),
+        });
+      }
+
+      const productGroup = productMap.get(productKey)!;
+      const colorKey = `${item.color}::${item.colorName || ''}`;
+
+      if (!productGroup.colors.has(colorKey)) {
+        productGroup.colors.set(colorKey, {
+          color: item.color,
+          colorName: item.colorName,
+          colorHex: item.colorHex,
+          shades: [],
+        });
+      }
+
+      productGroup.colors.get(colorKey)!.shades.push(item);
+    }
+
+    return Array.from(productMap.values()).map((group) => ({
+      category: group.category,
+      product: group.product,
+      colors: Array.from(group.colors.values()).map((colorGroup) => ({
+        ...colorGroup,
+        shades: [...colorGroup.shades].sort((a, b) => a.variant.localeCompare(b.variant)),
+      })),
+    }));
+  }, [searchData?.results]);
 
   const handleAddColor = (color: SearchResult) => {
     // Check if already added
@@ -200,7 +248,7 @@ export function HierarchicalProductSelector({
             </Alert>
           ) : (
             groupedResults.map((group) => (
-              <Card key={`${group.product}-${group.variant}`}>
+              <Card key={`${group.category}-${group.product}`}>
                 <CardHeader className="pb-2">
                   <div className="space-y-1">
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -209,66 +257,77 @@ export function HierarchicalProductSelector({
                     <CardTitle className="text-sm font-bold">
                       {group.product}
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        Shade/Item Code: {group.variant}
-                      </Badge>
-                      {group.design && (
-                        <span className="text-xs text-gray-600">{group.design}</span>
-                      )}
-                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold text-gray-600 mb-2">Colors:</div>
-                    {group.colors.map((color) => {
-                      const isSelected = selectedItems.some(
-                        (i) => i.productColorId === color.id
-                      );
-                      const stockStatus = getStockStatus(color.available);
+                    <div className="text-xs font-semibold text-gray-600 mb-2">Colors → Shades:</div>
+                    {group.colors.map((colorGroup) => {
 
                       return (
                         <div
-                          key={color.id}
-                          className="flex items-center justify-between p-2 hover:bg-gray-50 rounded border border-gray-100"
+                          key={`${group.product}-${colorGroup.color}-${colorGroup.colorName || ''}`}
+                          className="p-2 rounded border border-gray-100"
                         >
-                          <div className="flex items-center gap-3">
-                            {color.colorHex && (
+                          <div className="flex items-center gap-3 mb-2">
+                            {colorGroup.colorHex && (
                               <div
                                 className="w-6 h-6 rounded border"
-                                style={{ backgroundColor: color.colorHex }}
-                                title={color.colorName || color.color}
+                                style={{ backgroundColor: colorGroup.colorHex }}
+                                title={colorGroup.colorName || colorGroup.color}
                               />
                             )}
                             <div>
-                              <div className="font-medium text-sm">{color.color}</div>
-                              {color.colorName && (
-                                <div className="text-xs text-gray-500">{color.colorName}</div>
+                              <div className="font-medium text-sm">Color: {colorGroup.color}</div>
+                              {colorGroup.colorName && (
+                                <div className="text-xs text-gray-500">{colorGroup.colorName}</div>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
-                            <div className="text-sm">
-                              <Badge variant={stockStatus.variant}>
-                                {color.available} {color.unit}
-                              </Badge>
-                            </div>
+                          <div className="space-y-2">
+                            {colorGroup.shades.map((shade) => {
+                              const isSelected = selectedItems.some(
+                                (i) => i.productColorId === shade.id
+                              );
+                              const stockStatus = getStockStatus(shade.available);
 
-                            {isSelected ? (
-                              <Badge variant="secondary">Added ✓</Badge>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleAddColor(color)}
-                                disabled={disabled || color.available === 0}
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Add
-                              </Button>
-                            )}
+                              return (
+                                <div
+                                  key={shade.id}
+                                  className="flex items-center justify-between gap-3 p-2 hover:bg-gray-50 rounded"
+                                >
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Badge variant="secondary" className="text-xs">
+                                      Shade: {shade.variant}
+                                    </Badge>
+                                    {shade.design && (
+                                      <span className="text-xs text-gray-600">{shade.design}</span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={stockStatus.variant}>
+                                      {shade.available} {shade.unit}
+                                    </Badge>
+
+                                    {isSelected ? (
+                                      <Badge variant="secondary">Added ✓</Badge>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleAddColor(shade)}
+                                        disabled={disabled || shade.available === 0}
+                                      >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Add
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -304,7 +363,12 @@ export function HierarchicalProductSelector({
                   className="flex items-start gap-3 p-3 border rounded"
                 >
                   <div className="flex-1">
-                    <div className="font-medium text-sm mb-2">{item.display}</div>
+                    <div className="font-medium text-sm mb-2 flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                      <Badge variant="outline" className="text-xs">{item.product}</Badge>
+                      <Badge variant="outline" className="text-xs">{item.color}</Badge>
+                      <Badge variant="secondary" className="text-xs">{item.variant}</Badge>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <Input

@@ -60,6 +60,12 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         product: { include: { category: true } },
+        productColor: {
+          include: {
+            variant: { select: { code: true, design: true } },
+            color: { select: { code: true, name: true, hexValue: true } },
+          },
+        },
         fromLocation: true,
         toLocation: true,
         requestedByUser: { select: { id: true, name: true, role: true } },
