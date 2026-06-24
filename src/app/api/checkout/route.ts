@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
 import { checkoutSchema } from '@/lib/validation'
+import { dispatchOrderNotification } from '@/services/notification-dispatcher.service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,8 +52,11 @@ export async function POST(request: NextRequest) {
       taxRate
     )
 
-    // TODO: Send order confirmation email to customer
-    // TODO: Notify admin of new order (webhook, email, or push notification)
+    // Dispatch multi-channel notifications (email, WhatsApp, in-app)
+    await dispatchOrderNotification('ORDER_CREATED', order as any).catch((err) => {
+      console.error('[Notification Error]:', err)
+      // Don't fail the order if notification fails
+    })
 
     return NextResponse.json({
       success: true,

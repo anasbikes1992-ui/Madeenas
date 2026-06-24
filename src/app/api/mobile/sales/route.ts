@@ -60,19 +60,25 @@ export async function POST(request: NextRequest) {
   const location = await prisma.location.findUnique({ where: { id: locationId } })
   if (!location || !location.isActive) return fail('Location not found', 404, 'NOT_FOUND')
 
-  // Verify all products exist and have sufficient stock
+  // Verify all products exist and have sufficient stock (fetch all at once to avoid N+1)
+  const productIds = items.map((i) => i.productId)
+  const stocks = await prisma.stock.findMany({
+    where: {
+      productId: { in: productIds },
+      locationId,
+    },
+    include: {
+      product: { select: { name: true, unit: true } },
+    },
+  })
+
+  const stockMap = new Map(stocks.map((s) => [s.productId, s]))
   for (const item of items) {
-    const stock = await prisma.stock.findUnique({
-      where: { productId_locationId: { productId: item.productId, locationId } },
-    })
+    const stock = stockMap.get(item.productId)
     const available = stock?.quantity ?? 0
     if (available < item.quantity) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
-        select: { name: true, unit: true },
-      })
       return fail(
-        `Insufficient stock for ${product?.name ?? item.productId}. Available: ${available}`,
+        `Insufficient stock for ${stock?.product.name ?? item.productId}. Available: ${available}`,
         422,
         'INSUFFICIENT_STOCK',
       )

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import * as ordersService from '@/services/orders.service'
 import { approveOrderSchema } from '@/lib/validation'
+import { dispatchOrderNotification } from '@/services/notification-dispatcher.service'
 
 export async function POST(
   request: NextRequest,
@@ -44,7 +45,10 @@ export async function POST(
       note
     )
 
-    // TODO: Send approval notification to customer (email/SMS)
+    // Dispatch approval notifications
+    await dispatchOrderNotification('ORDER_APPROVED', order as any).catch((err) => {
+      console.error('[Notification Error]:', err)
+    })
 
     return NextResponse.json({
       success: true,

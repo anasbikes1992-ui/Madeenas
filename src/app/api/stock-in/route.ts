@@ -6,6 +6,7 @@ import { logActivity, createNotification } from '@/lib/audit'
 import { logHistoryEvent } from '@/lib/history'
 import { stockInSchema } from '@/lib/validations'
 import { hasPermission } from '@/lib/permissions'
+import { invalidateInventoryCaches } from '@/lib/cache'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -170,6 +171,9 @@ export async function POST(request: NextRequest) {
       })
     )
   )
+
+  // Invalidate inventory caches
+  await invalidateInventoryCaches(b.locationId)
 
   return NextResponse.json(
     {

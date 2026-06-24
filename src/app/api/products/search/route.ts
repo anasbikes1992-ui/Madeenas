@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { cachedQuery, CACHE_KEYS, CACHE_TTL } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] });
     }
 
-    // Search across Category, Product, Variant, Color
-    const results = await prisma.productColor.findMany({
+    // Use cached query for fast product search
+    const cacheKey = CACHE_KEYS.productSearch(query, locationId);
+    const results = await cachedQuery(
+      cacheKey,
+      async () => {
+        return await prisma.productColor.findMany({
       where: {
         OR: [
           {
@@ -87,8 +92,11 @@ export async function GET(request: NextRequest) {
           select: { quantity: true },
         },
       },
-      take: limit,
-    });
+          take: limit,
+        });
+      },
+      CACHE_TTL.SHORT // 1 minute cache for search results
+    );
 
     // Transform to UI format
     const transformed = results.map((pc) => {

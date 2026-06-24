@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/get-auth-user'
 import * as ordersService from '@/services/orders.service'
+import { dispatchOrderNotification } from '@/services/notification-dispatcher.service'
 
 export async function POST(
   request: NextRequest,
@@ -50,7 +51,10 @@ export async function POST(
       reason
     )
 
-    // TODO: Send cancellation notification to customer
+    // Dispatch cancellation notifications
+    await dispatchOrderNotification('ORDER_CANCELLED', cancelledOrder as any).catch((err) => {
+      console.error('[Notification Error]:', err)
+    })
 
     return NextResponse.json({
       success: true,

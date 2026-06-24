@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
 import { stockOutRequestSchema } from '@/lib/validations'
 import { logHistoryEvent } from '@/lib/history'
+import { invalidateInventoryCaches } from '@/lib/cache'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -269,6 +270,12 @@ export async function POST(request: NextRequest) {
       })
     )
   )
+
+  // Invalidate inventory caches for source and destination locations
+  await invalidateInventoryCaches(b.fromLocationId)
+  if (effectiveToLocationId) {
+    await invalidateInventoryCaches(effectiveToLocationId)
+  }
 
   return NextResponse.json(
     {

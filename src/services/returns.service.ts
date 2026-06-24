@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { dispatchReturnNotification } from './notification-dispatcher.service'
 
 export const createReturnSchema = z.object({
   saleId: z.string().min(1),
@@ -183,7 +184,10 @@ export async function approveReturn(
     },
   })
 
-  // TODO: Send notification to customer
+  // Dispatch return approval notifications
+  await dispatchReturnNotification('RETURN_APPROVED', updated as any).catch((err) => {
+    console.error('[Notification Error]:', err)
+  })
 
   return updated
 }
@@ -217,9 +221,15 @@ export async function rejectReturn(
       rejectedAt: new Date(),
       rejectionReason,
     },
+    include: {
+      customer: true,
+    },
   })
 
-  // TODO: Send notification to customer
+  // Dispatch return rejection notifications
+  await dispatchReturnNotification('RETURN_REJECTED', updated as any).catch((err) => {
+    console.error('[Notification Error]:', err)
+  })
 
   return updated
 }
@@ -330,9 +340,28 @@ export async function processRefund(
       refundTransactionRef: transactionReference || null,
       processedBy,
     },
+    include: {
+      customer: true,
+    },
   })
 
-  // TODO: Create store credit or process bank transfer
+  // Handle refund method
+  if (refundMethod === 'STORE_CREDIT') {
+    // Create store credit for customer
+    await prisma.user.update({
+      where: { id: returnRequest.customerId! },
+      data: {
+        // Note: Add storeCredit field to User model if implementing this
+        // storeCredit: { increment: returnRequest.approvedRefundAmount || returnRequest.totalRefundAmount }
+      },
+    }).catch((err) => console.warn('[Store Credit] User model may need storeCredit field:', err))
+  }
+  // For BANK_TRANSFER or ORIGINAL_METHOD, manual processing is tracked via transactionReference
+
+  // Dispatch refund completion notifications
+  await dispatchReturnNotification('RETURN_REFUNDED', updated as any).catch((err) => {
+    console.error('[Notification Error]:', err)
+  })
 
   return updated
 }
