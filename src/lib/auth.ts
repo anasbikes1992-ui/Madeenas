@@ -38,6 +38,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: user.role,
             locationId: user.locationId,
             locationName: user.location?.name,
+            permissions: user.permissions,
+            useCustomPermissions: user.useCustomPermissions,
           }
         } catch (error) {
           console.error('[auth] Credentials authorize() failed:', error)

@@ -10,7 +10,7 @@ import { sendInvoiceWhatsAppNotification } from '@/lib/whatsapp'
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!hasPermission(session.user.role as string, 'sales.read')) {
+  if (!hasPermission(session.user.role as string, 'sales.read', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const role = session.user.role as string
-  if (!hasPermission(role, 'sales.create')) {
+  if (!hasPermission(role, 'sales.create', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

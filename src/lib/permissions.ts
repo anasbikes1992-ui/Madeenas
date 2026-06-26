@@ -32,7 +32,18 @@ export type PermissionKey =
   | 'customerOrders.read'
   | 'settings.manage'
 
-const permissionMatrix: Record<PermissionKey, AppRole[]> = {
+export const ALL_PERMISSIONS: PermissionKey[] = [
+  'users.manage', 'users.resetPassword',
+  'products.read', 'products.create', 'products.update', 'products.archive',
+  'categories.manage', 'suppliers.manage',
+  'locations.read', 'locations.manage',
+  'inventory.read', 'inventory.reorder',
+  'stock.request', 'stock.approve', 'stock.dispatch', 'stock.receive', 'stock.in', 'stock.adjust',
+  'sales.read', 'sales.create',
+  'reports.read', 'customerOrders.read', 'settings.manage'
+]
+
+export const permissionMatrix: Record<PermissionKey, AppRole[]> = {
   'users.manage': ['SUPER_ADMIN', 'ADMIN'],
   'users.resetPassword': ['SUPER_ADMIN'],
   'products.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF', 'FINANCE', 'CUSTOMER'],
@@ -58,7 +69,14 @@ const permissionMatrix: Record<PermissionKey, AppRole[]> = {
   'settings.manage': ['SUPER_ADMIN'],
 }
 
-export function hasPermission(role: string | null | undefined, permission: PermissionKey): boolean {
-  if (!role) return false
-  return permissionMatrix[permission].includes(role as AppRole)
+export function hasPermission(
+  userRole: string | null | undefined, 
+  permission: PermissionKey, 
+  user?: { useCustomPermissions?: boolean; permissions?: string[] } | null
+): boolean {
+  if (user?.useCustomPermissions) {
+    return user.permissions?.includes(permission) || false
+  }
+  if (!userRole) return false
+  return permissionMatrix[permission]?.includes(userRole as AppRole) || false
 }

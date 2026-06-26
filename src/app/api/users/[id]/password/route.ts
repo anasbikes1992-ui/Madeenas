@@ -14,7 +14,7 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const actorRole = session.user.role as string
-  if (!hasPermission(actorRole, 'users.resetPassword')) {
+  if (!hasPermission(actorRole, 'users.resetPassword', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -106,13 +106,13 @@ export default function InventoryPage() {
       })()}
 
       <div className="table-container">
-        <table className="w-full text-left border-collapse">
+        <table className="table border-collapse">
           <thead>
             <tr>
-              <th className="table-header w-[35%]">Product Variant / SKU</th>
-              {warehouses.map(l => <th key={l.id} className="table-header text-center">{l.name}</th>)}
-              {shops.map(l => <th key={l.id} className="table-header text-center">{l.name}</th>)}
-              <th className="table-header text-center text-slate-800 dark:text-slate-200">Total</th>
+              <th className="w-[30%]">Product Variant / SKU</th>
+              {warehouses.map(l => <th key={l.id} className="text-center">{l.name}</th>)}
+              {shops.map(l => <th key={l.id} className="text-center">{l.name}</th>)}
+              <th className="text-center text-slate-800 dark:text-slate-200">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -130,8 +130,8 @@ export default function InventoryPage() {
               const lowThreshold = variant.lowStockThreshold || 0
 
               return (
-                <tr key={variant.id} className="table-row-evolution">
-                  <td className="table-cell">
+                <tr key={variant.id}>
+                  <td>
                     <div className="flex flex-col gap-1">
                       <p className="font-bold text-[var(--text)]">
                         {variant.product?.name}
@@ -152,7 +152,7 @@ export default function InventoryPage() {
                     const qty = stock?.quantity ?? 0
                     const level = classifyStockLevel(qty, lowThreshold)
                     return (
-                      <td key={loc.id} className="table-cell text-center align-middle">
+                      <td key={loc.id} className="text-center align-middle">
                         {qty > 0 ? (
                           <div className="flex flex-col items-center">
                             <span className={`badge-${level === 'healthy' ? 'success' : level === 'low' ? 'warning' : 'danger'} font-mono text-[13px] tracking-widest`}>
@@ -168,7 +168,7 @@ export default function InventoryPage() {
                       </td>
                     )
                   })}
-                  <td className="table-cell text-center align-middle bg-[var(--primary)]/5 dark:bg-white/5 border-l border-[var(--border)]">
+                  <td className="text-center align-middle bg-[var(--primary)]/5 dark:bg-white/5 border-l border-[var(--border)]">
                     <div className="flex flex-col items-center">
                       <span className={`badge-${classifyStockLevel(total, lowThreshold) === 'healthy' ? 'success' : classifyStockLevel(total, lowThreshold) === 'low' ? 'warning' : 'danger'} font-mono text-[14px] tracking-widest shadow-sm`}>
                         {total.toLocaleString()}

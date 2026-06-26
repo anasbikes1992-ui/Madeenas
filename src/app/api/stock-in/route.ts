@@ -10,7 +10,7 @@ import { invalidateInventoryCaches } from '@/lib/cache'
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!hasPermission(session.user.role as string, 'inventory.read')) {
+  if (!hasPermission(session.user.role as string, 'inventory.read', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!hasPermission(session.user.role as string, 'stock.in')) {
+  if (!hasPermission(session.user.role as string, 'stock.in', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

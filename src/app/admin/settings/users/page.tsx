@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { Users as UsersIcon, Plus, Pencil, Trash2, Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Users as UsersIcon, Plus, Pencil, Trash2, Eye, EyeOff, KeyRound, Shield } from 'lucide-react'
+import { ALL_PERMISSIONS, permissionMatrix, AppRole, PermissionKey } from '@/lib/permissions'
 
 interface Location {
   id: string
@@ -18,6 +19,8 @@ interface User {
   location?: { id: string; name: string }
   isActive: boolean
   createdAt: string
+  permissions?: string[]
+  useCustomPermissions?: boolean
 }
 
 const ROLES = [
@@ -38,6 +41,11 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [resetUser, setResetUser] = useState<User | null>(null)
+  const [permissionsUser, setPermissionsUser] = useState<User | null>(null)
+  const [permissionsForm, setPermissionsForm] = useState<{useCustomPermissions: boolean, permissions: string[]}>({
+    useCustomPermissions: false,
+    permissions: []
+  })
   const [resetPassword, setResetPassword] = useState('')
   const [resetPasswordConfirm, setResetPasswordConfirm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -243,6 +251,35 @@ export default function UsersPage() {
     }
   }
 
+  async function handleUpdatePermissions(event: React.FormEvent) {
+    event.preventDefault()
+    if (!permissionsUser) return
+
+    setSaving(true)
+    setFormError(null)
+
+    try {
+      const res = await fetch(`/api/users/${permissionsUser.id}/permissions`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(permissionsForm),
+      })
+
+      if (res.ok) {
+        setPermissionsUser(null)
+        await loadData()
+        showToast('Permissions updated successfully!')
+      } else {
+        const data = await res.json()
+        setFormError(data.error || 'Failed to update permissions')
+      }
+    } catch (error) {
+      setFormError('Network error occurred')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const needsLocation = (role: string) => ['STORE_KEEPER', 'SHOP_STAFF'].includes(role)
 
   if (loading) {
@@ -307,18 +344,34 @@ export default function UsersPage() {
                       <Pencil className="w-4 h-4" />
                     </button>
                     {session?.user?.role === 'SUPER_ADMIN' && user.id !== session?.user?.id && (
-                      <button
-                        onClick={() => {
-                          setResetUser(user)
-                          setResetPassword('')
-                          setResetPasswordConfirm('')
-                          setFormError(null)
-                        }}
-                        className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                        title="Reset password"
-                      >
-                        <KeyRound className="w-4 h-4" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setPermissionsUser(user)
+                            setPermissionsForm({
+                              useCustomPermissions: user.useCustomPermissions || false,
+                              permissions: user.permissions || []
+                            })
+                            setFormError(null)
+                          }}
+                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Granular Permissions"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setResetUser(user)
+                            setResetPassword('')
+                            setResetPasswordConfirm('')
+                            setFormError(null)
+                          }}
+                          className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                          title="Reset password"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => handleToggleActive(user)}
@@ -590,6 +643,107 @@ export default function UsersPage() {
                   {resettingPassword ? 'Resetting…' : 'Reset Password'}
                 </button>
                 <button type="button" onClick={() => setResetUser(null)} className="btn-secondary">
+                  Cancel
+                </button>
+              </div>
+            </form>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {permissionsUser && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setPermissionsUser(null)}>
+          <div className="modal max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-indigo-600" />
+                  Granular Permissions
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">Manage access control for {permissionsUser.name}</p>
+              </div>
+              <button onClick={() => setPermissionsUser(null)} className="text-slate-400 text-2xl">&times;</button>
+            </div>
+            
+            <form onSubmit={handleUpdatePermissions} className="space-y-6">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={permissionsForm.useCustomPermissions}
+                    onChange={(e) => {
+                      // If turning ON, pre-fill with their base role permissions
+                      const newUseCustom = e.target.checked;
+                      setPermissionsForm(prev => ({
+                        ...prev,
+                        useCustomPermissions: newUseCustom,
+                        permissions: newUseCustom && prev.permissions.length === 0 
+                          ? ALL_PERMISSIONS.filter(p => permissionMatrix[p]?.includes(permissionsUser.role as AppRole))
+                          : prev.permissions
+                      }))
+                    }}
+                    className="w-5 h-5 text-indigo-600 rounded"
+                  />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Override Default Role Permissions</span>
+                    <span className="text-sm text-slate-500">If checked, this user's permissions will ignore their role matrix and use exactly what is checked below.</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {['users', 'products', 'inventory', 'stock', 'sales', 'locations', 'suppliers', 'categories', 'reports', 'customerOrders', 'settings'].map(group => {
+                  const groupPerms = ALL_PERMISSIONS.filter(p => p.startsWith(group + '.'));
+                  if (groupPerms.length === 0) return null;
+                  
+                  return (
+                    <div key={group} className="border border-slate-100 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 font-semibold text-slate-700 capitalize">
+                        {group.replace(/([A-Z])/g, ' $1').trim()}
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {groupPerms.map(perm => {
+                          // Determine if it should be checked
+                          let isChecked = false;
+                          if (permissionsForm.useCustomPermissions) {
+                            isChecked = permissionsForm.permissions.includes(perm);
+                          } else {
+                            isChecked = permissionMatrix[perm]?.includes(permissionsUser.role as AppRole) || false;
+                          }
+
+                          return (
+                            <label key={perm} className={`flex items-center gap-3 ${permissionsForm.useCustomPermissions ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
+                              <input
+                                type="checkbox"
+                                disabled={!permissionsForm.useCustomPermissions}
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (!permissionsForm.useCustomPermissions) return;
+                                  const checked = e.target.checked;
+                                  setPermissionsForm(prev => ({
+                                    ...prev,
+                                    permissions: checked 
+                                      ? [...prev.permissions, perm]
+                                      : prev.permissions.filter(p => p !== perm)
+                                  }))
+                                }}
+                                className="w-4 h-4 text-indigo-600 rounded"
+                              />
+                              <span className="text-sm text-slate-700">{perm.split('.')[1]}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100 sticky bottom-0 bg-white p-4 -mx-6 -mb-6 rounded-b-xl shadow-[0_-10px_10px_-10px_rgba(0,0,0,0.05)]">
+                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
+                  {saving ? 'Saving…' : 'Save Permissions'}
+                </button>
+                <button type="button" onClick={() => setPermissionsUser(null)} className="btn-secondary">
                   Cancel
                 </button>
               </div>

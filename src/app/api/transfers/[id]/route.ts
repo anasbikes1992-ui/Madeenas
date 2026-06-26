@@ -53,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     if (action === 'approve') {
-      if (!hasPermission(role, 'stock.approve')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      if (!hasPermission(role, 'stock.approve', session?.user)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       
       const updated = await prisma.stockTransfer.update({
         where: { id, status: 'PENDING' },
@@ -77,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (action === 'dispatch') {
-      if (!hasPermission(role, 'stock.dispatch')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      if (!hasPermission(role, 'stock.dispatch', session?.user)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
       const updated = await prisma.$transaction(async (tx) => {
         // deduct stock

@@ -47,6 +47,13 @@ export default function SettingsPage() {
       href: '/admin/settings/suppliers',
       icon: <Truck className="w-6 h-6" />,
       color: 'bg-orange-500'
+    },
+    {
+      title: 'Units & Conversions',
+      description: 'Manage stock units (e.g. Yards, Metres) and multipliers',
+      href: '/admin/settings/units',
+      icon: <Database className="w-6 h-6" />,
+      color: 'bg-[var(--primary)]'
     }
   ]
 

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const role = session.user.role as string
-  if (!hasPermission(role, 'stock.request')) {
+  if (!hasPermission(role, 'stock.request', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

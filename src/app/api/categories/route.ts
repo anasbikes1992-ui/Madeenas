@@ -9,7 +9,7 @@ import { hasPermission } from '@/lib/permissions'
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!hasPermission(session.user.role as string, 'products.read')) {
+  if (!hasPermission(session.user.role as string, 'products.read', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -25,7 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!hasPermission(session.user.role as string, 'categories.manage')) {
+  if (!hasPermission(session.user.role as string, 'categories.manage', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -5,7 +5,7 @@ import { hasPermission } from '@/lib/permissions'
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session?.user || !hasPermission(session.user.role as string, 'settings.manage')) {
+  if (!session?.user || !hasPermission(session.user.role as string, 'settings.manage', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

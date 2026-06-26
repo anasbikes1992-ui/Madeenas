@@ -15,6 +15,7 @@ export default function StockInPage() {
   const [variants, setVariants] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
+  const [units, setUnits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<any>(emptyForm)
@@ -51,6 +52,7 @@ export default function StockInPage() {
         setVariants(allVariants)
       })
     fetch('/api/locations').then(r => r.json()).then(d => setLocations(d))
+    fetch('/api/settings/units').then(r => r.json()).then(d => setUnits(d || [])).catch(() => {})
     fetch('/api/suppliers')
       .then(r => r.json())
       .then(d => setSuppliers(d || []))
@@ -68,6 +70,34 @@ export default function StockInPage() {
       })
     } else {
       updateItem(index, { variantId: '' })
+    }
+  }
+
+  function handleUnitChange(index: number, unitName: string) {
+    const item = items[index]
+    const variant = variants.find(x => x.id === item.variantId)
+    if (!variant || !unitName) {
+      updateItem(index, { receivedUnit: unitName, conversionFactor: '1' })
+      return
+    }
+    
+    // Find unit object
+    const selectedUnit = units.find(u => u.name === unitName || u.abbreviation === unitName)
+    if (!selectedUnit) {
+      updateItem(index, { receivedUnit: unitName })
+      return
+    }
+
+    // Attempt to find a conversion from selectedUnit -> variant.stockUnit
+    const conversion = selectedUnit.conversionsFrom?.find((c: any) => 
+      c.toUnit?.name?.toLowerCase() === variant.stockUnit?.toLowerCase() || 
+      c.toUnit?.abbreviation?.toLowerCase() === variant.stockUnit?.toLowerCase()
+    )
+
+    if (conversion) {
+      updateItem(index, { receivedUnit: unitName, conversionFactor: String(conversion.factor) })
+    } else {
+      updateItem(index, { receivedUnit: unitName, conversionFactor: '' }) // blank so they enter it
     }
   }
 
@@ -280,12 +310,16 @@ export default function StockInPage() {
                             <td className="p-2">
                               <input 
                                 type="text" 
+                                list={`units-list-${i}`}
                                 value={item.receivedUnit} 
-                                onChange={(e) => updateItem(i, { receivedUnit: e.target.value })} 
+                                onChange={(e) => handleUnitChange(i, e.target.value)} 
                                 className="input text-sm py-1.5" 
                                 placeholder="Unit"
                                 required={!!item.variantId}
                               />
+                              <datalist id={`units-list-${i}`}>
+                                {units.map(u => <option key={u.id} value={u.name} />)}
+                              </datalist>
                             </td>
                             <td className="p-2">
                               <input 

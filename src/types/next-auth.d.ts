@@ -9,12 +9,16 @@ declare module 'next-auth' {
       role: string
       locationId: string | null
       locationName: string | null
+      useCustomPermissions?: boolean
+      permissions?: string[]
     }
   }
   interface User {
     role: string
     locationId?: string | null
     locationName?: string | null
+    useCustomPermissions?: boolean
+    permissions?: string[]
   }
 }
 
@@ -23,5 +27,7 @@ declare module 'next-auth/jwt' {
     role: string
     locationId?: string | null
     locationName?: string | null
+    useCustomPermissions?: boolean
+    permissions?: string[]
   }
 }

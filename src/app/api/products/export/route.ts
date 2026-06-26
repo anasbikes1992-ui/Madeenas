@@ -16,7 +16,7 @@ function toCsvValue(value: string | number | null | undefined) {
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!hasPermission(session.user.role as string, 'products.read')) {
+  if (!hasPermission(session.user.role as string, 'products.read', session?.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -16,10 +16,14 @@ export const authConfig: NextAuthConfig = {
           role?: string
           locationId?: string | null
           locationName?: string | null
+          permissions?: string[]
+          useCustomPermissions?: boolean
         }
         token.role = u.role
         token.locationId = u.locationId
         token.locationName = u.locationName
+        token.permissions = u.permissions || []
+        token.useCustomPermissions = u.useCustomPermissions || false
       }
       return token
     },
@@ -29,6 +33,8 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string
         session.user.locationId = token.locationId as string | null
         session.user.locationName = token.locationName as string | null
+        session.user.permissions = token.permissions as string[]
+        session.user.useCustomPermissions = token.useCustomPermissions as boolean
       }
       return session
     },
