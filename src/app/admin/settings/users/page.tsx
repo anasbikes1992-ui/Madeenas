@@ -647,6 +647,7 @@ export default function UsersPage() {
                 </button>
               </div>
             </form>
+          </div>
         </div>
       )}
 
