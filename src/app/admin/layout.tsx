@@ -207,7 +207,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   )
 
   return (
-    <div className="flex min-h-screen bg-transparent">
+    <div className="flex h-screen overflow-hidden bg-transparent">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex flex-col h-full z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         {Sidebar}
@@ -225,7 +225,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col h-screen relative z-0">
+      <div className="flex-1 flex flex-col h-full relative z-0 min-w-0">
         {/* Topbar */}
         <header className="glass-nav sticky top-0 z-30 flex shrink-0 items-center justify-between px-6 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="flex items-center gap-4">
