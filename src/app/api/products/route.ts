@@ -3,8 +3,6 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
-import { logHistoryEvent } from '@/lib/history'
-import { productCreateSchema } from '@/lib/validations'
 import { hasPermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
@@ -24,8 +22,9 @@ export async function GET(request: NextRequest) {
   if (category) where.categoryId = category
   if (search) where.OR = [
     { name: { contains: search, mode: 'insensitive' } },
-    { sku: { contains: search, mode: 'insensitive' } },
-    { design: { contains: search, mode: 'insensitive' } },
+    // Search across variants for SKU and color
+    { variants: { some: { sku: { contains: search, mode: 'insensitive' } } } },
+    { variants: { some: { colorName: { contains: search, mode: 'insensitive' } } } },
   ]
 
   const [products, total] = await Promise.all([
@@ -33,7 +32,11 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         category: true,
-        stocks: { include: { location: true } },
+        variants: {
+          include: {
+            stocks: { include: { location: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
@@ -53,32 +56,47 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const parsed = productCreateSchema.safeParse(body)
-  if (!parsed.success) {
+  const { name, categoryId, description, images, variants } = body
+
+  if (!name || !categoryId) {
     return NextResponse.json(
-      { error: 'Invalid product', details: parsed.error.flatten().fieldErrors },
+      { error: 'name and categoryId are required' },
       { status: 400 }
     )
   }
-  const d = parsed.data
+
+  if (!variants || !Array.isArray(variants) || variants.length === 0) {
+    return NextResponse.json(
+      { error: 'at least one variant is required' },
+      { status: 400 }
+    )
+  }
+
   const product = await prisma.product.create({
     data: {
-      name: d.name,
-      design: d.design,
-      color: d.color,
-      colorHex: d.colorHex || '#000000',
-      sku: d.sku,
-      categoryId: d.categoryId,
-      unit: d.unit || 'meters',
-      alternateUnit: d.alternateUnit ?? null,
-      conversionFactor: d.conversionFactor ?? null,
-      description: d.description ?? undefined,
-      images: JSON.stringify(d.images ?? []),
-      barcodeType: d.barcodeType || 'CODE128',
-      lowStockAt: d.lowStockAt,
-      costPrice: d.costPrice ?? null,
+      name,
+      categoryId,
+      description: description ?? undefined,
+      images: images ?? [],
+      variants: {
+        create: variants.map((v: any) => ({
+          sku: v.sku,
+          colorName: v.colorName,
+          colorHex: v.colorHex || '#6366f1',
+          stockUnit: v.stockUnit,
+          stockUnitLabel: v.stockUnitLabel,
+          altUnit: v.altUnit || null,
+          altUnitLabel: v.altUnitLabel || null,
+          saleUnit: v.saleUnit,
+          saleUnitLabel: v.saleUnitLabel,
+          saleToStockFactor: Number(v.saleToStockFactor) || 1.0,
+          costPrice: v.costPrice ? Number(v.costPrice) : null,
+          salePrice: v.salePrice ? Number(v.salePrice) : null,
+          lowStockAt: Number(v.lowStockAt) || 10,
+        })),
+      },
     },
-    include: { category: true },
+    include: { category: true, variants: true },
   })
 
   await logActivity({
@@ -86,21 +104,7 @@ export async function POST(request: NextRequest) {
     action: 'CREATE',
     entity: 'Product',
     entityId: product.id,
-    details: `Created product: ${product.name} (SKU: ${product.sku})`
-  })
-
-  await logHistoryEvent({
-    entityType: 'PRODUCT',
-    entityId: product.id,
-    eventType: 'PRODUCT_CREATED',
-    title: 'Product created',
-    details: `${product.name} (${product.sku}) created`,
-    payload: {
-      unit: product.unit,
-      alternateUnit: product.alternateUnit,
-      conversionFactor: product.conversionFactor,
-    },
-    createdBy: session.user.id,
+    details: `Created product: ${product.name}`,
   })
 
   return NextResponse.json(product, { status: 201 })

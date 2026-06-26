@@ -3,7 +3,6 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
-import { logHistoryEvent } from '@/lib/history'
 import { productUpdateSchema } from '@/lib/validations'
 import { hasPermission } from '@/lib/permissions'
 
@@ -13,9 +12,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     where: { id },
     include: {
       category: true,
-      stocks: { include: { location: true } },
-      stockIns: { orderBy: { createdAt: 'desc' }, take: 10, include: { user: true, location: true } },
-      stockOutRequests: { orderBy: { createdAt: 'desc' }, take: 10, include: { requestedByUser: true, fromLocation: true, toLocation: true } },
+      variants: {
+        include: {
+          stocks: { include: { location: true } },
+          stockIns: { orderBy: { createdAt: 'desc' }, take: 10, include: { user: true, location: true } },
+          transferItems: { orderBy: { transfer: { createdAt: 'desc' } }, take: 10, include: { transfer: { include: { fromLocation: true, toLocation: true } } } },
+        }
+      }
     },
   })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -40,20 +43,55 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const d = parsed.data
   const data: Prisma.ProductUpdateInput = {}
   if (d.name !== undefined) data.name = d.name
-  if (d.design !== undefined) data.design = d.design
-  if (d.color !== undefined) data.color = d.color
-  if (d.colorHex !== undefined) data.colorHex = d.colorHex
-  if (d.sku !== undefined) data.sku = d.sku
   if (d.categoryId !== undefined) data.category = { connect: { id: d.categoryId } }
-  if (d.unit !== undefined) data.unit = d.unit
-  if (d.alternateUnit !== undefined) data.alternateUnit = d.alternateUnit
-  if (d.conversionFactor !== undefined) data.conversionFactor = d.conversionFactor
   if (d.description !== undefined) data.description = d.description
-  if (d.images !== undefined) data.images = JSON.stringify(d.images)
-  if (d.barcodeType !== undefined) data.barcodeType = d.barcodeType
-  if (d.lowStockAt !== undefined) data.lowStockAt = d.lowStockAt
-  if (d.costPrice !== undefined) data.costPrice = d.costPrice
+  if (d.images !== undefined) data.images = d.images // String[] in new schema
   if (d.isActive !== undefined) data.isActive = d.isActive
+
+  // Handle variants if provided
+  const rawBody = await request.clone().json().catch(() => ({}));
+  const variants = rawBody.variants;
+  
+  if (variants && Array.isArray(variants)) {
+    data.variants = {
+      deleteMany: {
+        id: { notIn: variants.filter((v: any) => v.id).map((v: any) => v.id) }
+      },
+      upsert: variants.map((v: any) => ({
+        where: { id: v.id || 'new' },
+        create: {
+          sku: v.sku,
+          colorName: v.colorName,
+          colorHex: v.colorHex || '#6366f1',
+          stockUnit: v.stockUnit,
+          stockUnitLabel: v.stockUnitLabel,
+          altUnit: v.altUnit || null,
+          altUnitLabel: v.altUnitLabel || null,
+          saleUnit: v.saleUnit,
+          saleUnitLabel: v.saleUnitLabel,
+          saleToStockFactor: Number(v.saleToStockFactor) || 1.0,
+          costPrice: v.costPrice ? Number(v.costPrice) : null,
+          salePrice: v.salePrice ? Number(v.salePrice) : null,
+          lowStockAt: Number(v.lowStockAt) || 10,
+        },
+        update: {
+          sku: v.sku,
+          colorName: v.colorName,
+          colorHex: v.colorHex || '#6366f1',
+          stockUnit: v.stockUnit,
+          stockUnitLabel: v.stockUnitLabel,
+          altUnit: v.altUnit || null,
+          altUnitLabel: v.altUnitLabel || null,
+          saleUnit: v.saleUnit,
+          saleUnitLabel: v.saleUnitLabel,
+          saleToStockFactor: Number(v.saleToStockFactor) || 1.0,
+          costPrice: v.costPrice ? Number(v.costPrice) : null,
+          salePrice: v.salePrice ? Number(v.salePrice) : null,
+          lowStockAt: Number(v.lowStockAt) || 10,
+        }
+      }))
+    };
+  }
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
@@ -62,7 +100,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const product = await prisma.product.update({
     where: { id },
     data,
-    include: { category: true },
+    include: { category: true, variants: true },
   })
 
   await logActivity({
@@ -71,21 +109,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     entity: 'Product',
     entityId: product.id,
     details: `Updated product details for: ${product.name}`
-  })
-
-  await logHistoryEvent({
-    entityType: 'PRODUCT',
-    entityId: product.id,
-    eventType: 'PRODUCT_UPDATED',
-    title: 'Product updated',
-    details: `Updated ${product.name}`,
-    payload: {
-      unit: product.unit,
-      alternateUnit: product.alternateUnit,
-      conversionFactor: product.conversionFactor,
-      isActive: product.isActive,
-    },
-    createdBy: session.user.id,
   })
 
   return NextResponse.json(product)
@@ -107,15 +130,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     entity: 'Product',
     entityId: id,
     details: `Archived product: ${product.name}`
-  })
-
-  await logHistoryEvent({
-    entityType: 'PRODUCT',
-    entityId: id,
-    eventType: 'PRODUCT_ARCHIVED',
-    title: 'Product archived',
-    details: `${product.name} archived`,
-    createdBy: session.user.id,
   })
 
   return NextResponse.json({ success: true })

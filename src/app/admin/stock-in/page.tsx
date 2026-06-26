@@ -3,10 +3,16 @@ import { useEffect, useState, useMemo } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function StockInPage() {
-  const emptyItem = { productId: '', quantity: '', costPrice: '' }
+  const emptyItem = { 
+    variantId: '', 
+    receivedQty: '', 
+    receivedUnit: '', 
+    conversionFactor: '1', 
+    costPrice: '' 
+  }
   const emptyForm = { locationId: '', batchNumber: '', supplierId: '', note: '' }
   const [entries, setEntries] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
+  const [variants, setVariants] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,7 +34,22 @@ export default function StockInPage() {
 
   useEffect(() => {
     load()
-    fetch('/api/products?limit=200').then(r => r.json()).then(d => setProducts(d.products || []))
+    // Fetch products and flatten to variants
+    fetch('/api/products?limit=500')
+      .then(r => r.json())
+      .then(d => {
+        const allVariants: any[] = []
+        ;(d.products || []).forEach((p: any) => {
+          (p.variants || []).forEach((v: any) => {
+            allVariants.push({
+              ...v,
+              productName: p.name,
+              categoryName: p.category?.name
+            })
+          })
+        })
+        setVariants(allVariants)
+      })
     fetch('/api/locations').then(r => r.json()).then(d => setLocations(d))
     fetch('/api/suppliers')
       .then(r => r.json())
@@ -36,19 +57,40 @@ export default function StockInPage() {
       .catch(() => showToast('Warning: Could not load suppliers'))
   }, [])
 
+  function handleVariantChange(index: number, variantId: string) {
+    const v = variants.find(x => x.id === variantId)
+    if (v) {
+      updateItem(index, { 
+        variantId, 
+        receivedUnit: v.altUnitLabel || v.stockUnitLabel || v.stockUnit,
+        conversionFactor: v.altUnit ? '' : '1', // prompt them if using alt unit
+        costPrice: v.costPrice ? String(v.costPrice) : ''
+      })
+    } else {
+      updateItem(index, { variantId: '' })
+    }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
 
     const cleanedItems = items
-      .filter((item) => item.productId.trim() && item.quantity.trim())
-      .map((item) => ({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-        costPrice: item.costPrice ? Number(item.costPrice) : undefined,
-      }))
+      .filter((item) => item.variantId.trim() && item.receivedQty.trim())
+      .map((item) => {
+        const qty = Number(item.receivedQty)
+        const factor = Number(item.conversionFactor)
+        return {
+          variantId: item.variantId,
+          receivedQty: qty,
+          receivedUnit: item.receivedUnit || 'units',
+          conversionFactor: factor,
+          quantityAddedToStock: qty * factor,
+          costPrice: item.costPrice ? Number(item.costPrice) : undefined,
+        }
+      })
 
-    const filledCount = items.filter(item => item.productId.trim() && item.quantity.trim()).length
+    const filledCount = items.filter(item => item.variantId.trim() && item.receivedQty.trim()).length
 
     if (filledCount === 0) {
       setSaving(false)
@@ -56,10 +98,10 @@ export default function StockInPage() {
       return
     }
 
-    const uniqueProducts = new Set(cleanedItems.map(item => item.productId))
-    if (uniqueProducts.size !== cleanedItems.length) {
+    const uniqueVariants = new Set(cleanedItems.map(item => item.variantId))
+    if (uniqueVariants.size !== cleanedItems.length) {
       setSaving(false)
-      showToast('Duplicate products detected. Each item must be a different product.')
+      showToast('Duplicate variants detected. Each line must be a different variant.')
       return
     }
 
@@ -96,24 +138,7 @@ export default function StockInPage() {
     setItems((currentItems) => currentItems.filter((_, currentIndex) => currentIndex !== index))
   }
 
-  const filledItemsCount = useMemo(
-    () => items.filter(item => item.productId.trim() && item.quantity.trim()).length,
-    [items]
-  )
-
-  const selectedProductIds = useMemo(
-    () => items.filter(item => item.productId.trim()).map(item => item.productId),
-    [items]
-  )
-
-  const duplicateProductIds = useMemo(() => {
-    const counts = new Map<string, number>()
-    selectedProductIds.forEach((id: string) => counts.set(id, (counts.get(id) || 0) + 1))
-    return Array.from(counts.entries()).filter(([, count]) => count > 1).map(([id]) => id)
-  }, [selectedProductIds])
-
   const warehouses = locations.filter(l => l.type === 'WAREHOUSE')
-  const shops = locations.filter(l => l.type === 'SHOP')
 
   return (
     <div className="space-y-6 fade-in">
@@ -129,47 +154,36 @@ export default function StockInPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Product</th>
-              <th>Category</th>
+              <th>Product / Variant</th>
               <th>Location</th>
-              <th>Quantity</th>
+              <th>Received</th>
+              <th>Stock Added</th>
               <th>Batch #</th>
               <th>Cost Price</th>
               <th>Supplier</th>
-              <th>Received By</th>
               <th>Date</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               [...Array(5)].map((_, i) => (
-                <tr key={i}>{[...Array(9)].map((_, j) => <td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}</tr>
+                <tr key={i}>{[...Array(8)].map((_, j) => <td key={j}><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}</tr>
               ))
             ) : entries.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-12 text-slate-400">No stock entries yet. <button onClick={() => setShowForm(true)} className="text-indigo-600 underline">Record first entry</button></td></tr>
+              <tr><td colSpan={8} className="text-center py-12 text-slate-400">No stock entries yet. <button onClick={() => setShowForm(true)} className="text-indigo-600 underline">Record first entry</button></td></tr>
             ) : entries.map((e: any) => (
               <tr key={e.id}>
                 <td>
-                  <div>
-                    <p className="font-medium text-sm text-slate-900">{e.product.name}</p>
-                    <code className="text-xs text-slate-400">{e.product.sku}</code>
-                  </div>
+                  <div className="font-medium text-slate-900">{e.variant?.product?.name || 'Unknown Product'}</div>
+                  <div className="text-xs text-slate-500">{e.variant?.sku} | {e.variant?.colorName}</div>
                 </td>
-                <td>
-                  <span className="badge badge-indigo">{e.product.category?.name}</span>
-                </td>
-                <td>
-                  <div>
-                    <p className="text-sm text-slate-900">{e.location.name}</p>
-                    <span className="text-xs text-slate-400">{e.location.type}</span>
-                  </div>
-                </td>
-                <td><span className="font-bold text-emerald-600">+{e.quantity} {e.product.unit}</span></td>
-                <td>{e.batchNumber ? <code className="text-xs bg-slate-100 px-2 py-0.5 rounded">{e.batchNumber}</code> : '—'}</td>
-                <td>{e.costPrice ? formatCurrency(e.costPrice) : '—'}</td>
-                <td className="text-sm text-slate-600">{e.supplier?.name || '—'}</td>
-                <td className="text-sm text-slate-600">{e.user?.name}</td>
-                <td className="text-sm text-slate-500">{formatDate(e.createdAt)}</td>
+                <td>{e.location?.name}</td>
+                <td><span className="font-medium">{e.receivedQty}</span> <span className="text-xs text-slate-500">{e.receivedUnit}</span></td>
+                <td><span className="text-green-600 font-bold">+{e.quantityAddedToStock}</span> <span className="text-xs text-slate-500">{e.variant?.stockUnitLabel}</span></td>
+                <td>{e.batchNumber || '-'}</td>
+                <td>{e.costPrice ? formatCurrency(e.costPrice) : '-'}</td>
+                <td>{e.supplier?.name || '-'}</td>
+                <td>{formatDate(e.createdAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -177,107 +191,154 @@ export default function StockInPage() {
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
-          <div className="modal max-w-3xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold">Record Stock In</h2>
-                <p className="text-sm text-slate-500">Batch receipt mode: enter a destination first, then add 3 or more product lines.</p>
-              </div>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl my-auto animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-900">Record Stock Receipt</h2>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="form-group">
-                <label htmlFor="stockin-location" className="label">Destination Location *</label>
-                <select id="stockin-location" required className="input" value={form.locationId} onChange={e => setForm({ ...form, locationId: e.target.value })}>
-                  <option value="">Select location</option>
-                  {warehouses.length > 0 && <optgroup label="Warehouses">{warehouses.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>}
-                  {shops.length > 0 && <optgroup label="Shops">{shops.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="label">Batch Number</label>
-                <input className="input font-mono" value={form.batchNumber || ''} onChange={e => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g. BATCH-2024-001" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="stockin-supplier" className="label">Supplier</label>
-                <select id="stockin-supplier" className="input" value={form.supplierId || ''} onChange={e => setForm({ ...form, supplierId: e.target.value })}>
-                  <option value="">No supplier</option>
-                  {suppliers.map((supplier: any) => (
-                    <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="label">Notes</label>
-                <textarea className="input" rows={2} value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="Optional notes..." />
-              </div>
-
-              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Stock Lines</h3>
-                    <p className="text-xs text-slate-500">
-                      Currently filled: <strong>{filledItemsCount}/{items.length}</strong>
-                    </p>
-                  </div>
-                  <button type="button" onClick={addItem} className="btn-secondary btn-sm">+ Add Item</button>
+            
+            <form onSubmit={handleSave} className="p-6">
+              {toast && <div className="mb-6 p-4 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-medium border border-indigo-100">{toast}</div>}
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div>
+                  <label className="label">Receiving Location *</label>
+                  <select required value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} className="input">
+                    <option value="">Select Warehouse...</option>
+                    {warehouses.map((l: any) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
                 </div>
-
-                <div className="space-y-3">
-                  {items.map((item, index) => {
-                    const isDuplicate = item.productId && duplicateProductIds.includes(item.productId)
-                    return (
-                    <div key={index} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-[minmax(0,1fr)_140px_140px_auto]">
-                      <div className="form-group mb-0">
-                        <label className="label">Product {index + 1}</label>
-                        <select className={`input ${isDuplicate ? 'border-amber-400 bg-amber-50' : ''}`} required value={item.productId} onChange={(e) => updateItem(index, { productId: e.target.value })}>
-                          <option value="">Select product</option>
-                          {products.map((p: any) => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
-                        </select>
-                        {isDuplicate && (
-                          <p className="mt-1 text-xs font-medium text-amber-600">
-                            ⚠️ Duplicate product – batch needs distinct products
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="form-group mb-0">
-                        <label className="label">Quantity</label>
-                        <input type="number" required min="0.01" step="0.01" className="input" value={item.quantity} onChange={(e) => updateItem(index, { quantity: e.target.value })} placeholder="0" />
-                      </div>
-
-                      <div className="form-group mb-0">
-                        <label className="label">Cost Price</label>
-                        <input type="number" step="0.01" className="input" value={item.costPrice || ''} onChange={(e) => updateItem(index, { costPrice: e.target.value })} placeholder="0.00" />
-                      </div>
-
-                      <div className="flex items-end">
-                        <button type="button" onClick={() => removeItem(index)} className="btn-secondary btn-sm w-full md:w-auto">Remove</button>
-                      </div>
-                    </div>
-                  )})}
+                <div>
+                  <label className="label">Supplier (Optional)</label>
+                  <select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="input">
+                    <option value="">Select Supplier...</option>
+                    {suppliers.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
                 </div>
-
-                {duplicateProductIds.length > 0 && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-                    ⚠️ Duplicate products detected. Each batch line should be a different product.
-                  </div>
-                )}
+                <div>
+                  <label className="label">Batch / Invoice #</label>
+                  <input type="text" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} className="input" placeholder="e.g. INV-2024-001" />
+                </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={saving || !form.locationId} className="btn-primary flex-1 justify-center">
-                  {saving ? 'Saving…' : '⬇️ Record Batch Stock In'}
-                </button>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800">Received Items</h3>
+                  <button type="button" onClick={addItem} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg">+ Add Row</button>
+                </div>
+                
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                      <tr>
+                        <th className="p-3 font-medium w-1/3">Product Variant *</th>
+                        <th className="p-3 font-medium">Received Qty *</th>
+                        <th className="p-3 font-medium">Unit Name *</th>
+                        <th className="p-3 font-medium">Conv. Factor *</th>
+                        <th className="p-3 font-medium">Total Stock</th>
+                        <th className="p-3 font-medium">Unit Cost</th>
+                        <th className="p-3 font-medium w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items.map((item, i) => {
+                        const variant = variants.find(v => v.id === item.variantId)
+                        const stockAdded = (Number(item.receivedQty) || 0) * (Number(item.conversionFactor) || 0)
+                        
+                        return (
+                          <tr key={i} className="group hover:bg-slate-50/50">
+                            <td className="p-2">
+                              <select 
+                                value={item.variantId} 
+                                onChange={(e) => handleVariantChange(i, e.target.value)}
+                                className="input text-sm py-1.5"
+                                required={i === 0 || !!item.receivedQty}
+                              >
+                                <option value="">Select Variant...</option>
+                                {variants.map((v: any) => (
+                                  <option key={v.id} value={v.id}>{v.productName} - {v.colorName} ({v.sku})</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-2">
+                              <input 
+                                type="number" 
+                                min="0.01" 
+                                step="0.01" 
+                                value={item.receivedQty} 
+                                onChange={(e) => updateItem(i, { receivedQty: e.target.value })} 
+                                className="input text-sm py-1.5" 
+                                placeholder="Qty"
+                                required={!!item.variantId}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input 
+                                type="text" 
+                                value={item.receivedUnit} 
+                                onChange={(e) => updateItem(i, { receivedUnit: e.target.value })} 
+                                className="input text-sm py-1.5" 
+                                placeholder="Unit"
+                                required={!!item.variantId}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input 
+                                type="number" 
+                                min="0.0001" 
+                                step="0.0001" 
+                                value={item.conversionFactor} 
+                                onChange={(e) => updateItem(i, { conversionFactor: e.target.value })} 
+                                className="input text-sm py-1.5" 
+                                placeholder="Multiplier"
+                                title={`1 ${item.receivedUnit || 'Unit'} = X ${variant?.stockUnitLabel || 'Stock Units'}`}
+                                required={!!item.variantId}
+                              />
+                            </td>
+                            <td className="p-2 text-slate-600 font-medium">
+                              {stockAdded > 0 ? `+${stockAdded} ${variant?.stockUnitLabel || ''}` : '-'}
+                            </td>
+                            <td className="p-2">
+                              <input 
+                                type="number" 
+                                min="0" 
+                                step="0.01" 
+                                value={item.costPrice} 
+                                onChange={(e) => updateItem(i, { costPrice: e.target.value })} 
+                                className="input text-sm py-1.5" 
+                                placeholder="Optional"
+                              />
+                            </td>
+                            <td className="p-2 text-center">
+                              {items.length > 1 && (
+                                <button type="button" onClick={() => removeItem(i)} className="text-slate-300 hover:text-red-500 transition-colors p-1" title="Remove Row">
+                                  ✕
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end gap-3">
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary min-w-[140px]">
+                  {saving ? 'Saving...' : 'Save Stock Receipt'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {toast && <div className="toast-success">✅ {toast}</div>}
     </div>
   )
 }

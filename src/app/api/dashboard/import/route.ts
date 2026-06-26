@@ -111,31 +111,58 @@ export async function POST(request: NextRequest) {
         categoryId = category.id
       }
 
-      await prisma.product.upsert({
+      let product = await prisma.product.findFirst({
+        where: { name }
+      });
+      if (!product) {
+        product = await prisma.product.create({
+          data: {
+            name,
+            categoryId,
+            description: stringValue(row.description, ''),
+            isActive: stringValue(row.isActive, 'true').toLowerCase() !== 'false',
+          }
+        });
+      } else {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: { 
+            categoryId, 
+            description: stringValue(row.description, ''), 
+            isActive: stringValue(row.isActive, 'true').toLowerCase() !== 'false' 
+          }
+        });
+      }
+
+      const costPrice = row.costPrice === '' ? 0 : numberValue(row.costPrice, 0);
+
+      await prisma.productVariant.upsert({
         where: { sku },
         update: {
-          name,
-          design,
-          color: stringValue(row.color, 'White'),
+          productId: product.id,
+          colorName: stringValue(row.color, 'White'),
           colorHex: stringValue(row.colorHex, '#FFFFFF'),
-          categoryId,
-          unit: stringValue(row.unit, 'meters'),
+          stockUnit: stringValue(row.unit, 'meters'),
+          stockUnitLabel: stringValue(row.unit, 'meters'),
+          saleUnit: stringValue(row.unit, 'meters'),
+          saleUnitLabel: stringValue(row.unit, 'meters'),
           lowStockAt: numberValue(row.lowStockAt, 10),
-          costPrice: row.costPrice === '' ? null : numberValue(row.costPrice, 0),
-          description: stringValue(row.description, ''),
+          costPrice: costPrice,
+          salePrice: costPrice,
           isActive: stringValue(row.isActive, 'true').toLowerCase() !== 'false',
         },
         create: {
-          name,
-          design,
           sku,
-          color: stringValue(row.color, 'White'),
+          productId: product.id,
+          colorName: stringValue(row.color, 'White'),
           colorHex: stringValue(row.colorHex, '#FFFFFF'),
-          categoryId,
-          unit: stringValue(row.unit, 'meters'),
+          stockUnit: stringValue(row.unit, 'meters'),
+          stockUnitLabel: stringValue(row.unit, 'meters'),
+          saleUnit: stringValue(row.unit, 'meters'),
+          saleUnitLabel: stringValue(row.unit, 'meters'),
           lowStockAt: numberValue(row.lowStockAt, 10),
-          costPrice: row.costPrice === '' ? null : numberValue(row.costPrice, 0),
-          description: stringValue(row.description, ''),
+          costPrice: costPrice,
+          salePrice: costPrice,
           isActive: stringValue(row.isActive, 'true').toLowerCase() !== 'false',
         },
       })

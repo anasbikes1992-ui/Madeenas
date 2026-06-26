@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
     const row = normalizeRow(raw)
     const sku = textValue(row.sku)
     const name = textValue(row.name)
-    const design = textValue(row.design, 'Default')
 
     if (!sku || !name) {
       results.push({ sku: sku || 'N/A', status: 'ERROR', message: 'name and sku are required' })
@@ -95,38 +94,74 @@ export async function POST(request: NextRequest) {
         categoryId = category.id
       }
 
-      await prisma.product.upsert({
+      const existingVariant = await prisma.productVariant.findUnique({
         where: { sku },
-        update: {
-          name,
-          design,
-          categoryId,
-          unit: textValue(row.unit, 'meters'),
-          alternateUnit: textValue(row.alternateunit || row.alternate_unit) || null,
-          conversionFactor: row.conversionfactor === '' ? null : numberValue(row.conversionfactor, 0) || null,
-          color: textValue(row.color, 'White'),
-          colorHex: textValue(row.colorhex, '#FFFFFF'),
-          lowStockAt: numberValue(row.lowstockat, 10),
-          costPrice: row.costprice === '' ? null : numberValue(row.costprice, 0),
-          description: textValue(row.description) || null,
-          isActive: textValue(row.isactive, 'true').toLowerCase() !== 'false',
-        },
-        create: {
-          sku,
-          name,
-          design,
-          categoryId,
-          unit: textValue(row.unit, 'meters'),
-          alternateUnit: textValue(row.alternateunit || row.alternate_unit) || null,
-          conversionFactor: row.conversionfactor === '' ? null : numberValue(row.conversionfactor, 0) || null,
-          color: textValue(row.color, 'White'),
-          colorHex: textValue(row.colorhex, '#FFFFFF'),
-          lowStockAt: numberValue(row.lowstockat, 10),
-          costPrice: row.costprice === '' ? null : numberValue(row.costprice, 0),
-          description: textValue(row.description) || null,
-          isActive: textValue(row.isactive, 'true').toLowerCase() !== 'false',
-        },
+        include: { product: true }
       })
+
+      const isActive = textValue(row.isactive, 'true').toLowerCase() !== 'false'
+      const description = textValue(row.description) || null
+      const stockUnit = textValue(row.unit, 'meters')
+      const stockUnitLabel = stockUnit.charAt(0).toUpperCase() + stockUnit.slice(1)
+      const altUnit = textValue(row.alternateunit || row.alternate_unit) || null
+      const saleToStockFactor = row.conversionfactor === '' ? 1 : numberValue(row.conversionfactor, 1) || 1
+      const colorName = textValue(row.color, 'White')
+      const colorHex = textValue(row.colorhex, '#FFFFFF')
+      const lowStockAt = numberValue(row.lowstockat, 10)
+      const costPrice = row.costprice === '' ? null : numberValue(row.costprice, 0)
+      
+      if (existingVariant) {
+        await prisma.product.update({
+          where: { id: existingVariant.productId },
+          data: {
+            name,
+            categoryId,
+            description,
+            isActive
+          }
+        })
+        await prisma.productVariant.update({
+          where: { sku },
+          data: {
+            stockUnit,
+            stockUnitLabel,
+            saleUnit: stockUnit,
+            saleUnitLabel: stockUnitLabel,
+            altUnit,
+            saleToStockFactor,
+            colorName,
+            colorHex,
+            lowStockAt,
+            costPrice,
+            isActive
+          }
+        })
+      } else {
+        await prisma.product.create({
+          data: {
+            name,
+            categoryId,
+            description,
+            isActive,
+            variants: {
+              create: {
+                sku,
+                stockUnit,
+                stockUnitLabel,
+                saleUnit: stockUnit,
+                saleUnitLabel: stockUnitLabel,
+                altUnit,
+                saleToStockFactor,
+                colorName,
+                colorHex,
+                lowStockAt,
+                costPrice,
+                isActive
+              }
+            }
+          }
+        })
+      }
 
       results.push({ sku, status: 'OK' })
     } catch (error) {

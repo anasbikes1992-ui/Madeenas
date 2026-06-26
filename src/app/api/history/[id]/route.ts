@@ -16,16 +16,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const body = await request.json()
 
-  const entry = await prisma.entityHistory.update({
+  const entry = await prisma.auditLog.update({
     where: { id },
     data: {
-      eventType: body.eventType ? String(body.eventType) : undefined,
-      title: body.title ? String(body.title) : undefined,
-      details: body.details === undefined ? undefined : body.details ? String(body.details) : null,
-      payloadJson: body.payloadJson === undefined ? undefined : body.payloadJson ? String(body.payloadJson) : null,
+      action: body.eventType || body.action ? String(body.eventType || body.action) : undefined,
+      details: body.details || body.payloadJson ? JSON.stringify({ title: body.title, details: body.details, payloadJson: body.payloadJson }) : undefined,
     },
     include: {
-      createdByUser: { select: { id: true, name: true, role: true, email: true } },
+      user: { select: { id: true, name: true, role: true, email: true } },
     },
   })
 
@@ -40,7 +38,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   const { id } = await params
-  await prisma.entityHistory.delete({ where: { id } })
+  await prisma.auditLog.delete({ where: { id } })
 
   return NextResponse.json({ success: true })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
+import { LocationType } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     where: includeAll ? undefined : { isActive: true },
     include: {
       stocks: {
-        include: { product: { include: { category: true } } },
+        include: { variant: { include: { product: { include: { category: true } } } } },
       },
     },
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
   const body = await request.json()
   const location = await prisma.location.create({
-    data: { name: body.name, code: body.code, type: body.type, address: body.address },
+    data: { name: body.name, code: body.code, type: body.type as LocationType, address: body.address },
   })
   return NextResponse.json(location, { status: 201 })
 }

@@ -4,8 +4,7 @@ import JsBarcode from 'jsbarcode'
 export interface LabelData {
   name: string
   sku: string
-  design?: string
-  color?: string
+  colorName?: string
   category?: string
   unit?: string
 }
@@ -37,10 +36,10 @@ export async function generateProductLabelPDF(product: LabelData) {
     doc.setFont('helvetica', 'bold')
     doc.text(product.name.slice(0, 25), 2, 5)
 
-    // Subheader - Design/Color
+    // Subheader - Color
     doc.setFontSize(6)
     doc.setFont('helvetica', 'normal')
-    doc.text(`${product.design || ''} | ${product.color || ''}`.slice(0, 35), 2, 8)
+    doc.text(`${product.colorName || ''}`.slice(0, 35), 2, 8)
 
     // Barcode Image
     doc.addImage(barcodeData, 'PNG', 2, 10, 46, 10)
@@ -94,7 +93,7 @@ export async function generateBatchLabelsPDF(products: LabelData[]) {
 
       doc.setFontSize(6)
       doc.setFont('helvetica', 'normal')
-      doc.text(`${p.design || ''} | ${p.color || ''}`.slice(0, 35), 2, 8)
+      doc.text(`${p.colorName || ''}`.slice(0, 35), 2, 8)
 
       doc.addImage(barcodeData, 'PNG', 2, 10, 46, 10)
 

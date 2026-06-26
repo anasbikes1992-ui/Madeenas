@@ -27,7 +27,7 @@ const TABLES = [
   'locations',
   'stocks',
   'stockIns',
-  'stockOutRequests',
+  'stockTransfers',
   'sales',
   'saleItems',
   'customers',
@@ -57,11 +57,11 @@ export async function generateBackupArtifact(): Promise<BackupArtifact> {
   const stockIns = await prisma.stockIn.findMany({ take: maxRows, orderBy: { createdAt: 'desc' } })
   snapshots.push({ table: 'stockIns', rowCount: stockIns.length, rows: stockIns })
 
-  const stockOutRequests = await prisma.stockOutRequest.findMany({
+  const stockTransfers = await prisma.stockTransfer.findMany({
     take: maxRows,
     orderBy: { createdAt: 'desc' },
   })
-  snapshots.push({ table: 'stockOutRequests', rowCount: stockOutRequests.length, rows: stockOutRequests })
+  snapshots.push({ table: 'stockTransfers', rowCount: stockTransfers.length, rows: stockTransfers })
 
   const sales = await prisma.sale.findMany({ take: maxRows, orderBy: { createdAt: 'desc' } })
   snapshots.push({ table: 'sales', rowCount: sales.length, rows: sales })

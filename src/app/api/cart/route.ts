@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { productId, quantity } = validation.data
+    const { variantId, quantity } = validation.data
     const taxRate = body.taxRate || 18
 
     const cart = await cartService.addToCart({
       customerId: user.id,
-      productId,
+      variantId,
       quantity,
     })
 

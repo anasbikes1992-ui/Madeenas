@@ -18,9 +18,13 @@ import type { Prisma } from '@prisma/client';
 const cartInclude = {
   items: {
     include: {
-      product: {
+      variant: {
         include: {
-          category: true,
+          product: {
+            include: {
+              category: true,
+            },
+          },
         },
       },
     },
@@ -35,9 +39,6 @@ export type CartWithDetails = Prisma.CartGetPayload<{
 // GET OR CREATE CART
 // =============================================================================
 
-/**
- * Get the customer's cart, creating one if it doesn't exist
- */
 export async function getOrCreateCart(customerId: string): Promise<CartWithDetails> {
   let cart = await prisma.cart.findUnique({
     where: { customerId },
@@ -56,14 +57,9 @@ export async function getOrCreateCart(customerId: string): Promise<CartWithDetai
   return cart;
 }
 
-/**
- * Get cart with calculated totals
- */
 export async function getCartWithTotals(customerId: string, taxRate = 18) {
   const cart = await getOrCreateCart(customerId);
   
-  // Calculate totals — convert Prisma Decimal to number explicitly to avoid
-  // silent type coercion issues in arithmetic operations
   const items = cart.items.map((item) => ({
     ...item,
     ...calculateLineItemTax(item.quantity, Number(item.unitPrice), taxRate),
@@ -91,83 +87,76 @@ export async function getCartWithTotals(customerId: string, taxRate = 18) {
 
 export interface AddToCartParams {
   customerId: string;
-  productId: string;
+  variantId: string;
   quantity: number;
 }
 
-/**
- * Add a product to the cart or update quantity if it already exists
- */
 export async function addToCart(params: AddToCartParams) {
-  const { customerId, productId, quantity } = params;
+  const { customerId, variantId, quantity } = params;
   
   if (quantity <= 0) {
     throw new Error('Quantity must be greater than 0');
   }
   
-  // Get or create cart
   const cart = await getOrCreateCart(customerId);
   
-  // Check product exists and get current price
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  const variant = await prisma.productVariant.findUnique({
+    where: { id: variantId },
     select: {
       id: true,
-      name: true,
+      saleUnit: true,
       costPrice: true,
       isActive: true,
+      product: { select: { isActive: true } },
     },
   });
   
-  if (!product) {
-    throw new Error('Product not found');
+  if (!variant) {
+    throw new Error('Product variant not found');
   }
   
-  if (!product.isActive) {
-    throw new Error('Product is not available');
+  if (!variant.isActive || !variant.product.isActive) {
+    throw new Error('Product variant is not available');
   }
   
-  if (!product.costPrice) {
-    throw new Error('Product does not have a price set');
+  if (!variant.costPrice) {
+    throw new Error('Product variant does not have a price set');
   }
   
-  // Check if item already exists in cart
   const existingItem = await prisma.cartItem.findUnique({
     where: {
-      cartId_productId: {
+      cartId_variantId: {
         cartId: cart.id,
-        productId,
+        variantId,
       },
     },
   });
   
-  const costPrice = Number(product.costPrice) || 0;
+  const costPrice = Number(variant.costPrice) || 0;
   const retailPrice = costPrice * RETAIL_MARKUP;
 
   if (existingItem) {
-    // Update quantity
     await prisma.cartItem.update({
       where: {
         id: existingItem.id,
       },
       data: {
         quantity: existingItem.quantity + quantity,
-        unitPrice: retailPrice, // Update to current retail price
+        unitPrice: retailPrice,
       },
     });
   } else {
-    // Create new cart item
     await prisma.cartItem.create({
       data: {
         cartId: cart.id,
-        productId,
+        variantId,
+        saleUnit: variant.saleUnit,
         quantity,
         unitPrice: retailPrice,
       },
     });
   }
   
-  // Return updated cart with totals
   return getCartWithTotals(customerId);
 }
 
@@ -181,9 +170,6 @@ export interface UpdateCartItemParams {
   quantity: number;
 }
 
-/**
- * Update the quantity of a cart item
- */
 export async function updateCartItem(params: UpdateCartItemParams) {
   const { customerId, cartItemId, quantity } = params;
   
@@ -191,7 +177,6 @@ export async function updateCartItem(params: UpdateCartItemParams) {
     throw new Error('Quantity must be greater than 0');
   }
   
-  // Verify cart item belongs to customer
   const cartItem = await prisma.cartItem.findUnique({
     where: { id: cartItemId },
     include: {
@@ -207,7 +192,6 @@ export async function updateCartItem(params: UpdateCartItemParams) {
     throw new Error('Unauthorized');
   }
   
-  // Update quantity
   await prisma.cartItem.update({
     where: { id: cartItemId },
     data: { quantity },
@@ -225,13 +209,9 @@ export interface RemoveFromCartParams {
   cartItemId: string;
 }
 
-/**
- * Remove an item from the cart
- */
 export async function removeFromCart(params: RemoveFromCartParams) {
   const { customerId, cartItemId } = params;
   
-  // Verify cart item belongs to customer
   const cartItem = await prisma.cartItem.findUnique({
     where: { id: cartItemId },
     include: {
@@ -247,7 +227,6 @@ export async function removeFromCart(params: RemoveFromCartParams) {
     throw new Error('Unauthorized');
   }
   
-  // Delete cart item
   await prisma.cartItem.delete({
     where: { id: cartItemId },
   });
@@ -259,9 +238,6 @@ export async function removeFromCart(params: RemoveFromCartParams) {
 // CLEAR CART
 // =============================================================================
 
-/**
- * Clear all items from the cart
- */
 export async function clearCart(customerId: string) {
   const cart = await prisma.cart.findUnique({
     where: { customerId },
@@ -285,16 +261,13 @@ export async function clearCart(customerId: string) {
 export interface StockValidationResult {
   valid: boolean;
   errors: Array<{
-    productId: string;
+    variantId: string;
     productName: string;
     requested: number;
     available: number;
   }>;
 }
 
-/**
- * Validate that all cart items have sufficient stock at a location
- */
 export async function validateCartStock(
   customerId: string,
   locationId: string
@@ -306,8 +279,8 @@ export async function validateCartStock(
   for (const item of cart.items) {
     const stock = await prisma.stock.findUnique({
       where: {
-        productId_locationId: {
-          productId: item.productId,
+        variantId_locationId: {
+          variantId: item.variantId,
           locationId,
         },
       },
@@ -317,8 +290,8 @@ export async function validateCartStock(
     
     if (available < item.quantity) {
       errors.push({
-        productId: item.productId,
-        productName: item.product.name,
+        variantId: item.variantId,
+        productName: item.variant.product.name,
         requested: item.quantity,
         available,
       });
@@ -336,40 +309,36 @@ export async function validateCartStock(
 // =============================================================================
 
 export interface SyncCartItem {
-  productId: string;
+  variantId: string;
   quantity: number;
 }
 
-/**
- * Sync cart from localStorage or offline storage
- * Replaces the entire cart with the provided items
- */
 export async function syncCart(customerId: string, items: SyncCartItem[]) {
   const cart = await getOrCreateCart(customerId);
   
-  // Clear existing items
   await prisma.cartItem.deleteMany({
     where: { cartId: cart.id },
   });
   
-  // Add new items
   for (const item of items) {
-    // Get current price
-    const product = await prisma.product.findUnique({
-      where: { id: item.productId },
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: item.variantId },
       select: {
-        costPrice: true,
+        costPrice: true, 
+        saleUnit: true,
+        product: { select: { isActive: true } },
         isActive: true,
       },
     });
     
-    if (product && product.isActive && product.costPrice) {
+    if (variant && variant.isActive && variant.product.isActive && variant.costPrice) {
       await prisma.cartItem.create({
         data: {
           cartId: cart.id,
-          productId: item.productId,
+          variantId: item.variantId,
+          saleUnit: variant.saleUnit,
           quantity: item.quantity,
-          unitPrice: product.costPrice,
+          unitPrice: Number(variant.costPrice) * RETAIL_MARKUP,
         },
       });
     }
@@ -382,9 +351,6 @@ export async function syncCart(customerId: string, items: SyncCartItem[]) {
 // GET CART ITEM COUNT
 // =============================================================================
 
-/**
- * Get the total number of items in the cart
- */
 export async function getCartItemCount(customerId: string): Promise<number> {
   const cart = await prisma.cart.findUnique({
     where: { customerId },

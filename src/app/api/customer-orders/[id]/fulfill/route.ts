@@ -40,13 +40,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     include: {
       items: {
         include: {
-          product: {
+          variant: {
             select: {
               id: true,
-              name: true,
+              colorName: true,
               sku: true,
-              unit: true,
+              stockUnit: true,
               costPrice: true,
+              product: {
+                select: { name: true }
+              }
             },
           },
         },
@@ -57,14 +60,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           email: true,
         },
       },
-      sale: {
-        select: {
-          id: true,
-          receiptNo: true,
-          totalAmount: true,
-          createdAt: true,
-        },
-      },
     },
   })
 
@@ -72,18 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
-  if (order.sale) {
-    return NextResponse.json(
-      {
-        error: 'Order already fulfilled',
-        sale: order.sale,
-        order,
-      },
-      { status: 409 }
-    )
-  }
-
-  if (['CANCELLED', 'REFUNDED'].includes(order.status)) {
+  if (['CANCELLED', 'DELIVERED'].includes(order.status)) {
     return NextResponse.json({ error: 'Order cannot be fulfilled in its current status' }, { status: 400 })
   }
 
@@ -104,45 +88,48 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       for (const item of order.items) {
         const stock = await tx.stock.findUnique({
           where: {
-            productId_locationId: {
-              productId: item.productId,
+            variantId_locationId: {
+              variantId: item.variantId,
               locationId,
             },
           },
         })
 
         if (!stock || stock.quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${item.product.name}`)
+          throw new Error(`Insufficient stock for ${item.variant.product.name} (${item.variant.colorName})`)
         }
       }
 
       let customerId: string | null = null
-      if (order.phoneNumber && order.phoneNumber !== 'UNKNOWN') {
+      if (order.customerPhone && order.customerPhone !== 'UNKNOWN') {
         const customer = await tx.customer.upsert({
-          where: { phone: order.phoneNumber },
+          where: { phone: order.customerPhone },
           update: {
-            name: order.customer.name,
-            email: order.customer.email,
+            name: order.customer?.name || '',
+            email: order.customer?.email,
           },
           create: {
-            name: order.customer.name,
-            phone: order.phoneNumber,
-            email: order.customer.email,
+            name: order.customer?.name || '',
+            phone: order.customerPhone,
+            email: order.customer?.email,
           },
         })
         customerId = customer.id
       }
 
       const lineItems = order.items.map((item) => {
-        const unitPrice = parsed.data.unitPrice ?? item.unitPrice ?? item.product.costPrice ?? 0
+        const unitPrice = parsed.data.unitPrice ?? item.unitPrice ?? item.variant.costPrice ?? 0
         if (unitPrice <= 0) {
-          throw new Error(`Missing unit price for ${item.product.name}`)
+          throw new Error(`Missing unit price for ${item.variant.product.name}`)
         }
         const subTotal = unitPrice * item.quantity
         const taxAmount = (subTotal * taxRate) / 100
         return {
-          productId: item.productId,
-          quantity: item.quantity,
+          variantId: item.variantId,
+          saleUnit: item.saleUnit || item.variant.stockUnit,
+          saleQty: item.quantity,
+          saleToStockFactor: 1, // default
+          stockQtyDeducted: item.quantity,
           unitPrice,
           subTotal,
           taxRate,
@@ -162,13 +149,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           locationId,
           soldById: session.user.id as string,
           customerId,
-          customerName: order.customer.name,
-          customerPhone: order.phoneNumber,
-          totalAmount: grandTotal,
+          customerName: order.customer?.name,
+          customerPhone: order.customerPhone,
+          grandTotal,
           subTotal,
           taxRate,
           taxAmount,
-          grandTotal,
           paymentMode,
           note: parsed.data.note || `Fulfilled from customer order ${order.id}`,
           items: {
@@ -183,13 +169,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       for (const item of lineItems) {
         await tx.stock.update({
           where: {
-            productId_locationId: {
-              productId: item.productId,
+            variantId_locationId: {
+              variantId: item.variantId,
               locationId,
             },
           },
           data: {
-            quantity: { decrement: item.quantity },
+            quantity: { decrement: item.stockQtyDeducted },
           },
         })
       }
@@ -198,7 +184,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         where: { id: order.id },
         data: {
           status: 'DELIVERED',
-          saleId: sale.id,
           fulfilledBy: session.user.id as string,
           fulfilledAt: new Date(),
           note: order.note

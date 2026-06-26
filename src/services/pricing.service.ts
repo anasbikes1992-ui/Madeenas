@@ -236,43 +236,22 @@ export async function createPriceRule(data: {
   startsAt?: Date
   endsAt?: Date
 }): Promise<PriceRule> {
-  const rule = await prisma.priceRule.create({
-    data: {
-      ...data,
-      conditions: data.conditions as any, // JSON field
-      isActive: true,
-    },
-  })
-
-  return rule as PriceRule
+  throw new Error('Price rules are no longer supported');
 }
 
 export async function updatePriceRule(
   id: string,
   data: Partial<PriceRule>
 ): Promise<PriceRule> {
-  const rule = await prisma.priceRule.update({
-    where: { id },
-    data: {
-      ...data,
-      conditions: data.conditions as any,
-    },
-  })
-
-  return rule as PriceRule
+  throw new Error('Price rules are no longer supported');
 }
 
 export async function deletePriceRule(id: string): Promise<void> {
-  await prisma.priceRule.delete({ where: { id } })
+  throw new Error('Price rules are no longer supported');
 }
 
 export async function getActiveRules(): Promise<PriceRule[]> {
-  const rules = await prisma.priceRule.findMany({
-    where: { isActive: true },
-    orderBy: { priority: 'desc' },
-  })
-
-  return rules as PriceRule[]
+  return [];
 }
 
 export async function listPriceRules(filters: {
@@ -281,23 +260,7 @@ export async function listPriceRules(filters: {
   page?: number
   limit?: number
 }): Promise<{ rules: PriceRule[]; total: number }> {
-  const { ruleType, isActive, page = 1, limit = 20 } = filters
-
-  const where: any = {}
-  if (ruleType) where.ruleType = ruleType
-  if (isActive !== undefined) where.isActive = isActive
-
-  const [rules, total] = await Promise.all([
-    prisma.priceRule.findMany({
-      where,
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.priceRule.count({ where }),
-  ])
-
-  return { rules: rules as PriceRule[], total }
+  return { rules: [], total: 0 };
 }
 
 // =============================================================================
@@ -320,7 +283,7 @@ export async function calculateBulkPricing(
     where: { id: { in: productIds } },
     include: {
       category: true,
-      stocks: true,
+      variants: { include: { stocks: true } },
     },
   })
 
@@ -331,8 +294,13 @@ export async function calculateBulkPricing(
         throw new Error(`Product ${item.productId} not found`)
       }
 
-      const totalStock = product.stocks.reduce((sum, s) => sum + s.quantity, 0)
-      const maxStock = product.lowStockAt * 10 // Rough estimate
+      let totalStock = 0
+      product.variants.forEach((v) => {
+        totalStock += v.stocks.reduce((sum: number, s: any) => sum + s.quantity, 0)
+      })
+      
+      const lowStockAt = product.variants.length > 0 ? product.variants[0].lowStockAt : 10;
+      const maxStock = lowStockAt * 10 // Rough estimate
 
       const context: PricingContext = {
         productId: item.productId,

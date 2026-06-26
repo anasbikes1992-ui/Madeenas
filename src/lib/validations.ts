@@ -23,19 +23,30 @@ const phoneNumberOrEmpty = z
   .optional()
   .transform((value) => value || null)
 
+export const variantSchema = z.object({
+  id: z.string().optional(),
+  colorName: z.string().min(1, 'Color name is required'),
+  colorHex: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid hex color'),
+  sku: z.string().min(3, 'SKU is required'),
+  stockUnit: z.string().min(1, 'Stock unit is required'),
+  stockUnitLabel: z.string().min(1, 'Stock unit label is required'),
+  altUnit: z.string().optional().nullable(),
+  altUnitLabel: z.string().optional().nullable(),
+  saleUnit: z.string().min(1, 'Sale unit is required'),
+  saleUnitLabel: z.string().min(1, 'Sale unit label is required'),
+  saleToStockFactor: z.coerce.number().positive('Must be greater than 0'),
+  lowStockAt: z.coerce.number().min(0, 'Threshold cannot be negative').default(10),
+  costPrice: z.coerce.number().optional().nullable(),
+  salePrice: z.coerce.number().optional().nullable(),
+})
+
+export type VariantFormData = z.infer<typeof variantSchema>
+
 export const productSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  design: z.string().min(2, 'Design is required'),
-  sku: z.string().min(3, 'SKU is required'),
-  color: z.string().min(1, 'Color name is required'),
-  colorHex: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid hex color'),
   categoryId: z.string().min(1, 'Category is required'),
-  unit: z.string().min(1, 'Unit is required'),
-  alternateUnit: z.string().optional().nullable(),
-  conversionFactor: z.coerce.number().positive('Conversion factor must be greater than 0').optional().nullable(),
-  lowStockAt: z.coerce.number().min(0, 'Threshold cannot be negative'),
-  costPrice: z.coerce.number().optional().nullable(),
   description: z.string().optional().nullable(),
+  variants: z.array(variantSchema).min(1, 'At least one variant is required')
 })
 
 export type ProductFormData = z.infer<typeof productSchema>
@@ -53,10 +64,10 @@ export const customerOrderStatusSchema = z.enum([
   'PENDING',
   'APPROVED',
   'PROCESSING',
+  'READY',
   'SHIPPED',
   'DELIVERED',
   'CANCELLED',
-  'REFUNDED',
 ])
 
 export const customerOrderAdminUpdateSchema = z
@@ -69,8 +80,10 @@ export const customerOrderAdminUpdateSchema = z
   })
 
 const saleLineItemSchema = z.object({
-  productId: z.string().min(1, 'Product is required'),
-  quantity: z.coerce.number().positive('Quantity must be positive'),
+  variantId: z.string().min(1, 'Variant is required'),
+  saleQty: z.coerce.number().positive('Quantity must be positive'),
+  saleUnit: z.string().min(1, 'Sale unit is required'),
+  saleToStockFactor: z.coerce.number().positive('Factor must be positive'),
   unitPrice: z.coerce.number().nonnegative(),
   subTotal: z.coerce.number().nonnegative(),
 })
@@ -78,7 +91,8 @@ const saleLineItemSchema = z.object({
 export const saleCheckoutSchema = z.object({
   locationId: z.string().optional().nullable(),
   items: z.array(saleLineItemSchema).min(1, 'At least one item is required'),
-  totalAmount: z.coerce.number().nonnegative(),
+  discountAmount: z.coerce.number().nonnegative().optional().default(0),
+  grandTotal: z.coerce.number().nonnegative().optional(),
   paymentMode: z.enum(['CASH', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'CREDIT']).optional().default('CASH'),
   customerName: z.string().max(200).optional().nullable(),
   customerPhone: z.string().max(32).optional().nullable(),
@@ -87,29 +101,24 @@ export const saleCheckoutSchema = z.object({
 })
 
 const stockInSingleSchema = z.object({
-  productId: z.string().min(1, 'Product is required'),
+  variantId: z.string().min(1, 'Variant is required'),
   locationId: z.string().min(1, 'Location is required'),
-  quantity: z.coerce.number().positive('Quantity must be greater than 0'),
+  receivedQty: z.coerce.number().positive('Quantity must be greater than 0'),
+  receivedUnit: z.string().min(1, 'Received unit is required'),
+  conversionFactor: z.coerce.number().positive('Factor must be greater than 0').default(1),
+  quantityAddedToStock: z.coerce.number().positive('Quantity added to stock must be positive'),
   batchNumber: z.string().optional(),
   supplierId: z.string().optional().nullable(),
   costPrice: z.coerce.number().optional().nullable(),
   note: z.string().optional(),
 })
 
-const stockOutSingleSchema = z.object({
-  productId: z.string().min(1, 'Product is required'),
-  productColorId: z.string().optional(),
-  fromLocationId: z.string().min(1, 'From location is required'),
-  toLocationId: z.string().optional().nullable(),
-  quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
-  note: z.string().optional(),
-  referenceInvoice: z.string().trim().max(120).optional().nullable(),
-  invoiceDate: z.string().trim().optional().nullable(),
-})
-
 const stockInItemSchema = z.object({
-  productId: z.string().min(1, 'Product is required'),
-  quantity: z.coerce.number().positive('Quantity must be greater than 0'),
+  variantId: z.string().min(1, 'Variant is required'),
+  receivedQty: z.coerce.number().positive('Quantity must be greater than 0'),
+  receivedUnit: z.string().min(1, 'Received unit is required'),
+  conversionFactor: z.coerce.number().positive('Factor must be greater than 0').default(1),
+  quantityAddedToStock: z.coerce.number().positive('Quantity added to stock must be positive'),
   costPrice: z.coerce.number().optional().nullable(),
 });
 
@@ -123,9 +132,18 @@ const stockInBatchSchema = z.object({
 
 export const stockInSchema = z.union([stockInSingleSchema, stockInBatchSchema]);
 
+const stockOutSingleSchema = z.object({
+  variantId: z.string().min(1, 'Variant is required'),
+  fromLocationId: z.string().min(1, 'From location is required'),
+  toLocationId: z.string().optional().nullable(),
+  quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
+  note: z.string().optional(),
+  referenceInvoice: z.string().trim().max(120).optional().nullable(),
+  invoiceDate: z.string().trim().optional().nullable(),
+})
+
 const stockOutItemSchema = z.object({
-  productId: z.string().min(1, 'Product is required'),
-  productColorId: z.string().optional(),
+  variantId: z.string().min(1, 'Variant is required'),
   quantityRequested: z.coerce.number().positive('Quantity must be greater than 0'),
 });
 
@@ -141,7 +159,7 @@ const stockOutBatchSchema = z.object({
 export const stockOutRequestSchema = z.union([stockOutSingleSchema, stockOutBatchSchema]);
 
 const stockSendItemSchema = z.object({
-  productId: z.string().min(1, 'Product is required'),
+  variantId: z.string().min(1, 'Variant is required'),
   quantityDispatched: z.coerce.number().positive('Quantity must be greater than 0'),
 })
 
@@ -203,7 +221,7 @@ export const supplierSchema = z.object({
 })
 
 export const customerOrderSchema = z.object({
-  productId: z.string().trim().min(1, 'Product is required'),
+  variantId: z.string().trim().min(1, 'Variant is required'),
   customerName: z.string().trim().min(2, 'Customer name is required').max(120, 'Customer name is too long'),
   customerEmail: z.string().trim().email('Valid email is required'),
   customerPhone: phoneNumberOrEmpty,

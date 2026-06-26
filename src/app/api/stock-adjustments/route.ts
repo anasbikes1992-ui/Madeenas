@@ -6,11 +6,11 @@ import { z } from 'zod'
 import { hasPermission } from '@/lib/permissions'
 
 const adjustmentSchema = z.object({
-  productId: z.string().min(1),
+  variantId: z.string().min(1),
   locationId: z.string().min(1),
   countedQuantity: z.coerce.number(),
   note: z.string().trim().max(500).optional(),
-  reason: z.string().trim().max(120).optional(),
+  reason: z.enum(['STOCKTAKE', 'DAMAGE', 'THEFT', 'WRITE_OFF', 'CORRECTION', 'EXPIRY', 'OTHER']).optional().default('CORRECTION'),
 })
 
 export async function GET(request: NextRequest) {
@@ -23,17 +23,17 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25', 10)))
-  const productId = searchParams.get('productId') || undefined
+  const variantId = searchParams.get('variantId') || undefined
   const locationId = searchParams.get('locationId') || undefined
 
   const adjustments = await prisma.stockAdjustment.findMany({
     where: {
-      ...(productId ? { productId } : {}),
+      ...(variantId ? { variantId } : {}),
       ...(locationId ? { locationId } : {}),
     },
     include: {
-      adjustedByUser: { select: { id: true, name: true, role: true } },
-      product: { select: { id: true, name: true, sku: true, unit: true } },
+      user: { select: { id: true, name: true, role: true } },
+      variant: { include: { product: { select: { id: true, name: true } } } },
       location: { select: { id: true, name: true, type: true } },
     },
     orderBy: { createdAt: 'desc' },
@@ -54,19 +54,19 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const parsed = adjustmentSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid adjustment payload' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid adjustment payload', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { productId, locationId, countedQuantity, note, reason } = parsed.data
+  const { variantId, locationId, countedQuantity, note, reason } = parsed.data
 
-  const [product, location, currentStock] = await Promise.all([
-    prisma.product.findUnique({ where: { id: productId }, select: { id: true, name: true, unit: true, isActive: true } }),
+  const [variant, location, currentStock] = await Promise.all([
+    prisma.productVariant.findUnique({ where: { id: variantId }, include: { product: true } }),
     prisma.location.findUnique({ where: { id: locationId }, select: { id: true, name: true, isActive: true } }),
-    prisma.stock.findUnique({ where: { productId_locationId: { productId, locationId } } }),
+    prisma.stock.findUnique({ where: { variantId_locationId: { variantId, locationId } } }),
   ])
 
-  if (!product || !product.isActive) {
-    return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+  if (!variant || !variant.isActive || !variant.product.isActive) {
+    return NextResponse.json({ error: 'Variant or Product not found/inactive' }, { status: 404 })
   }
 
   if (!location || !location.isActive) {
@@ -78,23 +78,23 @@ export async function POST(request: NextRequest) {
 
   const updated = await prisma.$transaction(async (tx) => {
     const stockRecord = await tx.stock.upsert({
-      where: { productId_locationId: { productId, locationId } },
+      where: { variantId_locationId: { variantId, locationId } },
       update: { quantity: countedQuantity },
-      create: { productId, locationId, quantity: countedQuantity },
+      create: { variantId, locationId, quantity: countedQuantity },
       include: {
-        product: { select: { id: true, name: true, unit: true } },
+        variant: { include: { product: { select: { id: true, name: true } } } },
         location: { select: { id: true, name: true } },
       },
     })
 
     await tx.stockAdjustment.create({
       data: {
-        productId,
+        variantId,
         locationId,
         previousQuantity,
         countedQuantity,
         delta,
-        reason: reason ?? null,
+        reason: reason as any,
         note: note ?? null,
         adjustedBy: session.user.id,
       },
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
 
   const direction = delta > 0 ? 'increase' : delta < 0 ? 'decrease' : 'no change'
   const details = [
-    `Adjusted ${product.name} at ${location.name}`,
-    `Prev: ${previousQuantity} ${product.unit}`,
-    `Counted: ${countedQuantity} ${product.unit}`,
-    `Delta: ${delta} ${product.unit} (${direction})`,
+    `Adjusted ${variant.product.name} (${variant.sku}) at ${location.name}`,
+    `Prev: ${previousQuantity} ${variant.stockUnit}`,
+    `Counted: ${countedQuantity} ${variant.stockUnit}`,
+    `Delta: ${delta} ${variant.stockUnit} (${direction})`,
     reason ? `Reason: ${reason}` : null,
     note ? `Note: ${note}` : null,
   ]
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
   await createNotification({
     title: 'Stock Balanced / Adjusted',
-    message: `${product.name} at ${location.name} was adjusted by ${delta} ${product.unit}.`,
+    message: `${variant.product.name} at ${location.name} was adjusted by ${delta} ${variant.stockUnit}.`,
     type: 'WARNING',
     link: '/admin/inventory',
   })

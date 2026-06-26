@@ -27,71 +27,38 @@ export async function GET(request: NextRequest) {
     const results = await cachedQuery(
       cacheKey,
       async () => {
-        return await prisma.productColor.findMany({
-      where: {
-        OR: [
-          {
-            variant: {
-              product: {
-                name: { contains: query, mode: 'insensitive' },
-              },
-            },
-          },
-          {
-            variant: {
-              product: {
-                category: {
+        return await prisma.productVariant.findMany({
+          where: {
+            OR: [
+              { sku: { contains: query, mode: 'insensitive' } },
+              { colorName: { contains: query, mode: 'insensitive' } },
+              {
+                product: {
                   name: { contains: query, mode: 'insensitive' },
                 },
               },
-            },
-          },
-          {
-            variant: {
-              code: { contains: query, mode: 'insensitive' },
-            },
-          },
-          {
-            variant: {
-              design: { contains: query, mode: 'insensitive' },
-            },
-          },
-          {
-            color: {
-              code: { contains: query, mode: 'insensitive' },
-            },
-          },
-          {
-            color: {
-              name: { contains: query, mode: 'insensitive' },
-            },
-          },
-          {
-            sku: { contains: query, mode: 'insensitive' },
-          },
-        ],
-        isActive: true,
-        variant: {
-          isActive: true,
-          product: {
+              {
+                product: {
+                  category: {
+                    name: { contains: query, mode: 'insensitive' },
+                  },
+                },
+              },
+            ],
             isActive: true,
+            product: {
+              isActive: true,
+            },
           },
-        },
-      },
-      include: {
-        variant: {
           include: {
             product: {
               include: { category: true },
             },
+            stocks: {
+              where: { locationId },
+              select: { quantity: true },
+            },
           },
-        },
-        color: true,
-        stocks: {
-          where: { locationId },
-          select: { quantity: true },
-        },
-      },
           take: limit,
         });
       },
@@ -99,39 +66,33 @@ export async function GET(request: NextRequest) {
     );
 
     // Transform to UI format
-    const transformed = results.map((pc) => {
-      const product = pc.variant.product;
+    const transformed = results.map((variant) => {
+      const product = variant.product;
       const category = product.category;
-      const variant = pc.variant;
-      const color = pc.color;
-      const availableQty = pc.stocks[0]?.quantity || 0;
+      const availableQty = variant.stocks[0]?.quantity || 0;
 
       return {
-        id: pc.id,
-        sku: pc.sku,
-        category: category.name,
-        categoryId: category.id,
+        id: variant.id,
+        sku: variant.sku,
+        category: category?.name || '',
+        categoryId: category?.id,
         product: product.name,
         productId: product.id,
-        variant: variant.code,
         variantId: variant.id,
-        design: variant.design,
-        color: color.code,
-        colorId: color.id,
-        colorName: color.name,
-        colorHex: color.hexValue,
+        colorName: variant.colorName,
+        colorHex: variant.colorHex,
         available: availableQty,
-        unit: variant.unit || product.unit,
-        alternateUnit: variant.alternateUnit || product.alternateUnit,
-        conversionFactor: variant.conversionFactor || product.conversionFactor,
-        costPrice: pc.costPrice || variant.costPrice || product.costPrice,
-        // Formatted display - Fixed hierarchy: Category > Product > Shade > Color
-        display: `${category.name} > ${product.name} > ${variant.code} > ${color.code}`,
-        groupKey: `${product.id}-${variant.id}`, // Product + variant (shade) grouping
+        unit: variant.stockUnit,
+        alternateUnit: variant.altUnit,
+        conversionFactor: variant.saleToStockFactor,
+        costPrice: variant.costPrice,
+        // Formatted display
+        display: `${category?.name || 'Uncategorized'} > ${product.name} > ${variant.colorName}`,
+        groupKey: product.id, // Group by product
       };
     });
 
-    // Group by product + shade with colors inside
+    // Group by product
     const grouped = transformed.reduce((acc, item) => {
       const key = item.groupKey;
       if (!acc[key]) {
@@ -140,13 +101,10 @@ export async function GET(request: NextRequest) {
           categoryId: item.categoryId,
           product: item.product,
           productId: item.productId,
-          variant: item.variant,
-          variantId: item.variantId,
-          design: item.design,
-          colors: [],
+          variants: [],
         };
       }
-      acc[key].colors.push(item);
+      acc[key].variants.push(item);
       return acc;
     }, {} as Record<string, any>);
 

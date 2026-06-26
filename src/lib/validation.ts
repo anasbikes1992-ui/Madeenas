@@ -110,7 +110,7 @@ export const productUpdateSchema = productCreateSchema.partial().extend({
 // =============================================================================
 
 export const addToCartSchema = z.object({
-  productId: idSchema,
+  variantId: idSchema,
   quantity: positiveNumberSchema,
 });
 
@@ -131,14 +131,14 @@ export const orderStatusSchema = z.enum([
   'PENDING',
   'APPROVED',
   'PROCESSING',
+  'READY',
   'SHIPPED',
   'DELIVERED',
   'CANCELLED',
-  'REFUNDED',
 ]);
 
 export const orderItemSchema = z.object({
-  productId: idSchema,
+  variantId: idSchema,
   quantity: positiveNumberSchema,
   unitPrice: positiveNumberSchema,
 });
@@ -146,7 +146,6 @@ export const orderItemSchema = z.object({
 export const createOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1, 'Order must have at least one item'),
   shippingAddress: z.string().min(10, 'Shipping address is required'),
-  billingAddress: z.string().optional(),
   phoneNumber: phoneSchema,
   note: z.string().optional(),
 });
@@ -168,7 +167,7 @@ export const approveOrderSchema = z.object({
 // =============================================================================
 
 export const saleItemInputSchema = z.object({
-  productId: idSchema,
+  variantId: idSchema,
   quantity: positiveNumberSchema,
   unitPrice: positiveNumberSchema,
   taxRate: taxRateSchema.optional(),
@@ -191,7 +190,7 @@ export const createSaleSchema = z.object({
 
 export const saleItemSchema = z.object({
   id: idSchema,
-  productId: idSchema,
+  variantId: idSchema,
   quantity: positiveNumberSchema,
   unitPrice: positiveNumberSchema,
   subTotal: nonNegativeNumberSchema,
@@ -224,7 +223,7 @@ export const saleSchema = z.object({
 // =============================================================================
 
 export const stockInSchema = z.object({
-  productId: idSchema,
+  variantId: idSchema,
   locationId: idSchema,
   quantity: positiveNumberSchema,
   batchNumber: z.string().optional(),
@@ -234,7 +233,7 @@ export const stockInSchema = z.object({
 });
 
 export const stockOutRequestSchema = z.object({
-  productId: idSchema,
+  variantId: idSchema,
   fromLocationId: idSchema,
   toLocationId: idSchema.optional(),
   quantityRequested: positiveNumberSchema,
@@ -273,7 +272,7 @@ export const checkoutSchema = z.object({
   items: z
     .array(
       z.object({
-        productId: idSchema,
+        variantId: idSchema,
         quantity: positiveNumberSchema,
       })
     )

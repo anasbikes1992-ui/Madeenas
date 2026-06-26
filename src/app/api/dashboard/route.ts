@@ -19,18 +19,18 @@ export async function GET() {
     ] = await Promise.all([
       prisma.product.count({ where: { isActive: true } }).catch(() => 0),
       prisma.location.count({ where: { isActive: true } }).catch(() => 0),
-      prisma.stockOutRequest.count({ where: { status: 'PENDING' } }).catch(() => 0),
+      prisma.stockTransfer.count({ where: { status: 'PENDING' } }).catch(() => 0),
       prisma.customerOrder.count({ where: { status: 'PENDING' } }).catch(() => 0),
       prisma.stock.findMany({
         where: { quantity: { gt: 0 } },
         include: { 
-          product: { select: { name: true, lowStockAt: true } }, 
+          variant: { include: { product: { select: { name: true } } } }, 
           location: { select: { name: true } } 
         },
       }).then(stocks =>
         stocks.filter(s => {
           try {
-            return s.quantity > 0 && s.quantity <= (s.product?.lowStockAt ?? 10)
+            return s.quantity > 0 && s.quantity <= (s.variant?.lowStockAt ?? 10)
           } catch {
             return false
           }
@@ -40,15 +40,15 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
         take: 5,
         include: { 
-          product: { select: { name: true } }, 
+          variant: { include: { product: { select: { name: true } } } }, 
           location: { select: { name: true } } 
         },
       }).catch(() => []),
-      prisma.stockOutRequest.findMany({
+      prisma.stockTransfer.findMany({
         orderBy: { createdAt: 'desc' },
         take: 5,
         include: {
-          product: { select: { name: true } },
+          items: { include: { variant: { include: { product: { select: { name: true } } } } } },
           fromLocation: { select: { name: true } },
           requestedByUser: { select: { name: true } },
         },

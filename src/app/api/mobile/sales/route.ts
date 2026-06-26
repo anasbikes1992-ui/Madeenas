@@ -10,8 +10,10 @@ import { v4 as uuidv4 } from 'uuid'
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SHOP_STAFF'])
 
 const saleItemSchema = z.object({
-  productId: z.string().min(1),
-  quantity: z.number().positive(),
+  variantId: z.string().min(1),
+  saleQty: z.number().positive(),
+  saleUnit: z.string().min(1),
+  saleToStockFactor: z.number().positive(),
   unitPrice: z.number().nonnegative(),
   subTotal: z.number().nonnegative(),
 })
@@ -60,25 +62,26 @@ export async function POST(request: NextRequest) {
   const location = await prisma.location.findUnique({ where: { id: locationId } })
   if (!location || !location.isActive) return fail('Location not found', 404, 'NOT_FOUND')
 
-  // Verify all products exist and have sufficient stock (fetch all at once to avoid N+1)
-  const productIds = items.map((i) => i.productId)
+  // Verify all variants exist and have sufficient stock (fetch all at once to avoid N+1)
+  const variantIds = items.map((i) => i.variantId)
   const stocks = await prisma.stock.findMany({
     where: {
-      productId: { in: productIds },
+      variantId: { in: variantIds },
       locationId,
     },
     include: {
-      product: { select: { name: true, unit: true } },
+      variant: { select: { sku: true, product: { select: { name: true } } } },
     },
   })
 
-  const stockMap = new Map(stocks.map((s) => [s.productId, s]))
+  const stockMap = new Map(stocks.map((s) => [s.variantId, s]))
   for (const item of items) {
-    const stock = stockMap.get(item.productId)
+    const stock = stockMap.get(item.variantId)
     const available = stock?.quantity ?? 0
-    if (available < item.quantity) {
+    const needed = item.saleQty * item.saleToStockFactor
+    if (available < needed) {
       return fail(
-        `Insufficient stock for ${stock?.product.name ?? item.productId}. Available: ${available}`,
+        `Insufficient stock for ${stock?.variant.product.name ?? item.variantId}. Available: ${available}, Needed: ${needed}`,
         422,
         'INSUFFICIENT_STOCK',
       )
@@ -124,15 +127,17 @@ export async function POST(request: NextRequest) {
         taxRate,
         taxAmount,
         grandTotal,
-        totalAmount: grandTotal,
         paymentMode,
         note: note ?? null,
         items: {
           create: items.map((i) => {
             const itemTax = parseFloat(((i.subTotal * taxRate) / 100).toFixed(2))
             return {
-              productId: i.productId,
-              quantity: i.quantity,
+              variantId: i.variantId,
+              saleUnit: i.saleUnit,
+              saleQty: i.saleQty,
+              saleToStockFactor: i.saleToStockFactor,
+              stockQtyDeducted: i.saleQty * i.saleToStockFactor,
               unitPrice: i.unitPrice,
               subTotal: i.subTotal,
               taxRate,
@@ -147,10 +152,11 @@ export async function POST(request: NextRequest) {
 
     // Deduct stock for each item
     for (const item of items) {
+      const deduction = item.saleQty * item.saleToStockFactor
       await tx.stock.upsert({
-        where: { productId_locationId: { productId: item.productId, locationId } },
-        update: { quantity: { decrement: item.quantity } },
-        create: { productId: item.productId, locationId, quantity: -item.quantity },
+        where: { variantId_locationId: { variantId: item.variantId, locationId } },
+        update: { quantity: { decrement: deduction } },
+        create: { variantId: item.variantId, locationId, quantity: -deduction },
       })
     }
 
@@ -206,7 +212,7 @@ export async function GET(request: NextRequest) {
       include: {
         location: { select: { name: true } },
         items: {
-          include: { product: { select: { name: true, sku: true, unit: true } } },
+          include: { variant: { select: { sku: true, product: { select: { name: true } } } } },
         },
       },
       orderBy: { createdAt: 'desc' },

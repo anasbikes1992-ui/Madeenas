@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const where: Prisma.SaleWhereInput = {}
   if (locationId) where.locationId = locationId
   if (receiptNo) where.receiptNo = receiptNo
-  if (paymentMode) where.paymentMode = paymentMode
+  if (paymentMode) where.paymentMode = paymentMode as any
   if (search) {
     where.OR = [
       { receiptNo: { contains: search, mode: 'insensitive' } },
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         location: true,
         soldBy: { select: { name: true } },
         items: {
-          include: { product: { select: { name: true, sku: true, unit: true } } }
+          include: { variant: { include: { product: { select: { name: true } } } } }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -103,12 +103,13 @@ export async function POST(request: NextRequest) {
     const sale = await prisma.$transaction(async (tx) => {
       // 1. Verify stock availability
       for (const item of checkout.items) {
+        const stockQtyNeeded = item.saleQty * item.saleToStockFactor
         const stock = await tx.stock.findUnique({
-          where: { productId_locationId: { productId: item.productId, locationId: finalLocationId } }
+          where: { variantId_locationId: { variantId: item.variantId, locationId: finalLocationId } }
         })
 
-        if (!stock || stock.quantity < item.quantity) {
-          throw new Error(`Insufficient stock for product ID: ${item.productId}`)
+        if (!stock || stock.quantity < stockQtyNeeded) {
+          throw new Error(`Insufficient stock for variant ID: ${item.variantId}`)
         }
       }
 
@@ -140,6 +141,12 @@ export async function POST(request: NextRequest) {
       // 3. Create the Sale record
       const receiptNo = `REC-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`
       
+      const subTotal = checkout.items.reduce((s, i) => s + i.subTotal, 0)
+      const taxRate = 18
+      const taxAmount = subTotal * (taxRate / 100)
+      const discountAmount = checkout.discountAmount || 0
+      const calculatedGrandTotal = subTotal + taxAmount - discountAmount
+
       const newSale = await tx.sale.create({
         data: {
           receiptNo,
@@ -148,24 +155,30 @@ export async function POST(request: NextRequest) {
           customerId,
           customerName: checkout.customerName,
           customerPhone: checkout.customerPhone,
-          totalAmount: checkout.totalAmount,
-          subTotal: checkout.items.reduce((s, i) => s + i.subTotal, 0),
-          taxRate: 18,
-          taxAmount: checkout.items.reduce((s, i) => s + i.subTotal, 0) * 0.18,
-          grandTotal: checkout.items.reduce((s, i) => s + i.subTotal, 0) * 1.18,
-          paymentMode: checkout.paymentMode || 'CASH',
+          discountAmount: discountAmount,
+          subTotal: subTotal,
+          taxRate: taxRate,
+          taxAmount: taxAmount,
+          grandTotal: checkout.grandTotal || calculatedGrandTotal,
+          paymentMode: checkout.paymentMode as any,
           note: checkout.note,
           items: {
             create: checkout.items.map((item) => {
-              const itemTax = item.subTotal * 0.18
+              const itemTax = item.subTotal * (taxRate / 100)
+              const stockQtyDeducted = item.saleQty * item.saleToStockFactor
               return {
-                productId: item.productId,
-                quantity: item.quantity,
+                variantId: item.variantId,
+                saleUnit: item.saleUnit,
+                saleQty: item.saleQty,
+                saleToStockFactor: item.saleToStockFactor,
+                stockQtyDeducted: stockQtyDeducted,
                 unitPrice: item.unitPrice,
                 subTotal: item.subTotal,
-                taxRate: 18,
+                taxRate: taxRate,
                 taxAmount: itemTax,
                 total: item.subTotal + itemTax,
+                costAtSale: 0, // Should be fetched from variant
+                profitAmount: 0 // Will be calculated after costAtSale is updated
               }
             })
           }
@@ -175,9 +188,10 @@ export async function POST(request: NextRequest) {
 
       // 4. Deduct stock and create audit logs
       for (const item of checkout.items) {
+        const stockQtyDeducted = item.saleQty * item.saleToStockFactor
         await tx.stock.update({
-          where: { productId_locationId: { productId: item.productId, locationId: finalLocationId } },
-          data: { quantity: { decrement: item.quantity } }
+          where: { variantId_locationId: { variantId: item.variantId, locationId: finalLocationId } },
+          data: { quantity: { decrement: stockQtyDeducted } }
         })
 
         await tx.auditLog.create({
@@ -185,8 +199,8 @@ export async function POST(request: NextRequest) {
             userId: session.user.id as string,
             action: 'SALE_DEDUCTION',
             entity: 'Stock',
-            entityId: item.productId,
-            details: `Sold ${item.quantity} units in receipt ${receiptNo}`
+            entityId: item.variantId,
+            details: `Sold ${item.saleQty} ${item.saleUnit} in receipt ${receiptNo}`
           }
         })
       }

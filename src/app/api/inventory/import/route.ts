@@ -4,7 +4,6 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logActivity } from '@/lib/audit'
-import { logHistoryEvent } from '@/lib/history'
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 const MAX_ROW_COUNT = 5000
@@ -77,33 +76,24 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    const [product, location] = await Promise.all([
-      prisma.product.findUnique({ where: { sku }, select: { id: true, name: true } }),
+    const [variant, location] = await Promise.all([
+      prisma.productVariant.findUnique({ where: { sku }, select: { id: true, product: { select: { name: true } } } }),
       prisma.location.findUnique({ where: { code: locationCode }, select: { id: true, name: true } }),
     ])
 
-    if (!product || !location) {
+    if (!variant || !location) {
       results.push({ row: index + 2, status: 'ERROR', message: 'Invalid sku or locationCode' })
       continue
     }
 
     await prisma.stock.upsert({
-      where: { productId_locationId: { productId: product.id, locationId: location.id } },
+      where: { variantId_locationId: { variantId: variant.id, locationId: location.id } },
       update: { quantity },
-      create: { productId: product.id, locationId: location.id, quantity },
+      create: { variantId: variant.id, locationId: location.id, quantity },
     })
 
     imported += 1
     results.push({ row: index + 2, status: 'OK' })
-
-    await logHistoryEvent({
-      entityType: 'INVENTORY',
-      entityId: `${product.id}:${location.id}`,
-      eventType: 'MATRIX_IMPORT_UPDATE',
-      title: 'Inventory matrix import updated stock',
-      details: `SKU ${sku} at ${location.name} set to ${quantity}`,
-      createdBy: session.user.id,
-    })
   }
 
   await logActivity({

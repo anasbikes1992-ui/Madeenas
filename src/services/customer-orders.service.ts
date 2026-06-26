@@ -5,24 +5,29 @@ const ORDER_STATUS_VALUES: OrderStatus[] = [
   'PENDING',
   'APPROVED',
   'PROCESSING',
+  'READY',
   'SHIPPED',
   'DELIVERED',
   'CANCELLED',
-  'REFUNDED',
 ]
 
 const orderInclude = {
   items: {
     include: {
-      product: {
+      variant: {
         select: {
           id: true,
-          name: true,
           sku: true,
-          unit: true,
-          category: {
+          colorName: true,
+          product: {
             select: {
+              id: true,
               name: true,
+              category: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -30,7 +35,6 @@ const orderInclude = {
     },
   },
   customer: { select: { id: true, name: true, email: true } },
-  sale: { select: { receiptNo: true, createdAt: true, totalAmount: true } },
 } satisfies Prisma.CustomerOrderInclude
 
 export async function listCustomerOrders(params: {

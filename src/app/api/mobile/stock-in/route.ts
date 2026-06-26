@@ -8,15 +8,19 @@ import { z } from 'zod'
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER'])
 
 const stockInItemSchema = z.object({
-  productId: z.string().min(1),
-  quantity: z.number().positive(),
+  variantId: z.string().min(1),
+  receivedQty: z.number().positive(),
+  receivedUnit: z.string().min(1),
+  conversionFactor: z.number().positive(),
   costPrice: z.number().nonnegative().optional(),
 })
 
 const singleStockInSchema = z.object({
-  productId: z.string().min(1),
+  variantId: z.string().min(1),
   locationId: z.string().min(1),
-  quantity: z.number().positive(),
+  receivedQty: z.number().positive(),
+  receivedUnit: z.string().min(1),
+  conversionFactor: z.number().positive(),
   batchNumber: z.string().optional(),
   supplierId: z.string().optional(),
   costPrice: z.number().nonnegative().optional(),
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
       skip: (page - 1) * limit,
       take: limit,
       include: {
-        product: { select: { id: true, name: true, sku: true } },
+        variant: { select: { id: true, sku: true, product: { select: { name: true } } } },
         location: { select: { id: true, name: true } },
         supplier: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
@@ -90,29 +94,31 @@ export async function POST(request: NextRequest) {
     ? payload.items
     : [
         {
-          productId: payload.productId,
-          quantity: payload.quantity,
+          variantId: payload.variantId,
+          receivedQty: payload.receivedQty,
+          receivedUnit: payload.receivedUnit,
+          conversionFactor: payload.conversionFactor,
           costPrice: payload.costPrice,
         },
       ]
 
-  const distinctProductIds = new Set(incomingItems.map((item) => item.productId))
-  if (distinctProductIds.size !== incomingItems.length) {
+  const distinctVariantIds = new Set(incomingItems.map((item) => item.variantId))
+  if (distinctVariantIds.size !== incomingItems.length) {
     return fail('Duplicate products detected. Each line must be distinct.', 400, 'VALIDATION_ERROR')
   }
 
-  const [location, products] = await Promise.all([
+  const [location, variants] = await Promise.all([
     prisma.location.findUnique({ where: { id: locationId } }),
-    prisma.product.findMany({ where: { id: { in: incomingItems.map((item) => item.productId) } } }),
+    prisma.productVariant.findMany({ where: { id: { in: incomingItems.map((item) => item.variantId) } }, include: { product: true } }),
   ])
 
   if (!location || !location.isActive) return fail('Location not found', 404, 'NOT_FOUND')
 
-  const productMap = new Map(products.map((product) => [product.id, product]))
+  const variantMap = new Map(variants.map((variant) => [variant.id, variant]))
   for (const item of incomingItems) {
-    const product = productMap.get(item.productId)
-    if (!product || !product.isActive) {
-      return fail('Product not found', 404, 'NOT_FOUND')
+    const variant = variantMap.get(item.variantId)
+    if (!variant || !variant.isActive) {
+      return fail('Product variant not found', 404, 'NOT_FOUND')
     }
   }
 
@@ -125,12 +131,16 @@ export async function POST(request: NextRequest) {
 
   const stockIns = await prisma.$transaction(async (tx) => {
     const created = await Promise.all(
-      incomingItems.map((item) =>
-        tx.stockIn.create({
+      incomingItems.map((item) => {
+        const addedQty = item.receivedQty * item.conversionFactor;
+        return tx.stockIn.create({
           data: {
-            productId: item.productId,
+            variantId: item.variantId,
             locationId,
-            quantity: item.quantity,
+            receivedQty: item.receivedQty,
+            receivedUnit: item.receivedUnit,
+            conversionFactor: item.conversionFactor,
+            quantityAddedToStock: addedQty,
             batchNumber: payload.batchNumber,
             supplierId: payload.supplierId || null,
             costPrice: item.costPrice,
@@ -138,17 +148,18 @@ export async function POST(request: NextRequest) {
             receivedBy: user.sub!,
           },
         })
-      )
+      })
     )
 
     await Promise.all(
-      incomingItems.map((item) =>
-        tx.stock.upsert({
-          where: { productId_locationId: { productId: item.productId, locationId } },
-          create: { productId: item.productId, locationId, quantity: item.quantity },
-          update: { quantity: { increment: item.quantity } },
+      incomingItems.map((item) => {
+        const addedQty = item.receivedQty * item.conversionFactor;
+        return tx.stock.upsert({
+          where: { variantId_locationId: { variantId: item.variantId, locationId } },
+          create: { variantId: item.variantId, locationId, quantity: addedQty },
+          update: { quantity: { increment: addedQty } },
         })
-      )
+      })
     )
 
     return created
@@ -159,8 +170,8 @@ export async function POST(request: NextRequest) {
     ? `Recorded batch stock receipt (${lineCount} lines) at ${location.name} via mobile`
     : (() => {
         const item = incomingItems[0]
-        const product = productMap.get(item.productId)
-        return `Added ${item.quantity} units of ${product?.name ?? item.productId} to ${location.name} via mobile`
+        const variant = variantMap.get(item.variantId)
+        return `Added ${item.receivedQty} ${item.receivedUnit} of ${variant?.product.name ?? item.variantId} to ${location.name} via mobile`
       })()
 
   await logActivity({

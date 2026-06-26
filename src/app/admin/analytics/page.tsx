@@ -23,62 +23,97 @@ import {
 
 interface BusinessMetrics {
   revenue: {
-    current: number
-    previous: number
+    total: number
+    taxCollected: number
+    netRevenue: number
     growthRate: number
+    dailyAverage: number
+    byPaymentMode: Record<string, number>
   }
   profit: {
-    totalCost: number
-    totalRevenue: number
     grossProfit: number
-    netProfit: number
     grossMargin: number
+    netProfit: number
     netMargin: number
+    costOfGoodsSold: number
   }
   inventory: {
     totalValue: number
     turnoverRate: number
     stockouts: number
-    deadStockValue: number
+    lowStockItems: number
+    deadStock: Array<{ estimatedValue: number }>
+    fastMoving: string[]
+    slowMoving: string[]
   }
   customers: {
-    total: number
-    new: number
-    repeatRate: number
+    totalCustomers: number
+    newCustomers: number
+    retentionRate: number
+    churnRate: number
+    avgLifetimeValue: number
     avgOrderValue: number
-    lifetimeValue: number
+    repeatCustomerRate: number
   }
   sales: {
     totalOrders: number
+    completedOrders: number
+    avgOrderSize: number
     conversionRate: number
+    cancelledOrders: number
+    pendingOrders: number
   }
   topProducts: Array<{
+    productId: string
     productName: string
+    sku: string
     unitsSold: number
     revenue: number
+    profit: number
+    profitMargin: number
   }>
   topCustomers: Array<{
+    customerId: string
     customerName: string
+    email: string
     totalSpent: number
     orderCount: number
+    avgOrderValue: number
+    lastPurchaseDate: string | null
   }>
   cashFlow: {
-    daily: Array<{
+    cashIn: number
+    cashOut: number
+    netCashFlow: number
+    dailyBreakdown: Array<{
       date: string
-      inflow: number
-      outflow: number
+      cashIn: number
+      cashOut: number
       net: number
     }>
   }
-  insights: {
+  predictions: {
     stockAlerts: Array<{
+      productId: string
       productName: string
       currentStock: number
-      severity: string
+      reorderPoint: number
+      daysUntilStockout: number
+      urgency: 'critical' | 'high' | 'medium'
     }>
     demandForecast: Array<{
+      productId: string
       productName: string
-      predictedDemand: number
+      forecastedDemand: number
+      confidence: number
+      trend: 'increasing' | 'stable' | 'decreasing'
+    }>
+    reorderSuggestions: Array<{
+      productId: string
+      productName: string
+      suggestedQuantity: number
+      estimatedCost: number
+      expectedStockoutDate: string
     }>
   }
 }
@@ -196,7 +231,7 @@ export default function AnalyticsPage() {
                   Revenue
                 </p>
                 <p className="text-3xl font-bold text-navy-900">
-                  {formatCurrency(metrics.revenue.current)}
+                  {formatCurrency(metrics.revenue.total)}
                 </p>
               </div>
               <div className="text-4xl">💰</div>
@@ -246,14 +281,14 @@ export default function AnalyticsPage() {
                   Customers
                 </p>
                 <p className="text-3xl font-bold text-navy-900">
-                  {metrics.customers.total}
+                  {metrics.customers.totalCustomers}
                 </p>
               </div>
               <div className="text-4xl">👥</div>
             </div>
             <div className="flex items-center gap-2 text-sm text-green-600">
               <span className="text-2xl">+</span>
-              <span className="font-semibold">{metrics.customers.new}</span>
+              <span className="font-semibold">{metrics.customers.newCustomers}</span>
               <span className="text-navy-500">new customers</span>
             </div>
           </PremiumCard>
@@ -287,7 +322,7 @@ export default function AnalyticsPage() {
               Cash Flow Analysis
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={metrics.cashFlow.daily}>
+              <AreaChart data={metrics.cashFlow.dailyBreakdown}>
                 <defs>
                   <linearGradient id="colorInflow" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3F51B5" stopOpacity={0.8} />
@@ -318,7 +353,7 @@ export default function AnalyticsPage() {
                 <Legend />
                 <Area
                   type="monotone"
-                  dataKey="inflow"
+                  dataKey="cashIn"
                   stroke="#3F51B5"
                   fillOpacity={1}
                   fill="url(#colorInflow)"
@@ -326,7 +361,7 @@ export default function AnalyticsPage() {
                 />
                 <Area
                   type="monotone"
-                  dataKey="outflow"
+                  dataKey="cashOut"
                   stroke="#F59E0B"
                   fillOpacity={1}
                   fill="url(#colorOutflow)"
@@ -348,7 +383,7 @@ export default function AnalyticsPage() {
                     name: 'Profit Analysis',
                     'Gross Profit': metrics.profit.grossProfit,
                     'Net Profit': metrics.profit.netProfit,
-                    'Total Cost': metrics.profit.totalCost,
+                    'Total Cost': metrics.profit.costOfGoodsSold,
                   },
                 ]}
               >
@@ -463,19 +498,19 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Stock Alerts */}
-        {metrics.insights.stockAlerts.length > 0 && (
+        {metrics.predictions.stockAlerts.length > 0 && (
           <PremiumCard className="mb-8">
             <h3 className="text-xl font-heading font-semibold text-navy-900 mb-6">
               ⚠️ Stock Alerts
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {metrics.insights.stockAlerts.map((alert, idx) => (
+              {metrics.predictions.stockAlerts.map((alert, idx) => (
                 <div
                   key={idx}
                   className={`p-4 rounded-lg border-l-4 ${
-                    alert.severity === 'CRITICAL'
+                    alert.urgency === 'critical'
                       ? 'bg-red-50 border-red-500'
-                      : alert.severity === 'HIGH'
+                      : alert.urgency === 'high'
                       ? 'bg-orange-50 border-orange-500'
                       : 'bg-yellow-50 border-yellow-500'
                   }`}
@@ -488,14 +523,14 @@ export default function AnalyticsPage() {
                   </p>
                   <span
                     className={`inline-block mt-2 px-2 py-1 rounded text-xs font-semibold ${
-                      alert.severity === 'CRITICAL'
+                      alert.urgency === 'critical'
                         ? 'bg-red-100 text-red-700'
-                        : alert.severity === 'HIGH'
+                        : alert.urgency === 'high'
                         ? 'bg-orange-100 text-orange-700'
                         : 'bg-yellow-100 text-yellow-700'
                     }`}
                   >
-                    {alert.severity}
+                    {alert.urgency.toUpperCase()}
                   </span>
                 </div>
               ))}
@@ -513,7 +548,7 @@ export default function AnalyticsPage() {
               <div>
                 <p className="text-xs text-navy-500">Repeat Rate</p>
                 <p className="text-2xl font-bold text-navy-900">
-                  {metrics.customers.repeatRate.toFixed(1)}%
+                  {metrics.customers.repeatCustomerRate.toFixed(1)}%
                 </p>
               </div>
               <div>
@@ -525,7 +560,7 @@ export default function AnalyticsPage() {
               <div>
                 <p className="text-xs text-navy-500">Lifetime Value</p>
                 <p className="text-xl font-semibold text-navy-700">
-                  {formatCurrencyFull(metrics.customers.lifetimeValue)}
+                  {formatCurrencyFull(metrics.customers.avgLifetimeValue)}
                 </p>
               </div>
             </div>
@@ -551,7 +586,7 @@ export default function AnalyticsPage() {
               <div>
                 <p className="text-xs text-navy-500">Dead Stock Value</p>
                 <p className="text-xl font-semibold text-navy-700">
-                  {formatCurrency(metrics.inventory.deadStockValue)}
+                  {formatCurrency(metrics.inventory.deadStock.reduce((sum, item) => sum + item.estimatedValue, 0))}
                 </p>
               </div>
             </div>

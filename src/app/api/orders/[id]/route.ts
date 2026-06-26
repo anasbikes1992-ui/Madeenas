@@ -84,7 +84,7 @@ export async function PATCH(
 
     const order = await ordersService.updateOrderStatus(
       id,
-      status,
+      status as any,
       user.id,
       note
     )

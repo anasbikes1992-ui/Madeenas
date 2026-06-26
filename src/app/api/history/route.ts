@@ -14,27 +14,27 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const entityType = searchParams.get('entityType') || undefined
+  const entityType = searchParams.get('entityType') || searchParams.get('entity') || undefined
   const entityId = searchParams.get('entityId') || undefined
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
 
   const where = {
-    ...(entityType ? { entityType } : {}),
+    ...(entityType ? { entity: entityType } : {}),
     ...(entityId ? { entityId } : {}),
   }
 
   const [entries, total] = await Promise.all([
-    prisma.entityHistory.findMany({
+    prisma.auditLog.findMany({
       where,
       include: {
-        createdByUser: { select: { id: true, name: true, role: true, email: true } },
+        user: { select: { id: true, name: true, role: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.entityHistory.count({ where }),
+    prisma.auditLog.count({ where }),
   ])
 
   return NextResponse.json({ entries, total, page, limit })
@@ -48,18 +48,16 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const entry = await prisma.entityHistory.create({
+  const entry = await prisma.auditLog.create({
     data: {
-      entityType: String(body.entityType || ''),
+      entity: String(body.entityType || body.entity || ''),
       entityId: String(body.entityId || ''),
-      eventType: String(body.eventType || 'MANUAL_ENTRY'),
-      title: String(body.title || 'Manual history event'),
-      details: body.details ? String(body.details) : null,
-      payloadJson: body.payloadJson ? String(body.payloadJson) : null,
-      createdBy: session.user.id,
+      action: String(body.eventType || body.action || 'MANUAL_ENTRY'),
+      details: body.details || body.payloadJson ? JSON.stringify({ title: body.title, details: body.details, payloadJson: body.payloadJson }) : null,
+      userId: session.user.id,
     },
     include: {
-      createdByUser: { select: { id: true, name: true, role: true, email: true } },
+      user: { select: { id: true, name: true, role: true, email: true } },
     },
   })
 

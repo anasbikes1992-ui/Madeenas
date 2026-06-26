@@ -38,11 +38,8 @@ export type CreateReturnRequest = z.infer<typeof createReturnSchema>
 
 export enum ReturnStatus {
   PENDING = 'PENDING',
-  UNDER_REVIEW = 'UNDER_REVIEW',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
-  ITEMS_RECEIVED = 'ITEMS_RECEIVED',
-  REFUND_PROCESSING = 'REFUND_PROCESSING',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
 }
@@ -60,7 +57,6 @@ export async function createReturnRequest(
     where: { id: data.saleId },
     include: {
       items: true,
-      customerOrder: true,
     },
   })
 
@@ -68,7 +64,7 @@ export async function createReturnRequest(
     throw new Error('Sale not found')
   }
 
-  if (sale.customerOrder?.customerId !== customerId) {
+  if (sale.customerId !== customerId) {
     throw new Error('Unauthorized: Sale does not belong to this customer')
   }
 
@@ -79,7 +75,7 @@ export async function createReturnRequest(
       id: { in: saleItemIds },
       saleId: data.saleId,
     },
-    include: { product: true },
+    include: { variant: true },
   })
 
   if (saleItems.length !== data.items.length) {
@@ -92,20 +88,20 @@ export async function createReturnRequest(
     const saleItem = saleItems.find((si) => si.id === item.saleItemId)
     if (!saleItem) throw new Error('Sale item not found')
 
-    if (item.quantity > saleItem.quantity) {
+    if (item.quantity > saleItem.saleQty) {
       throw new Error('Return quantity exceeds purchased quantity')
     }
 
-    const refundAmount = (saleItem.total / saleItem.quantity) * item.quantity
+    const refundAmount = (saleItem.total / saleItem.saleQty) * item.quantity
     totalRefundAmount += refundAmount
 
     return {
       saleItemId: item.saleItemId,
-      productId: saleItem.productId,
+      variantId: saleItem.variantId,
       quantity: item.quantity,
       unitPrice: saleItem.unitPrice,
       refundAmount,
-      reason: item.reason,
+      reason: item.reason as any,
       note: item.note || null,
       images: item.images || [],
     }
@@ -120,9 +116,8 @@ export async function createReturnRequest(
       returnNumber,
       saleId: data.saleId,
       customerId,
-      status: ReturnStatus.PENDING,
+      status: 'PENDING',
       customerNote: data.customerNote || null,
-      preferredResolution: data.preferredResolution,
       totalRefundAmount,
       items: {
         create: returnItemsData,
@@ -131,7 +126,7 @@ export async function createReturnRequest(
     include: {
       items: {
         include: {
-          product: true,
+          variant: true,
         },
       },
       sale: true,
@@ -161,7 +156,7 @@ export async function approveReturn(
     throw new Error('Return request not found')
   }
 
-  if (returnRequest.status !== ReturnStatus.PENDING && returnRequest.status !== ReturnStatus.UNDER_REVIEW) {
+  if (returnRequest.status !== 'PENDING') {
     throw new Error('Return request cannot be approved in current status')
   }
 
@@ -170,7 +165,7 @@ export async function approveReturn(
   const updated = await prisma.return.update({
     where: { id: returnId },
     data: {
-      status: ReturnStatus.APPROVED,
+      status: 'APPROVED',
       approvedBy,
       approvedAt: new Date(),
       approvedRefundAmount: finalRefundAmount,
@@ -178,7 +173,7 @@ export async function approveReturn(
     },
     include: {
       items: {
-        include: { product: true },
+        include: { variant: true },
       },
       customer: true,
     },
@@ -198,7 +193,7 @@ export async function approveReturn(
 
 export async function rejectReturn(
   returnId: string,
-  rejectedBy: string,
+  approvedBy: string,
   rejectionReason: string
 ) {
   const returnRequest = await prisma.return.findUnique({
@@ -209,17 +204,15 @@ export async function rejectReturn(
     throw new Error('Return request not found')
   }
 
-  if (returnRequest.status === ReturnStatus.COMPLETED || returnRequest.status === ReturnStatus.CANCELLED) {
+  if (returnRequest.status === 'COMPLETED') {
     throw new Error('Cannot reject completed or cancelled returns')
   }
 
   const updated = await prisma.return.update({
     where: { id: returnId },
     data: {
-      status: ReturnStatus.REJECTED,
-      rejectedBy,
-      rejectedAt: new Date(),
-      rejectionReason,
+      status: 'REJECTED',
+      adminNote: rejectionReason,
     },
     include: {
       customer: true,
@@ -240,7 +233,7 @@ export async function rejectReturn(
 
 export async function markItemsReceived(
   returnId: string,
-  receivedBy: string,
+  approvedBy: string,
   inspectionNote?: string,
   condition?: 'GOOD' | 'ACCEPTABLE' | 'DAMAGED'
 ) {
@@ -248,7 +241,7 @@ export async function markItemsReceived(
     where: { id: returnId },
     include: {
       items: {
-        include: { product: true },
+        include: { variant: true },
       },
       sale: {
         select: {
@@ -262,7 +255,7 @@ export async function markItemsReceived(
     throw new Error('Return request not found')
   }
 
-  if (returnRequest.status !== ReturnStatus.APPROVED) {
+  if (returnRequest.status !== 'APPROVED') {
     throw new Error('Return must be approved before marking items as received')
   }
 
@@ -277,13 +270,13 @@ export async function markItemsReceived(
       returnRequest.items.map((item) =>
         prisma.stock.upsert({
           where: {
-            productId_locationId: {
-              productId: item.productId,
+            variantId_locationId: {
+              variantId: item.variantId,
               locationId: saleLocationId,
             },
           },
           create: {
-            productId: item.productId,
+            variantId: item.variantId,
             locationId: saleLocationId,
             quantity: item.quantity,
           },
@@ -298,11 +291,7 @@ export async function markItemsReceived(
   const updated = await prisma.return.update({
     where: { id: returnId },
     data: {
-      status: ReturnStatus.ITEMS_RECEIVED,
-      itemsReceivedAt: new Date(),
-      receivedBy,
-      inspectionNote: inspectionNote || null,
-      itemCondition: condition || 'GOOD',
+      adminNote: inspectionNote || null,
     },
   })
 
@@ -315,7 +304,7 @@ export async function markItemsReceived(
 
 export async function processRefund(
   returnId: string,
-  processedBy: string,
+  approvedBy: string,
   refundMethod: 'BANK_TRANSFER' | 'STORE_CREDIT' | 'ORIGINAL_METHOD',
   transactionReference?: string
 ) {
@@ -327,18 +316,16 @@ export async function processRefund(
     throw new Error('Return request not found')
   }
 
-  if (returnRequest.status !== ReturnStatus.ITEMS_RECEIVED) {
-    throw new Error('Items must be received before processing refund')
+  if (returnRequest.status !== 'APPROVED') {
+    throw new Error('Return must be approved before processing refund')
   }
 
   const updated = await prisma.return.update({
     where: { id: returnId },
     data: {
-      status: ReturnStatus.COMPLETED,
-      refundProcessedAt: new Date(),
+      status: 'COMPLETED',
       refundMethod,
-      refundTransactionRef: transactionReference || null,
-      processedBy,
+      adminNote: transactionReference ? `Transaction Ref: ${transactionReference}` : undefined,
     },
     include: {
       customer: true,
@@ -346,10 +333,10 @@ export async function processRefund(
   })
 
   // Handle refund method
-  if (refundMethod === 'STORE_CREDIT') {
+  if (refundMethod === 'STORE_CREDIT' && returnRequest.customerId) {
     // Create store credit for customer
     await prisma.user.update({
-      where: { id: returnRequest.customerId! },
+      where: { id: returnRequest.customerId },
       data: {
         // Note: Add storeCredit field to User model if implementing this
         // storeCredit: { increment: returnRequest.approvedRefundAmount || returnRequest.totalRefundAmount }
@@ -372,7 +359,7 @@ export async function processRefund(
 
 export async function listReturns(filters: {
   customerId?: string
-  status?: ReturnStatus
+  status?: string
   page?: number
   limit?: number
 }) {
@@ -387,7 +374,7 @@ export async function listReturns(filters: {
       where,
       include: {
         items: {
-          include: { product: true },
+          include: { variant: true },
         },
         customer: {
           select: { id: true, name: true, email: true },

@@ -25,15 +25,23 @@ export async function POST(req: Request) {
           await prisma.product.create({
             data: {
               name: p.name,
-              design: p.design || 'Default',
-              sku: p.sku,
-              color: p.color || 'White',
-              colorHex: p.colorHex || '#FFFFFF',
               categoryId: p.categoryId,
-              unit: p.unit || 'meters',
-              lowStockAt: parseFloat(p.lowStockAt) || 10,
-              costPrice: p.costPrice ? parseFloat(p.costPrice) : null,
               description: p.description || '',
+              variants: {
+                create: {
+                  sku: p.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  colorName: p.color || 'Default',
+                  colorHex: p.colorHex || '#FFFFFF',
+                  stockUnit: p.unit || 'metres',
+                  stockUnitLabel: p.unit || 'Metres',
+                  saleUnit: p.unit || 'metres',
+                  saleUnitLabel: p.unit || 'Metres',
+                  saleToStockFactor: 1.0,
+                  lowStockAt: parseFloat(p.lowStockAt) || 10,
+                  costPrice: p.costPrice ? parseFloat(p.costPrice) : null,
+                  salePrice: p.salePrice ? parseFloat(p.salePrice) : null,
+                }
+              }
             }
           })
           return { name: p.name, status: 'Success' }

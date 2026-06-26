@@ -18,7 +18,7 @@ import { createNotification } from '@/lib/audit'
 import { emailService } from './email.service'
 import { whatsappService } from './whatsapp.service'
 import { smsService } from './sms.service'
-import { CustomerOrder, Sale, StockOutRequest, Return } from '@prisma/client'
+import { CustomerOrder, Sale, StockTransfer, Return } from '@prisma/client'
 import { prisma } from '@/lib/db'
 
 // ============================================================================
@@ -110,7 +110,7 @@ export async function dispatchOrderNotification(
   }
 
   // In-app notification
-  if (channels.inApp) {
+  if (channels.inApp && order.customerId) {
     tasks.push(
       createInAppNotification('order', order.customerId, event, order)
         .then(() => ({ channel: 'in_app', success: true }))

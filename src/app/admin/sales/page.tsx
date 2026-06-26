@@ -9,14 +9,16 @@ const PAGE_LIMIT = 25
 
 interface SaleItem {
   id: string
-  quantity: number
+  saleUnit: string
+  saleQty: number
   unitPrice: number
-  subTotal?: number
-  total?: number
-  product: {
-    name: string
+  subTotal: number
+  total: number
+  variant: {
     sku: string
-    unit: string
+    colorName: string
+    stockUnitLabel: string
+    product: { name: string }
   }
 }
 
@@ -237,9 +239,9 @@ export default function SalesHistoryPage() {
                 </td>
                 <td>
                   <div className="space-y-1">
-                    {sale.items.map(item => (
+                    {sale.items.map((item: any) => (
                       <div key={item.id} className="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded inline-block mr-1 mb-1 border border-slate-100">
-                        {item.product.name} ({item.quantity} {item.product.unit})
+                        {item.variant?.product?.name || 'Unknown'} · {item.variant?.colorName || item.variant?.sku} ({item.saleQty} {item.saleUnit})
                       </div>
                     ))}
                   </div>

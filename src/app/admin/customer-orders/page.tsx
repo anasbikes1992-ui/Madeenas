@@ -39,12 +39,15 @@ type CustomerOrder = {
     id: string
     quantity: number
     unitPrice: number
-    product: {
+    variant: {
       id: string
-      name: string
       sku: string
-      unit: string
-      category?: { name: string } | null
+      colorName: string
+      product: {
+        name: string
+        unit: string
+        category?: { name: string } | null
+      }
     }
   }>
 }
@@ -134,8 +137,8 @@ export default function CustomerOrdersPage() {
         order.customer.name.toLowerCase().includes(needle) ||
         order.customer.email.toLowerCase().includes(needle) ||
         (order.phoneNumber || '').toLowerCase().includes(needle) ||
-        primaryItem?.product.name.toLowerCase().includes(needle) ||
-        primaryItem?.product.sku.toLowerCase().includes(needle)
+        primaryItem?.variant.product.name.toLowerCase().includes(needle) ||
+        primaryItem?.variant.sku.toLowerCase().includes(needle)
 
       if (!matchesText) return false
       if (!todayOnly) return true
@@ -422,8 +425,8 @@ export default function CustomerOrdersPage() {
                       <td className="py-3 pr-4">
                         {firstItem ? (
                           <>
-                            <div className="font-medium">{firstItem.product.name}</div>
-                            <div className="text-xs text-slate-500">{firstItem.product.sku}</div>
+                            <div className="font-medium">{firstItem.variant.product.name}</div>
+                            <div className="text-xs text-slate-500">{firstItem.variant.sku} {firstItem.variant.colorName ? `· ${firstItem.variant.colorName}` : ''}</div>
                             {hasMoreItems && <div className="text-xs text-slate-500 mt-1">+{order.items.length - 1} more item(s)</div>}
                           </>
                         ) : (
@@ -472,10 +475,10 @@ export default function CustomerOrdersPage() {
                 {selected.items.map((item) => (
                   <div key={item.id} className="flex items-center justify-between text-sm">
                     <div>
-                      <p className="font-medium text-slate-800">{item.product.name}</p>
-                      <p className="text-xs text-slate-500">{item.product.sku}</p>
+                      <p className="font-medium text-slate-800">{item.variant.product.name}</p>
+                      <p className="text-xs text-slate-500">{item.variant.sku} {item.variant.colorName ? `· ${item.variant.colorName}` : ''}</p>
                     </div>
-                    <p className="text-slate-700">{item.quantity} {item.product.unit}</p>
+                    <p className="text-slate-700">{item.quantity} {item.variant.product.unit}</p>
                   </div>
                 ))}
               </div>

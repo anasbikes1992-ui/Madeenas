@@ -6,9 +6,9 @@ import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Package, BarChart2, ArrowDownToLine, SlidersHorizontal,
-  BookOpen, ClipboardList, Send, PlusCircle, Truck, Bell, History,
+  BookOpen, ArrowLeftRight, Bell, History,
   ShoppingBag, Image, ShoppingCart, Receipt, DollarSign, TrendingUp,
-  FileText, Users, Building2, Tag, Boxes,
+  FileText, Users, Building2, Tag, Boxes, Database,
 } from 'lucide-react'
 import { ROLE_LABELS, getDashboardPath } from '@/lib/constants'
 import { getInitials } from '@/lib/utils'
@@ -44,12 +44,10 @@ const navItems: NavGroup[] = [
     ]
   },
   {
-    group: 'Stock Requests',
+    group: 'Transfers',
     items: [
-      { href: '/admin/stock-out', label: 'All Requests', Icon: ClipboardList, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
-      { href: '/admin/my-requests', label: 'My Requests', Icon: Send, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
-      { href: '/admin/new-request', label: 'New Request', Icon: PlusCircle, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
-      { href: '/admin/send-stock', label: 'Send Stock', Icon: Truck, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/transfers', label: 'All Transfers', Icon: ArrowLeftRight, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
+      { href: '/admin/transfers/new', label: 'New Transfer', Icon: ArrowDownToLine, roles: ['SUPER_ADMIN','ADMIN','MANAGER','STORE_KEEPER','SHOP_STAFF'] },
     ]
   },
   {
@@ -77,7 +75,6 @@ const navItems: NavGroup[] = [
     group: 'Finance',
     items: [
       { href: '/admin/finance/dashboard', label: 'Finance Overview', Icon: DollarSign, roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
-      { href: '/admin/finance/reviews', label: 'Tally Reviews', Icon: TrendingUp, roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
     ]
   },
   {
@@ -94,6 +91,7 @@ const navItems: NavGroup[] = [
       { href: '/admin/settings/locations', label: 'Locations', Icon: Building2, roles: ['SUPER_ADMIN','ADMIN'] },
       { href: '/admin/settings/categories', label: 'Categories', Icon: Tag, roles: ['SUPER_ADMIN','ADMIN'] },
       { href: '/admin/settings/suppliers', label: 'Suppliers', Icon: Boxes, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+      { href: '/admin/settings/backup', label: 'Backup & Data', Icon: Database, roles: ['SUPER_ADMIN','ADMIN'] },
     ]
   },
 ]

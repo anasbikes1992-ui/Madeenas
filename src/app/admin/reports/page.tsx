@@ -2,11 +2,15 @@
 import { useEffect, useState } from 'react'
 import { formatCurrency } from '@/lib/utils'
 
-interface ReportProduct {
-  name: string
-  category?: { name?: string | null } | null
+interface ReportVariant {
+  sku: string
+  colorName?: string | null
   costPrice?: number | null
-  unit?: string | null
+  stockUnitLabel?: string | null
+  product: {
+    name: string
+    category?: { name?: string | null } | null
+  }
 }
 
 interface ReportLocation {
@@ -14,10 +18,10 @@ interface ReportLocation {
 }
 
 interface InventoryMatrixRow {
-  productId: string
+  variantId: string
   locationId: string
   quantity: number
-  product: ReportProduct
+  variant: ReportVariant
   location: ReportLocation
 }
 
@@ -76,7 +80,7 @@ export default function ReportsPage() {
   }, [period])
 
   const totalValue = inventoryData?.inventory?.inventoryMatrix?.reduce(
-    (sum: number, s: InventoryMatrixRow) => sum + (s.quantity * (s.product?.costPrice || 0)), 0
+    (sum: number, s: InventoryMatrixRow) => sum + (s.quantity * (s.variant?.costPrice || 0)), 0
   ) || 0
 
   const totalUnits = inventoryData?.inventory?.inventoryMatrix?.reduce(
@@ -126,7 +130,7 @@ export default function ReportsPage() {
         {[
           { label: 'Total Stock Units', value: totalUnits.toLocaleString(), icon: '📦', color: 'bg-indigo-500 text-white' },
           { label: 'Estimated Stock Value', value: formatCurrency(totalValue), icon: '💰', color: 'bg-emerald-500 text-white' },
-          { label: 'Unique Products', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.productId)).size, icon: '🏷️', color: 'bg-fuchsia-500 text-white' },
+          { label: 'Unique Variants', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.variantId)).size, icon: '🏷️', color: 'bg-fuchsia-500 text-white' },
           { label: 'Active Locations', value: new Set(inventoryData?.inventory?.inventoryMatrix?.map((s: InventoryMatrixRow) => s.locationId)).size, icon: '🏭', color: 'bg-amber-500 text-white' },
         ].map(s => (
           <div key={s.label} className="card shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
@@ -168,20 +172,25 @@ export default function ReportsPage() {
                   .sort((a: InventoryMatrixRow, b: InventoryMatrixRow) => b.quantity - a.quantity)
                   .slice(0, 50)
                   .map((s: InventoryMatrixRow) => (
-                    <tr key={`${s.productId}-${s.locationId}`}>
-                      <td className="font-medium text-sm text-slate-900">{s.product.name}</td>
+                    <tr key={`${s.variantId}-${s.locationId}`}>
+                      <td className="font-medium text-sm text-slate-900">
+                        {s.variant.product.name}
+                        <div className="text-xs text-slate-500 font-normal mt-0.5">
+                          {s.variant.colorName || s.variant.sku}
+                        </div>
+                      </td>
                       <td>
-                        <span className="badge badge-indigo">{s.product.category?.name}</span>
+                        <span className="badge badge-indigo">{s.variant.product.category?.name}</span>
                       </td>
                       <td className="text-sm text-slate-600">{s.location.name}</td>
                       <td className="font-mono font-bold text-indigo-700">{s.quantity.toLocaleString()}</td>
-                      <td className="text-sm text-slate-500">{s.product.unit}</td>
+                      <td className="text-sm text-slate-500">{s.variant.stockUnitLabel}</td>
                       <td className="text-sm text-slate-600">
-                        {s.product.costPrice ? formatCurrency(s.product.costPrice) : '—'}
+                        {s.variant.costPrice ? formatCurrency(s.variant.costPrice) : '—'}
                       </td>
                       <td className="font-medium text-emerald-700">
-                        {s.product.costPrice
-                          ? formatCurrency(s.quantity * s.product.costPrice)
+                        {s.variant.costPrice
+                          ? formatCurrency(s.quantity * s.variant.costPrice)
                           : '—'
                         }
                       </td>

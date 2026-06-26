@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
-import { productCreateSchema } from '@/lib/validations'
 
 const MANAGE_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER'])
 
@@ -22,8 +21,17 @@ export async function GET(request: NextRequest) {
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
-      { sku: { contains: search, mode: 'insensitive' } },
-      { design: { contains: search, mode: 'insensitive' } },
+      {
+        variants: {
+          some: {
+            OR: [
+              { sku: { contains: search, mode: 'insensitive' } },
+              { colorName: { contains: search, mode: 'insensitive' } },
+            ],
+            isActive: true,
+          },
+        },
+      },
     ]
   }
 
@@ -32,8 +40,13 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         category: true,
-        stocks: {
-          include: { location: { select: { id: true, name: true, code: true, type: true } } },
+        variants: {
+          where: { isActive: true },
+          include: {
+            stocks: {
+              include: { location: { select: { id: true, name: true, code: true, type: true } } },
+            },
+          },
         },
       },
       orderBy: { name: 'asc' },
@@ -60,32 +73,31 @@ export async function POST(request: NextRequest) {
     return fail('Invalid JSON body', 400, 'BAD_REQUEST')
   }
 
-  const parsed = productCreateSchema.safeParse(body)
-  if (!parsed.success) {
-    return fail('Invalid product', 400, 'VALIDATION', parsed.error.flatten().fieldErrors)
+  const b = body as {
+    name?: string
+    categoryId?: string
+    description?: string
+    images?: string[]
+    isActive?: boolean
   }
-  const d = parsed.data
 
-  const category = await prisma.category.findUnique({ where: { id: d.categoryId } })
+  if (!b.name || typeof b.name !== 'string' || b.name.trim().length < 2) {
+    return fail('Name must be at least 2 characters', 400, 'VALIDATION')
+  }
+  if (!b.categoryId || typeof b.categoryId !== 'string') {
+    return fail('categoryId is required', 400, 'VALIDATION')
+  }
+
+  const category = await prisma.category.findUnique({ where: { id: b.categoryId } })
   if (!category) return fail('Category not found', 404, 'NOT_FOUND')
-
-  const existing = await prisma.product.findUnique({ where: { sku: d.sku } })
-  if (existing) return fail('A product with this SKU already exists', 409, 'DUPLICATE_SKU')
 
   const product = await prisma.product.create({
     data: {
-      name: d.name,
-      design: d.design,
-      color: d.color,
-      colorHex: d.colorHex || '#000000',
-      sku: d.sku,
-      categoryId: d.categoryId,
-      unit: d.unit || 'meters',
-      description: d.description ?? undefined,
-      images: JSON.stringify(d.images ?? []),
-      barcodeType: d.barcodeType || 'CODE128',
-      lowStockAt: d.lowStockAt,
-      costPrice: d.costPrice ?? null,
+      name: b.name.trim(),
+      categoryId: b.categoryId,
+      description: b.description ?? null,
+      images: b.images ?? [],
+      isActive: b.isActive ?? true,
     },
     include: { category: true },
   })
@@ -95,7 +107,7 @@ export async function POST(request: NextRequest) {
     action: 'CREATE',
     entity: 'Product',
     entityId: product.id,
-    details: `Created product: ${product.name} (SKU: ${product.sku}) via mobile`,
+    details: `Created product: ${product.name} via mobile`,
   })
 
   return ok({ product }, 201)

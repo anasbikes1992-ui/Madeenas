@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const updated = await updateCustomerOrder(id, {
-      status: parsed.data.status,
+      status: parsed.data.status as any,
     })
 
     await logActivity({

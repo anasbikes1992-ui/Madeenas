@@ -25,11 +25,11 @@ export async function GET(request: NextRequest) {
   ] = await Promise.all([
     prisma.product.count({ where: { isActive: true } }),
     prisma.stock.groupBy({
-      by: ['productId'],
+      by: ['variantId'],
       _sum: { quantity: true },
       having: { quantity: { _sum: { lte: 0 } } },
     }).then(r => r.length),
-    prisma.stockOutRequest.count({ where: { status: 'PENDING' } }),
+    prisma.stockTransfer.count({ where: { status: 'PENDING' } }),
     prisma.sale.aggregate({
       _sum: { grandTotal: true },
       _count: { id: true },

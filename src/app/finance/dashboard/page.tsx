@@ -1,224 +1,178 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { formatDate, formatCurrency } from '@/lib/utils'
 
-const STATUS_BADGE: Record<string, string> = {
-  PENDING: 'badge-amber',
-  MATCHED: 'badge-green',
-  DISCREPANCY: 'badge-red',
+import { useEffect, useState } from 'react'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { DollarSign, TrendingUp, Activity, Wallet } from 'lucide-react'
+import { toast } from 'sonner'
+
+type CashFlowData = {
+  date: string
+  amount: number
 }
 
-export default function FinanceDashboardPage() {
-  const [reviews, setReviews] = useState<any[]>([])
-  const [pendingReviews, setPendingReviews] = useState<any[]>([])
+type FinanceMetrics = {
+  revenue: number
+  profit: number
+  netProfit: number
+  cogs: number
+  cashFlow: CashFlowData[]
+}
+
+export default function FinanceOverviewPage() {
+  const [metrics, setMetrics] = useState<FinanceMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showReviewForm, setShowReviewForm] = useState(false)
-  const [selectedReview, setSelectedReview] = useState<any>(null)
-  const [reviewForm, setReviewForm] = useState<any>({ externalInvoice: '', externalAmount: '', notes: '', status: 'MATCHED' })
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 5000) }
-
-  async function load() {
-    setLoading(true)
-    const revRes = await fetch('/api/finance/reviews?limit=100')
-    const revData = await revRes.json()
-    const allReviews = revData.reviews || []
-    setReviews(allReviews)
-    setPendingReviews(allReviews.filter((review: any) => review.status === 'PENDING'))
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
-
-  async function submitReview(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedReview) return
-
-    setSaving(true)
-    const res = await fetch('/api/finance/reviews', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: selectedReview.id,
-        ...reviewForm,
-      }),
-    })
-    setSaving(false)
-
-    if (res.ok) {
-      setShowReviewForm(false)
-      setSelectedReview(null)
-      load()
-      showToast('Finance review submitted!')
-      return
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/analytics?days=30')
+        if (!res.ok) throw new Error('Failed to fetch analytics')
+        const data = await res.json()
+        setMetrics(data.metrics || null)
+      } catch (err) {
+        toast.error('Could not load finance data')
+      } finally {
+        setLoading(false)
+      }
     }
+    load()
+  }, [])
 
-    const data = await res.json().catch(() => null)
-    showToast(data?.error || 'Failed to submit finance review')
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-lg font-medium text-slate-500 animate-pulse">Loading Finance Dashboard...</div>
+      </div>
+    )
   }
 
-  const matched = reviews.filter(r => r.status === 'MATCHED').length
-  const discrepancies = reviews.filter(r => r.status === 'DISCREPANCY').length
+  if (!metrics) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-lg font-medium text-slate-500">No finance data available.</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6 fade-in">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-1">Finance Department</h1>
-        <p className="text-teal-100 text-sm">Tally stock movements with your external invoicing system</p>
-        <div className="grid grid-cols-3 gap-4 mt-5">
-          {[
-            { label: 'To Review', value: pendingReviews.length, icon: '🧾' },
-            { label: 'Matched', value: matched, icon: '✅' },
-            { label: 'Discrepancies', value: discrepancies, icon: '⚠️' },
-          ].map(s => (
-            <div key={s.label} className="bg-white/20 rounded-xl p-4 text-center">
-              <div className="text-2xl mb-1">{s.icon}</div>
-              <div className="text-2xl font-bold">{s.value}</div>
-              <div className="text-teal-100 text-xs">{s.label}</div>
-            </div>
-          ))}
+    <div className="space-y-6 fade-in p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900">Finance Overview</h1>
+          <p className="text-sm text-slate-500 mt-1">Financial performance over the last 30 days.</p>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Acknowledged stock-outs needing review */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-900">📋 Needs Finance Review</h2>
-            <span className="badge badge-amber">{pendingReviews.length} pending</span>
-          </div>
-          {loading ? (
-            <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}</div>
-          ) : pendingReviews.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">✅ All pending finance reviews are complete</p>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {pendingReviews.map((review: any) => {
-                const stockOut = review.stockOut
-
-                return (
-                <div key={review.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{stockOut.product.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {stockOut.fromLocation.name} | Qty: {stockOut.quantityApproved || stockOut.quantityRequested} {stockOut.product.unit}
-                    </p>
-                    <p className="text-xs text-slate-400">Invoice: {stockOut.referenceInvoice || '—'}</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedReview(review)
-                      setReviewForm({
-                        externalInvoice: review.externalInvoice || stockOut.referenceInvoice || '',
-                        externalAmount: review.externalAmount?.toString() || '',
-                        notes: review.notes || '',
-                        status: review.status || 'MATCHED',
-                      })
-                      setShowReviewForm(true)
-                    }}
-                    className="btn-primary btn-sm shrink-0 ml-3"
-                  >
-                    Review
-                  </button>
-                </div>
-              )})}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Revenue */}
+        <div className="flex flex-col gap-4 bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-200/60">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold uppercase tracking-wider text-slate-500">Total Revenue</p>
+            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+              <DollarSign className="w-5 h-5" />
             </div>
-          )}
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900">{formatCurrency(metrics.revenue || 0)}</h2>
+          </div>
         </div>
 
-        {/* Review history */}
-        <div className="card">
-          <h2 className="font-semibold text-slate-900 mb-4">🧾 Review History</h2>
-          {loading ? (
-            <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}</div>
-          ) : reviews.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">No reviews yet</p>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {reviews.map((r: any) => (
-                <div key={r.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium text-slate-900">{r.stockOut.product.name}</p>
-                    <span className={STATUS_BADGE[r.status] || 'badge-gray'}>{r.status}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-slate-500">
-                    <span>Stock Invoice: {r.stockOut.referenceInvoice || '—'}</span>
-                    <span>External: {r.externalInvoice || '—'}</span>
-                    {r.externalAmount && <span>Amount: {formatCurrency(r.externalAmount)}</span>}
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-slate-400">By {r.reviewer.name} • {formatDate(r.createdAt)}</span>
-                  </div>
-                  {r.notes && <p className="text-xs text-slate-600 mt-1 italic">"{r.notes}"</p>}
-                </div>
-              ))}
+        {/* Gross Profit */}
+        <div className="flex flex-col gap-4 bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-200/60">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold uppercase tracking-wider text-slate-500">Gross Profit</p>
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+              <TrendingUp className="w-5 h-5" />
             </div>
-          )}
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900">{formatCurrency(metrics.profit || 0)}</h2>
+          </div>
+        </div>
+
+        {/* Net Profit */}
+        <div className="flex flex-col gap-4 bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-200/60">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold uppercase tracking-wider text-slate-500">Net Profit</p>
+            <div className="p-2.5 bg-teal-50 text-teal-600 rounded-xl">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900">{formatCurrency(metrics.netProfit || 0)}</h2>
+          </div>
+        </div>
+
+        {/* COGS */}
+        <div className="flex flex-col gap-4 bg-white p-6 rounded-[1.5rem] shadow-sm border border-slate-200/60">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold uppercase tracking-wider text-slate-500">COGS</p>
+            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
+              <Activity className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900">{formatCurrency(metrics.cogs || 0)}</h2>
+          </div>
         </div>
       </div>
 
-      {/* Review modal */}
-      {showReviewForm && selectedReview && (
-        <div className="modal-overlay" onClick={e => {
-          if (e.target === e.currentTarget) {
-            setShowReviewForm(false)
-            setSelectedReview(null)
-          }
-        }}>
-          <div className="modal">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold">Finance Review</h2>
-              <button onClick={() => { setShowReviewForm(false); setSelectedReview(null) }} className="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-4 mb-5 text-sm">
-              <p className="font-medium text-slate-900">{selectedReview.stockOut.product.name}</p>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-slate-600">
-                <span>From: {selectedReview.stockOut.fromLocation.name}</span>
-                <span>Qty: {selectedReview.stockOut.quantityApproved || selectedReview.stockOut.quantityRequested} {selectedReview.stockOut.product.unit}</span>
-                <span>Stock Invoice: <strong>{selectedReview.stockOut.referenceInvoice || '—'}</strong></span>
-                <span>Dispatched: {formatDate(selectedReview.stockOut.dispatchedAt)}</span>
-              </div>
-            </div>
-
-            <form onSubmit={submitReview} className="space-y-4">
-              <div className="form-group">
-                <label className="label">External Invoice Number</label>
-                <input className="input font-mono" value={reviewForm.externalInvoice} onChange={e => setReviewForm({ ...reviewForm, externalInvoice: e.target.value })} placeholder="From your invoicing system" />
-              </div>
-              <div className="form-group">
-                <label className="label">Invoice Amount</label>
-                <input type="number" step="0.01" className="input" value={reviewForm.externalAmount} onChange={e => setReviewForm({ ...reviewForm, externalAmount: e.target.value })} placeholder="0.00" />
-              </div>
-              <div className="form-group">
-                <label className="label">Tally Status</label>
-                <div className="flex gap-3">
-                  {['MATCHED', 'DISCREPANCY', 'PENDING'].map(s => (
-                    <button key={s} type="button" onClick={() => setReviewForm({ ...reviewForm, status: s })}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${reviewForm.status === s ? 'bg-teal-600 text-white border-teal-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >{s}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="label">Notes</label>
-                <textarea className="input" rows={2} value={reviewForm.notes} onChange={e => setReviewForm({ ...reviewForm, notes: e.target.value })} placeholder="Observations or remarks..." />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={saving} className="btn-primary flex-1 justify-center">
-                  {saving ? 'Saving…' : '✅ Submit Review'}
-                </button>
-                <button type="button" onClick={() => setShowReviewForm(false)} className="btn-secondary">Cancel</button>
-              </div>
-            </form>
-          </div>
+      <div className="bg-white p-6 sm:p-8 rounded-[1.5rem] shadow-sm border border-slate-200/60 mt-8">
+        <h3 className="text-lg font-bold text-slate-900 mb-6">Cash Flow Trends</h3>
+        <div className="h-[400px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={metrics.cashFlow || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis 
+                dataKey="date" 
+                tickFormatter={(val) => {
+                  try {
+                    return formatDate(val)
+                  } catch {
+                    return val
+                  }
+                }} 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#64748b' }}
+                dy={10}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#64748b' }}
+                tickFormatter={(val) => `${val >= 1000 ? val / 1000 + 'k' : val}`}
+              />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <Tooltip 
+                formatter={(value: any) => [formatCurrency(Number(value) || 0), 'Cash Flow']}
+                labelFormatter={(label) => {
+                  try {
+                    return formatDate(label)
+                  } catch {
+                    return label
+                  }
+                }}
+                contentStyle={{ borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="amount" 
+                stroke="#10b981" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorAmount)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-      )}
-
-      {toast && <div className="toast-success">✅ {toast}</div>}
+      </div>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { z } from 'zod'
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
 
 const stockOutSchema = z.object({
-  productId: z.string().min(1),
+  variantId: z.string().min(1),
   fromLocationId: z.string().min(1),
   toLocationId: z.string().min(1).optional().nullable(),
   quantityRequested: z.number().positive(),
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     return fail('Validation error', 400, 'VALIDATION_ERROR')
   }
 
-  const { productId, fromLocationId, toLocationId, quantityRequested, note, referenceInvoice } =
+  const { variantId, fromLocationId, toLocationId, quantityRequested, note, referenceInvoice } =
     parsed.data
 
   let effectiveToLocationId = toLocationId ?? null
@@ -69,14 +69,14 @@ export async function POST(request: NextRequest) {
     return fail('Destination location is required', 400, 'VALIDATION_ERROR')
   }
 
-  // Verify product and location exist
-  const [product, fromLocation, toLocation] = await Promise.all([
-    prisma.product.findUnique({ where: { id: productId } }),
+  // Verify variant and location exist
+  const [variant, fromLocation, toLocation] = await Promise.all([
+    prisma.productVariant.findUnique({ where: { id: variantId }, include: { product: true } }),
     prisma.location.findUnique({ where: { id: fromLocationId } }),
     prisma.location.findUnique({ where: { id: effectiveToLocationId } }),
   ])
 
-  if (!product || !product.isActive) return fail('Product not found', 404, 'NOT_FOUND')
+  if (!variant || !variant.isActive) return fail('Product variant not found', 404, 'NOT_FOUND')
   if (!fromLocation || !fromLocation.isActive) return fail('From-location not found', 404, 'NOT_FOUND')
   if (!toLocation || !toLocation.isActive) return fail('To-location not found', 404, 'NOT_FOUND')
   if (fromLocationId === effectiveToLocationId) {
@@ -85,31 +85,38 @@ export async function POST(request: NextRequest) {
 
   // Check available stock
   const stock = await prisma.stock.findUnique({
-    where: { productId_locationId: { productId, locationId: fromLocationId } },
+    where: { variantId_locationId: { variantId, locationId: fromLocationId } },
   })
   const available = stock?.quantity ?? 0
   if (available < quantityRequested) {
     return fail(
-      `Insufficient stock. Available: ${available} ${product.unit}`,
+      `Insufficient stock. Available: ${available} ${variant.stockUnit}`,
       422,
       'INSUFFICIENT_STOCK',
     )
   }
 
-  const stockOut = await prisma.stockOutRequest.create({
+  const transferNo = 'REQ-' + Date.now().toString()
+
+  const stockOut = await prisma.stockTransfer.create({
     data: {
-      flowType: 'REQUEST',
-      productId,
+      transferNo,
       fromLocationId,
       toLocationId: effectiveToLocationId,
       requestedBy: user.sub!,
-      quantityRequested,
-      note: note ?? null,
-      referenceInvoice: referenceInvoice ?? null,
+      note: note ?? referenceInvoice ?? null,
       status: 'PENDING',
+      items: {
+        create: [
+          {
+            variantId,
+            requestedQty: quantityRequested,
+          }
+        ]
+      }
     },
     include: {
-      product: { select: { name: true, sku: true } },
+      items: { include: { variant: { include: { product: true } } } },
       fromLocation: { select: { name: true } },
     },
   })
@@ -117,9 +124,9 @@ export async function POST(request: NextRequest) {
   await logActivity({
     userId: user.sub!,
     action: 'CREATE',
-    entity: 'StockOutRequest',
+    entity: 'StockTransfer',
     entityId: stockOut.id,
-    details: `Mobile: Requested ${quantityRequested} ${product.unit} of ${product.name} from ${fromLocation.name}`,
+    details: `Mobile: Requested ${quantityRequested} ${variant.stockUnit} of ${variant.product.name} from ${fromLocation.name}`,
   })
 
   return ok({ stockOut }, 201)
@@ -143,7 +150,6 @@ export async function GET(request: NextRequest) {
   const userLocationId = user.locationId ?? null
 
   const where: Record<string, unknown> = {}
-  where.flowType = 'REQUEST'
   if (mine) {
     where.requestedBy = user.sub
   } else if (!canViewAll) {
@@ -160,10 +166,10 @@ export async function GET(request: NextRequest) {
   if (status) where.status = status
 
   const [requests, total] = await Promise.all([
-    prisma.stockOutRequest.findMany({
+    prisma.stockTransfer.findMany({
       where,
       include: {
-        product: { select: { name: true, sku: true, unit: true } },
+        items: { include: { variant: { select: { sku: true, stockUnit: true, product: { select: { name: true } } } } } },
         fromLocation: { select: { name: true } },
         toLocation: { select: { name: true } },
         requestedByUser: { select: { name: true } },
@@ -172,7 +178,7 @@ export async function GET(request: NextRequest) {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.stockOutRequest.count({ where }),
+    prisma.stockTransfer.count({ where }),
   ])
 
   return ok({ requests, total, page, limit })

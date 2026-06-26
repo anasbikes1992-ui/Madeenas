@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
       where: { createdAt: { gte: lastMonthStart, lte: lastMonthEnd } },
     }),
     prisma.saleItem.groupBy({
-      by: ['productId'],
-      _sum: { quantity: true, subTotal: true },
+      by: ['variantId'],
+      _sum: { saleQty: true, subTotal: true },
       orderBy: { _sum: { subTotal: 'desc' } },
       take: 5,
     }),
@@ -46,12 +46,16 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
       orderBy: { _sum: { grandTotal: 'desc' } },
     }),
-    prisma.stockOutRequest.findMany({
+    prisma.stockTransfer.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
       where: { status: { in: ['PENDING', 'APPROVED'] } },
       include: {
-        product: { select: { name: true, sku: true } },
+        items: {
+          include: {
+            variant: { select: { sku: true, product: { select: { name: true } } } },
+          },
+        },
         fromLocation: { select: { name: true } },
         requestedByUser: { select: { name: true } },
       },
@@ -59,10 +63,10 @@ export async function GET(request: NextRequest) {
   ])
 
   // Enrich top products with names
-  const productIds = topProducts.map(p => p.productId)
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    select: { id: true, name: true, sku: true },
+  const variantIds = topProducts.map(p => p.variantId)
+  const variants = await prisma.productVariant.findMany({
+    where: { id: { in: variantIds } },
+    select: { id: true, sku: true, product: { select: { name: true } } },
   })
 
   const locationIds = salesByLocation.map(s => s.locationId)
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
     lastMonth: { revenue: lastMonthSales._sum.grandTotal ?? 0, count: lastMonthSales._count.id },
     topProducts: topProducts.map(p => ({
       ...p,
-      product: products.find(pr => pr.id === p.productId),
+      product: variants.find(v => v.id === p.variantId),
     })),
     salesByLocation: salesByLocation.map(s => ({
       ...s,

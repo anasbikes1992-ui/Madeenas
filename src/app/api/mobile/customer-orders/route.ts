@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
         customer: { select: { name: true, email: true } },
         items: {
           include: {
-            product: { select: { name: true, sku: true } },
+            variant: { 
+              select: { 
+                sku: true,
+                product: { select: { name: true } }
+              } 
+            },
           },
         },
       },

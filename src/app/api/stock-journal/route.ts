@@ -7,8 +7,9 @@ const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_
 type JournalEntry = {
   id: string
   type: 'STOCK_IN' | 'STOCK_OUT' | 'STOCK_ADJUSTMENT'
-  productId: string
+  variantId: string
   productName: string
+  sku: string
   unit: string
   fromLocation: string | null
   toLocation: string | null
@@ -28,32 +29,35 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const productId = searchParams.get('productId') || undefined
+  const variantId = searchParams.get('variantId') || undefined
   const locationId = searchParams.get('locationId') || undefined
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
 
-  const [stockIns, stockOuts, adjustments] = await Promise.all([
+  const [stockIns, transfers, adjustments] = await Promise.all([
     prisma.stockIn.findMany({
       where: {
-        ...(productId ? { productId } : {}),
+        ...(variantId ? { variantId } : {}),
         ...(locationId ? { locationId } : {}),
       },
       include: {
-        product: { select: { id: true, name: true, unit: true } },
+        variant: { include: { product: { select: { name: true } } } },
         location: { select: { name: true } },
         user: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
     }),
-    prisma.stockOutRequest.findMany({
+    prisma.stockTransfer.findMany({
       where: {
-        status: { in: ['DISPATCHED', 'IN_TRANSIT', 'ACKNOWLEDGED', 'RECEIVED'] },
-        ...(productId ? { productId } : {}),
+        status: { in: ['DISPATCHED', 'RECEIVED'] },
+        ...(variantId ? { items: { some: { variantId } } } : {}),
         ...(locationId ? { OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] } : {}),
       },
       include: {
-        product: { select: { id: true, name: true, unit: true } },
+        items: {
+          where: variantId ? { variantId } : undefined,
+          include: { variant: { include: { product: { select: { name: true } } } } }
+        },
         fromLocation: { select: { name: true } },
         toLocation: { select: { name: true } },
         requestedByUser: { select: { name: true } },
@@ -63,12 +67,12 @@ export async function GET(request: NextRequest) {
     }),
     prisma.stockAdjustment.findMany({
       where: {
-        ...(productId ? { productId } : {}),
+        ...(variantId ? { variantId } : {}),
         ...(locationId ? { locationId } : {}),
       },
       include: {
-        adjustedByUser: { select: { name: true } },
-        product: { select: { id: true, name: true, unit: true } },
+        user: { select: { name: true } },
+        variant: { include: { product: { select: { name: true } } } },
         location: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -80,40 +84,43 @@ export async function GET(request: NextRequest) {
     ...stockIns.map((entry) => ({
       id: entry.id,
       type: 'STOCK_IN' as const,
-      productId: entry.product.id,
-      productName: entry.product.name,
-      unit: entry.product.unit,
+      variantId: entry.variantId,
+      productName: entry.variant.product.name,
+      sku: entry.variant.sku,
+      unit: entry.variant.stockUnit,
       fromLocation: null,
       toLocation: entry.location.name,
-      quantity: entry.quantity,
+      quantity: entry.quantityAddedToStock ?? entry.receivedQty,
       date: entry.createdAt.toISOString(),
       actor: entry.user.name,
       note: entry.note ?? null,
     })),
-    ...stockOuts.map((entry) => ({
-      id: entry.id,
+    ...transfers.flatMap((transfer) => transfer.items.map((item) => ({
+      id: item.id,
       type: 'STOCK_OUT' as const,
-      productId: entry.product.id,
-      productName: entry.product.name,
-      unit: entry.product.unit,
-      fromLocation: entry.fromLocation.name,
-      toLocation: entry.toLocation?.name ?? null,
-      quantity: -(entry.quantityApproved || entry.quantityRequested),
-      date: (entry.acknowledgedAt || entry.dispatchedAt || entry.updatedAt).toISOString(),
-      actor: entry.requestedByUser.name,
-      note: entry.note ?? null,
-    })),
+      variantId: item.variantId,
+      productName: item.variant.product.name,
+      sku: item.variant.sku,
+      unit: item.variant.stockUnit,
+      fromLocation: transfer.fromLocation.name,
+      toLocation: transfer.toLocation.name,
+      quantity: -(item.dispatchedQty || item.requestedQty || 0),
+      date: (transfer.receivedAt || transfer.dispatchedAt || transfer.updatedAt).toISOString(),
+      actor: transfer.requestedByUser.name,
+      note: transfer.note ?? null,
+    }))),
     ...adjustments.map((entry) => ({
       id: entry.id,
       type: 'STOCK_ADJUSTMENT' as const,
-      productId: entry.product.id,
-      productName: entry.product.name,
-      unit: entry.product.unit,
+      variantId: entry.variantId,
+      productName: entry.variant.product.name,
+      sku: entry.variant.sku,
+      unit: entry.variant.stockUnit,
       fromLocation: entry.location.name,
       toLocation: entry.location.name,
       quantity: entry.delta,
       date: entry.createdAt.toISOString(),
-      actor: entry.adjustedByUser.name,
+      actor: entry.user.name,
       note: entry.note || entry.reason || null,
     })),
   ]

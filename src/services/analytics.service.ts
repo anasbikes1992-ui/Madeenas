@@ -261,7 +261,7 @@ async function calculateProfit(startDate: Date, endDate: Date): Promise<ProfitMe
       },
     },
     include: {
-      product: {
+      variant: {
         select: {
           costPrice: true,
         },
@@ -276,7 +276,7 @@ async function calculateProfit(startDate: Date, endDate: Date): Promise<ProfitMe
 
   const totalRevenue = saleItems.reduce((sum, item) => sum + item.total, 0)
   const costOfGoodsSold = saleItems.reduce(
-    (sum, item) => sum + (item.product.costPrice || 0) * item.quantity,
+    (sum, item) => sum + (item.costAtSale || item.variant?.costPrice || 0) * item.saleQty,
     0
   )
 
@@ -301,8 +301,9 @@ async function calculateProfit(startDate: Date, endDate: Date): Promise<ProfitMe
 // =============================================================================
 
 async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
-  const products = await prisma.product.findMany({
+  const variants = await prisma.productVariant.findMany({
     include: {
+      product: true,
       stocks: true,
       saleItems: {
         where: {
@@ -316,18 +317,18 @@ async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
     },
   })
 
-  const totalValue = products.reduce((sum, product) => {
-    const totalStock = product.stocks.reduce((s, stock) => s + stock.quantity, 0)
-    return sum + totalStock * (product.costPrice || 0)
+  const totalValue = variants.reduce((sum, variant) => {
+    const totalStock = variant.stocks.reduce((s, stock) => s + stock.quantity, 0)
+    return sum + totalStock * (variant.costPrice || 0)
   }, 0)
 
-  const stockouts = products.filter((p) =>
-    p.stocks.every((s) => s.quantity <= 0)
+  const stockouts = variants.filter((v) =>
+    v.stocks.every((s) => s.quantity <= 0)
   ).length
 
-  const lowStockItems = products.filter((p) => {
-    const totalStock = p.stocks.reduce((s, stock) => s + stock.quantity, 0)
-    return totalStock > 0 && totalStock <= p.lowStockAt
+  const lowStockItems = variants.filter((v) => {
+    const totalStock = v.stocks.reduce((s, stock) => s + stock.quantity, 0)
+    return totalStock > 0 && totalStock <= (v.lowStockAt || 0)
   }).length
 
   // Dead stock: no sales in 90 days
@@ -335,23 +336,23 @@ async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
   const fastMoving: string[] = []
   const slowMoving: string[] = []
 
-  for (const product of products) {
-    const salesLast90Days = product.saleItems.length
-    const totalStock = product.stocks.reduce((s, stock) => s + stock.quantity, 0)
+  for (const variant of variants) {
+    const salesLast90Days = variant.saleItems.length
+    const totalStock = variant.stocks.reduce((s, stock) => s + stock.quantity, 0)
 
     if (salesLast90Days === 0 && totalStock > 0) {
       deadStock.push({
-        productId: product.id,
-        productName: product.name,
+        productId: variant.id,
+        productName: variant.product.name + ' - ' + variant.colorName,
         quantity: totalStock,
         lastSoldDate: null,
         daysWithoutSale: 90,
-        estimatedValue: totalStock * (product.costPrice || 0),
+        estimatedValue: totalStock * (variant.costPrice || 0),
       })
     } else if (salesLast90Days > 20) {
-      fastMoving.push(product.id)
+      fastMoving.push(variant.id)
     } else if (salesLast90Days < 5 && salesLast90Days > 0) {
-      slowMoving.push(product.id)
+      slowMoving.push(variant.id)
     }
   }
 
@@ -510,7 +511,7 @@ async function getTopSellingProducts(
   limit: number
 ): Promise<ProductPerformance[]> {
   const saleItems = await prisma.saleItem.groupBy({
-    by: ['productId'],
+    by: ['variantId'],
     where: {
       sale: {
         createdAt: {
@@ -520,7 +521,7 @@ async function getTopSellingProducts(
       },
     },
     _sum: {
-      quantity: true,
+      saleQty: true,
       total: true,
       subTotal: true,
     },
@@ -532,31 +533,26 @@ async function getTopSellingProducts(
     take: limit,
   })
 
-  const productIds = saleItems.map((item) => item.productId)
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    select: {
-      id: true,
-      name: true,
-      sku: true,
-      costPrice: true,
-    },
+  const variantIds = saleItems.map((item) => item.variantId)
+  const variants = await prisma.productVariant.findMany({
+    where: { id: { in: variantIds } },
+    include: { product: true },
   })
 
-  const productMap = new Map(products.map((p) => [p.id, p]))
+  const variantMap = new Map(variants.map((v) => [v.id, v]))
 
   return saleItems.map((item) => {
-    const product = productMap.get(item.productId)
+    const variant = variantMap.get(item.variantId)
     const revenue = item._sum.total || 0
-    const cost = (product?.costPrice || 0) * (item._sum.quantity || 0)
+    const cost = (variant?.costPrice || 0) * (item._sum.saleQty || 0)
     const profit = revenue - cost
     const profitMargin = revenue > 0 ? (profit / revenue) * 100 : 0
 
     return {
-      productId: item.productId,
-      productName: product?.name || 'Unknown',
-      sku: product?.sku || '',
-      unitsSold: item._sum.quantity || 0,
+      productId: item.variantId,
+      productName: variant ? `${variant.product.name} - ${variant.colorName}` : 'Unknown',
+      sku: variant?.sku || '',
+      unitsSold: item._sum.saleQty || 0,
       revenue,
       profit,
       profitMargin,
@@ -671,14 +667,14 @@ async function getCashFlowAnalysis(
       costPrice: { not: null },
     },
     select: {
-      quantity: true,
+      quantityAddedToStock: true,
       costPrice: true,
       createdAt: true,
     },
   })
 
   const cashIn = sales.reduce((sum, sale) => sum + sale.grandTotal, 0)
-  const cashOut = stockIns.reduce((sum, si) => sum + (si.costPrice || 0) * si.quantity, 0)
+  const cashOut = stockIns.reduce((sum, si) => sum + (si.costPrice || 0) * si.quantityAddedToStock, 0)
 
   // Daily breakdown
   const dailyMap = new Map<string, { cashIn: number; cashOut: number }>()
@@ -693,7 +689,7 @@ async function getCashFlowAnalysis(
   stockIns.forEach((si) => {
     const dateKey = format(si.createdAt, 'yyyy-MM-dd')
     const existing = dailyMap.get(dateKey) || { cashIn: 0, cashOut: 0 }
-    existing.cashOut += (si.costPrice || 0) * si.quantity
+    existing.cashOut += (si.costPrice || 0) * si.quantityAddedToStock
     dailyMap.set(dateKey, existing)
   })
 
@@ -719,8 +715,9 @@ async function getCashFlowAnalysis(
 // =============================================================================
 
 async function getPredictiveInsights(): Promise<PredictiveInsights> {
-  const products = await prisma.product.findMany({
+  const variants = await prisma.productVariant.findMany({
     include: {
+      product: true,
       stocks: true,
       saleItems: {
         where: {
@@ -731,7 +728,7 @@ async function getPredictiveInsights(): Promise<PredictiveInsights> {
           },
         },
         select: {
-          quantity: true,
+          saleQty: true,
         },
       },
     },
@@ -741,22 +738,23 @@ async function getPredictiveInsights(): Promise<PredictiveInsights> {
   const demandForecast: DemandForecast[] = []
   const reorderSuggestions: ReorderSuggestion[] = []
 
-  for (const product of products) {
-    const totalStock = product.stocks.reduce((sum, s) => sum + s.quantity, 0)
-    const salesLast30Days = product.saleItems.reduce((sum, item) => sum + item.quantity, 0)
+  for (const variant of variants) {
+    const totalStock = variant.stocks.reduce((sum, s) => sum + s.quantity, 0)
+    const salesLast30Days = variant.saleItems.reduce((sum, item) => sum + item.saleQty, 0)
     const avgDailyDemand = salesLast30Days / 30
+    const lowStockAt = variant.lowStockAt || 0
 
     // Stock alerts
-    if (totalStock <= product.lowStockAt && totalStock > 0) {
+    if (totalStock <= lowStockAt && totalStock > 0) {
       const daysUntilStockout = avgDailyDemand > 0 ? Math.floor(totalStock / avgDailyDemand) : 999
       const urgency =
         daysUntilStockout <= 3 ? 'critical' : daysUntilStockout <= 7 ? 'high' : 'medium'
 
       stockAlerts.push({
-        productId: product.id,
-        productName: product.name,
+        productId: variant.id,
+        productName: variant.product.name + ' - ' + variant.colorName,
         currentStock: totalStock,
-        reorderPoint: product.lowStockAt,
+        reorderPoint: lowStockAt,
         daysUntilStockout,
         urgency,
       })
@@ -767,8 +765,8 @@ async function getPredictiveInsights(): Promise<PredictiveInsights> {
       const trend =
         salesLast30Days > 20 ? 'increasing' : salesLast30Days < 5 ? 'decreasing' : 'stable'
       demandForecast.push({
-        productId: product.id,
-        productName: product.name,
+        productId: variant.id,
+        productName: variant.product.name + ' - ' + variant.colorName,
         forecastedDemand: avgDailyDemand * 30,
         confidence: 0.7, // Simplified
         trend,
@@ -776,20 +774,20 @@ async function getPredictiveInsights(): Promise<PredictiveInsights> {
     }
 
     // Reorder suggestions
-    if (totalStock <= product.lowStockAt) {
+    if (totalStock <= lowStockAt) {
       const suggestedQuantity = Math.max(
-        product.lowStockAt * 2,
+        lowStockAt * 2,
         avgDailyDemand * 30 // 30 days supply
       )
-      const estimatedCost = suggestedQuantity * (product.costPrice || 0)
+      const estimatedCost = suggestedQuantity * (variant.costPrice || 0)
       const expectedStockoutDate =
         avgDailyDemand > 0
           ? new Date(Date.now() + (totalStock / avgDailyDemand) * 24 * 60 * 60 * 1000)
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
 
       reorderSuggestions.push({
-        productId: product.id,
-        productName: product.name,
+        productId: variant.id,
+        productName: variant.product.name + ' - ' + variant.colorName,
         suggestedQuantity,
         estimatedCost,
         expectedStockoutDate,

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       user.id,
       {
         shippingAddress: checkoutData.shippingAddress,
-        billingAddress: checkoutData.billingAddress,
+
         phoneNumber: checkoutData.phoneNumber,
         note: checkoutData.note,
       },

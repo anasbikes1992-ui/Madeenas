@@ -30,9 +30,9 @@ const statusConfig: Record<OrderStatus, { label: string; className: string }> = 
     label: 'Cancelled',
     className: 'bg-gray-100 text-gray-800 border-gray-300',
   },
-  REFUNDED: {
-    label: 'Refunded',
-    className: 'bg-red-100 text-red-800 border-red-300',
+  READY: {
+    label: 'Ready',
+    className: 'bg-teal-100 text-teal-800 border-teal-300',
   },
 }
 

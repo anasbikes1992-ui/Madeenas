@@ -24,33 +24,33 @@ export async function GET(request: NextRequest) {
 
   const rows = await prisma.stock.findMany({
     include: {
-      product: { select: { id: true, sku: true, name: true, unit: true, alternateUnit: true, conversionFactor: true } },
+      variant: { select: { id: true, sku: true, stockUnit: true, altUnit: true, saleToStockFactor: true, colorName: true, product: { select: { name: true } } } },
       location: { select: { id: true, code: true, name: true, type: true } },
     },
-    orderBy: [{ locationId: 'asc' }, { productId: 'asc' }],
+    orderBy: [{ locationId: 'asc' }, { variantId: 'asc' }],
   })
 
   const normalized = rows.map((row) => ({
-    productId: row.productId,
-    sku: row.product.sku,
-    productName: row.product.name,
-    unit: row.product.unit,
-    alternateUnit: row.product.alternateUnit,
-    conversionFactor: row.product.conversionFactor,
+    variantId: row.variantId,
+    sku: row.variant.sku,
+    productName: row.variant.product.name + ' - ' + row.variant.colorName,
+    unit: row.variant.stockUnit,
+    alternateUnit: row.variant.altUnit,
+    conversionFactor: row.variant.saleToStockFactor,
     locationId: row.locationId,
     locationCode: row.location.code,
     locationName: row.location.name,
     locationType: row.location.type,
     quantity: row.quantity,
     quantityInAlternateUnit:
-      row.product.conversionFactor && row.product.alternateUnit
-        ? Number((row.quantity * row.product.conversionFactor).toFixed(4))
+      row.variant.saleToStockFactor && row.variant.altUnit
+        ? Number((row.quantity * row.variant.saleToStockFactor).toFixed(4))
         : null,
   }))
 
   if (format === 'csv') {
     const headers = [
-      'productId',
+      'variantId',
       'sku',
       'productName',
       'unit',

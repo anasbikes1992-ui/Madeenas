@@ -16,9 +16,13 @@ import type { CreateSale } from '@/lib/validation';
 const saleInclude = {
   items: {
     include: {
-      product: {
+      variant: {
         include: {
-          category: true,
+          product: {
+            include: {
+              category: true,
+            },
+          },
         },
       },
     },
@@ -123,13 +127,17 @@ export async function createSale(data: CreateSale, soldById: string) {
         taxRate: saleData.taxRate,
         taxAmount: saleData.taxAmount,
         grandTotal: saleData.grandTotal,
-        totalAmount: saleData.grandTotal, // Legacy field
         paymentMode: data.paymentMode,
         note: data.note,
         items: {
           create: data.items.map((item, index) => ({
-            productId: item.productId,
-            quantity: item.quantity,
+            variantId: (item as any).variantId || (item as any).productId, // Fallback if CreateSale not fully updated
+            saleUnit: (item as any).saleUnit || 'PCS',
+            saleQty: item.quantity,
+            saleToStockFactor: (item as any).saleToStockFactor || 1,
+            stockQtyDeducted: item.quantity * ((item as any).saleToStockFactor || 1),
+            costAtSale: (item as any).costPrice || 0,
+            profitAmount: saleData.items[index].subTotal - (((item as any).costPrice || 0) * item.quantity),
             unitPrice: item.unitPrice,
             subTotal: saleData.items[index].subTotal,
             taxRate: saleData.items[index].taxRate,
@@ -143,35 +151,38 @@ export async function createSale(data: CreateSale, soldById: string) {
     
     // Deduct stock for each item
     for (const item of data.items) {
+      const variantId = (item as any).variantId || (item as any).productId;
+      const stockQtyToDeduct = item.quantity * ((item as any).saleToStockFactor || 1);
+
       const stock = await tx.stock.findUnique({
         where: {
-          productId_locationId: {
-            productId: item.productId,
+          variantId_locationId: {
+            variantId,
             locationId: data.locationId,
           },
         },
       });
       
       if (!stock) {
-        throw new Error(`No stock found for product ${item.productId} at location ${data.locationId}`);
+        throw new Error(`No stock found for variant ${variantId} at location ${data.locationId}`);
       }
       
-      if (stock.quantity < item.quantity) {
+      if (stock.quantity < stockQtyToDeduct) {
         throw new Error(
-          `Insufficient stock for product ${item.productId}. Available: ${stock.quantity}, Requested: ${item.quantity}`
+          `Insufficient stock for variant ${variantId}. Available: ${stock.quantity}, Requested: ${stockQtyToDeduct}`
         );
       }
       
       await tx.stock.update({
         where: {
-          productId_locationId: {
-            productId: item.productId,
+          variantId_locationId: {
+            variantId,
             locationId: data.locationId,
           },
         },
         data: {
           quantity: {
-            decrement: item.quantity,
+            decrement: stockQtyToDeduct,
           },
         },
       });

@@ -24,9 +24,13 @@ export async function GET() {
   const products = await prisma.product.findMany({
     include: {
       category: true,
-      stocks: {
+      variants: {
         include: {
-          location: true,
+          stocks: {
+            include: {
+              location: true,
+            },
+          },
         },
       },
     },
@@ -35,14 +39,14 @@ export async function GET() {
 
   const header = [
     'productId',
+    'variantId',
     'name',
-    'design',
     'sku',
     'category',
-    'unit',
     'color',
     'lowStockAt',
     'costPrice',
+    'salePrice',
     'location',
     'stockQuantity',
     'isActive',
@@ -51,18 +55,18 @@ export async function GET() {
   const rows: string[] = [header.join(',')]
 
   for (const product of products) {
-    if (product.stocks.length === 0) {
+    if (product.variants.length === 0) {
       rows.push(
         [
           product.id,
+          '',
           product.name,
-          product.design,
-          product.sku,
-          product.category.name,
-          product.unit,
-          product.color,
-          product.lowStockAt,
-          product.costPrice,
+          '',
+          product.category?.name || '',
+          '',
+          '',
+          '',
+          '',
           '',
           '',
           product.isActive,
@@ -73,25 +77,48 @@ export async function GET() {
       continue
     }
 
-    for (const stock of product.stocks) {
-      rows.push(
-        [
-          product.id,
-          product.name,
-          product.design,
-          product.sku,
-          product.category.name,
-          product.unit,
-          product.color,
-          product.lowStockAt,
-          product.costPrice,
-          stock.location.name,
-          stock.quantity,
-          product.isActive,
-        ]
-          .map((value) => toCsvValue(value as string | number | null | undefined))
-          .join(',')
-      )
+    for (const variant of product.variants) {
+      if (variant.stocks.length === 0) {
+        rows.push(
+          [
+            product.id,
+            variant.id,
+            product.name,
+            variant.sku,
+            product.category?.name || '',
+            variant.colorName,
+            variant.lowStockAt,
+            variant.costPrice,
+            variant.salePrice,
+            '',
+            '',
+            variant.isActive,
+          ]
+            .map((value) => toCsvValue(value as string | number | null | undefined))
+            .join(',')
+        )
+        continue
+      }
+      for (const stock of variant.stocks) {
+        rows.push(
+          [
+            product.id,
+            variant.id,
+            product.name,
+            variant.sku,
+            product.category?.name || '',
+            variant.colorName,
+            variant.lowStockAt,
+            variant.costPrice,
+            variant.salePrice,
+            stock.location.name,
+            stock.quantity,
+            variant.isActive,
+          ]
+            .map((value) => toCsvValue(value as string | number | null | undefined))
+            .join(',')
+        )
+      }
     }
   }
 

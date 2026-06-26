@@ -25,26 +25,26 @@ export async function GET(request: NextRequest) {
   const products = await prisma.product.findMany({
     include: {
       category: true,
-      stocks: { include: { location: true } },
+      variants: { include: { stocks: { include: { location: true } } } },
     },
     orderBy: { createdAt: 'desc' },
   })
 
   const rows = products.flatMap((product) => {
-    if (product.stocks.length === 0) {
+    if (product.variants.length === 0) {
       return [{
         productId: product.id,
         name: product.name,
-        design: product.design,
-        sku: product.sku,
-        category: product.category.name,
-        unit: product.unit,
-        alternateUnit: product.alternateUnit,
-        conversionFactor: product.conversionFactor,
-        color: product.color,
-        colorHex: product.colorHex,
-        lowStockAt: product.lowStockAt,
-        costPrice: product.costPrice,
+        category: product.category?.name || '',
+        variantId: '',
+        sku: '',
+        colorName: '',
+        colorHex: '',
+        stockUnit: '',
+        altUnit: '',
+        saleToStockFactor: 1 as number,
+        lowStockAt: 0,
+        costPrice: 0 as number | null,
         locationCode: '',
         locationName: '',
         stockQuantity: 0,
@@ -52,38 +52,61 @@ export async function GET(request: NextRequest) {
       }]
     }
 
-    return product.stocks.map((stock) => ({
-      productId: product.id,
-      name: product.name,
-      design: product.design,
-      sku: product.sku,
-      category: product.category.name,
-      unit: product.unit,
-      alternateUnit: product.alternateUnit,
-      conversionFactor: product.conversionFactor,
-      color: product.color,
-      colorHex: product.colorHex,
-      lowStockAt: product.lowStockAt,
-      costPrice: product.costPrice,
-      locationCode: stock.location.code,
-      locationName: stock.location.name,
-      stockQuantity: stock.quantity,
-      isActive: product.isActive,
-    }))
+    return product.variants.flatMap((variant) => {
+      if (variant.stocks.length === 0) {
+        return [{
+          productId: product.id,
+          name: product.name,
+          category: product.category?.name || '',
+          variantId: variant.id,
+          sku: variant.sku,
+          colorName: variant.colorName,
+          colorHex: variant.colorHex,
+          stockUnit: variant.stockUnit,
+          altUnit: variant.altUnit || '',
+          saleToStockFactor: variant.saleToStockFactor || 1,
+          lowStockAt: variant.lowStockAt || 0,
+          costPrice: variant.costPrice,
+          locationCode: '',
+          locationName: '',
+          stockQuantity: 0,
+          isActive: product.isActive && variant.isActive,
+        }]
+      }
+
+      return variant.stocks.map((stock) => ({
+        productId: product.id,
+        name: product.name,
+        category: product.category?.name || '',
+        variantId: variant.id,
+        sku: variant.sku,
+        colorName: variant.colorName,
+        colorHex: variant.colorHex,
+        stockUnit: variant.stockUnit,
+        altUnit: variant.altUnit || '',
+        saleToStockFactor: variant.saleToStockFactor || 1,
+        lowStockAt: variant.lowStockAt || 0,
+        costPrice: variant.costPrice,
+        locationCode: stock.location.code,
+        locationName: stock.location.name,
+        stockQuantity: stock.quantity,
+        isActive: product.isActive && variant.isActive,
+      }))
+    })
   })
 
   if (format === 'csv') {
     const headers = [
       'productId',
       'name',
-      'design',
-      'sku',
       'category',
-      'unit',
-      'alternateUnit',
-      'conversionFactor',
-      'color',
+      'variantId',
+      'sku',
+      'colorName',
       'colorHex',
+      'stockUnit',
+      'altUnit',
+      'saleToStockFactor',
       'lowStockAt',
       'costPrice',
       'locationCode',

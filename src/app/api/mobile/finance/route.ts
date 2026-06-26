@@ -20,28 +20,15 @@ export async function GET(request: NextRequest) {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
-  const [monthlySales, pendingReviews, recentReviews] = await Promise.all([
+  const [monthlySales] = await Promise.all([
     prisma.sale.aggregate({
-      _sum: { grandTotal: true, totalAmount: true },
+      _sum: { grandTotal: true },
       _count: { id: true },
       where: { createdAt: { gte: monthStart } },
     }),
-    prisma.financeReview.count({ where: { status: 'PENDING' } }),
-    prisma.financeReview.findMany({
-      take: limit,
-      skip: (page - 1) * limit,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        stockOut: {
-          include: {
-            product: { select: { name: true, sku: true } },
-            fromLocation: { select: { name: true } },
-          },
-        },
-        reviewer: { select: { name: true } },
-      },
-    }),
   ])
+  const pendingReviews = 0
+  const recentReviews: any[] = []
 
   return ok({
     summary: {

@@ -16,7 +16,7 @@ const batchOrderSchema = z.object({
   items: z
     .array(
       z.object({
-        productId: z.string().trim().min(1),
+        variantId: z.string().trim().min(1),
         quantity: z.coerce.number().positive().max(100000),
         colorPreference: z.string().trim().max(120).optional().transform((value) => value || null),
         note: z.string().trim().max(1000).optional().transform((value) => value || null),
@@ -96,8 +96,7 @@ export async function GET(request: NextRequest) {
   if (category) where.category = { slug: category }
   if (search) where.OR = [
     { name: { contains: search, mode: 'insensitive' } },
-    { design: { contains: search, mode: 'insensitive' } },
-    { color: { contains: search, mode: 'insensitive' } },
+    { variants: { some: { colorName: { contains: search, mode: 'insensitive' } } } },
   ]
 
   const [products, total, categories] = await Promise.all([
@@ -105,9 +104,13 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         category: true,
-        stocks: {
-          select: {
-            quantity: true,
+        variants: {
+          include: {
+            stocks: {
+              select: {
+                quantity: true,
+              },
+            },
           },
         },
       },
@@ -172,38 +175,38 @@ export async function POST(request: NextRequest) {
               parsedBatch.data.customerPhone,
             )
 
-      const productIds = Array.from(new Set(parsedBatch.data.items.map((item) => item.productId)))
-      const products = await prisma.product.findMany({
+      const variantIds = Array.from(new Set(parsedBatch.data.items.map((item) => item.variantId)))
+      const variants = await prisma.productVariant.findMany({
         where: {
-          id: { in: productIds },
+          id: { in: variantIds },
           isActive: true,
         },
-        select: { id: true, name: true, unit: true, costPrice: true },
+        select: { id: true, colorName: true, stockUnit: true, costPrice: true, product: { select: { name: true } } },
       })
 
-      if (products.length !== productIds.length) {
-        return NextResponse.json({ error: 'One or more products are not available' }, { status: 404 })
+      if (variants.length !== variantIds.length) {
+        return NextResponse.json({ error: 'One or more variants are not available' }, { status: 404 })
       }
 
-      const productMap = new Map(products.map((product) => [product.id, product]))
+      const variantMap = new Map(variants.map((variant) => [variant.id, variant]))
       const taxRate = 18
       const lineItems = parsedBatch.data.items.map((item) => {
-        const product = productMap.get(item.productId)
-        if (!product) {
-          throw new Error('One or more products are not available')
+        const variant = variantMap.get(item.variantId)
+        if (!variant) {
+          throw new Error('One or more variants are not available')
         }
-        const unitPrice = product.costPrice && product.costPrice > 0 ? product.costPrice * 1.25 : 1
+        const unitPrice = variant.costPrice && variant.costPrice > 0 ? variant.costPrice * 1.25 : 1
         const subTotal = unitPrice * item.quantity
         const taxAmount = (subTotal * taxRate) / 100
         return {
-          productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           unitPrice,
           subTotal,
           taxRate,
           taxAmount,
           total: subTotal + taxAmount,
-          product,
+          variant,
           colorPreference: item.colorPreference,
           note: item.note,
         }
@@ -223,25 +226,23 @@ export async function POST(request: NextRequest) {
           taxAmount,
           grandTotal,
           shippingAddress: 'Address will be confirmed with customer',
-          billingAddress: null,
-          phoneNumber: parsedBatch.data.customerPhone ?? 'UNKNOWN',
+          customerPhone: parsedBatch.data.customerPhone ?? 'UNKNOWN',
           note: lineItems
             .map((item) => {
               const extra = [item.colorPreference ? `color=${item.colorPreference}` : null, item.note]
                 .filter(Boolean)
                 .join(', ')
-              return extra ? `${item.product.name}: ${extra}` : null
+              return extra ? `${item.variant.product.name} (${item.variant.colorName}): ${extra}` : null
             })
             .filter(Boolean)
             .join('\n') || null,
           items: {
             create: lineItems.map((item) => ({
-              productId: item.productId,
+              variantId: item.variantId,
+              saleUnit: item.variant.stockUnit,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               subTotal: item.subTotal,
-              taxRate: item.taxRate,
-              taxAmount: item.taxAmount,
               total: item.total,
             })),
           },
@@ -263,7 +264,7 @@ export async function POST(request: NextRequest) {
         lineItems.map((item) =>
           sendOrderWhatsAppNotifications({
             orderId: order.id,
-            productName: item.product.name,
+            productName: `${item.variant.product.name} - ${item.variant.colorName}`,
             quantity: item.quantity,
             customerName: parsedBatch.data.customerName,
             customerEmail: parsedBatch.data.customerEmail,
@@ -288,28 +289,29 @@ export async function POST(request: NextRequest) {
     }
 
     const parsed = parsedSingle.data
-    const product = await prisma.product.findFirst({
+    const variant = await prisma.productVariant.findFirst({
       where: {
-        id: parsed.productId,
+        id: parsed.variantId,
         isActive: true,
       },
       select: {
         id: true,
-        name: true,
-        unit: true,
+        colorName: true,
+        stockUnit: true,
         costPrice: true,
+        product: { select: { name: true } }
       },
     })
 
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    if (!variant) {
+      return NextResponse.json({ error: 'Variant not found' }, { status: 404 })
     }
 
     const customerId =
       session?.user?.role === 'CUSTOMER'
         ? (session.user.id as string)
         : await ensureCustomerUser(parsed.customerName, parsed.customerEmail, parsed.customerPhone)
-    const unitPrice = product.costPrice && product.costPrice > 0 ? product.costPrice * 1.25 : 1
+    const unitPrice = variant.costPrice && variant.costPrice > 0 ? variant.costPrice * 1.25 : 1
     const subTotal = unitPrice * parsed.quantity
     const taxRate = 18
     const taxAmount = (subTotal * taxRate) / 100
@@ -325,18 +327,16 @@ export async function POST(request: NextRequest) {
         taxAmount,
         grandTotal,
         shippingAddress: 'Address will be confirmed with customer',
-        billingAddress: null,
-        phoneNumber: parsed.customerPhone ?? 'UNKNOWN',
+        customerPhone: parsed.customerPhone ?? 'UNKNOWN',
         note: parsed.note,
         items: {
           create: [
             {
-              productId: parsed.productId,
+              variantId: parsed.variantId,
+              saleUnit: variant.stockUnit,
               quantity: parsed.quantity,
               unitPrice,
               subTotal,
-              taxRate,
-              taxAmount,
               total: grandTotal,
             },
           ],
@@ -348,14 +348,14 @@ export async function POST(request: NextRequest) {
     await createNotification({
       role: 'ADMIN',
       title: 'New customer order request',
-      message: `${parsed.customerName} requested ${parsed.quantity} ${product.unit} of ${product.name}.`,
+      message: `${parsed.customerName} requested ${parsed.quantity} ${variant.stockUnit} of ${variant.product.name} (${variant.colorName}).`,
       type: 'INFO',
       link: '/admin/customer-orders',
     })
 
     const notifications = await sendOrderWhatsAppNotifications({
       orderId: order.id,
-      productName: product.name,
+      productName: `${variant.product.name} - ${variant.colorName}`,
       quantity: parsed.quantity,
       customerName: parsed.customerName,
       customerEmail: parsed.customerEmail,

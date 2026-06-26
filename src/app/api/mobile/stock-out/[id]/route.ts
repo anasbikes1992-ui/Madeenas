@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
-import { shouldRequireTransferApproval } from '@/lib/stock-transfer-policy'
 
 const DISPATCH_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
 const RECEIVE_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
@@ -31,19 +30,16 @@ export async function PATCH(
     return fail('Action is required', 400, 'VALIDATION_ERROR')
   }
 
-  const existing = await prisma.stockOutRequest.findUnique({
+  const existing = await prisma.stockTransfer.findUnique({
     where: { id },
     include: {
-      product: true,
+      items: { include: { variant: { include: { product: true } } } },
       fromLocation: true,
       toLocation: true,
     },
   })
 
   if (!existing) return fail('Request not found', 404, 'NOT_FOUND')
-  if (existing.flowType === 'SEND_DIRECT') {
-    return fail('Use stock-send endpoint for direct sends', 400, 'VALIDATION_ERROR')
-  }
 
   const isDestinationUser = Boolean(userLocationId && existing.toLocationId === userLocationId)
 
@@ -56,78 +52,66 @@ export async function PATCH(
       return fail('You can only dispatch from your assigned source location', 403, 'FORBIDDEN')
     }
 
-    const qty = existing.quantityApproved || existing.quantityRequested
-    const requiresApproval = shouldRequireTransferApproval({
-      quantity: qty,
-      unitCost: existing.product.costPrice,
-    })
-    const canDispatchWithoutApproval = existing.status === 'PENDING' && !requiresApproval
-
-    if (!canDispatchWithoutApproval && existing.status !== 'APPROVED') {
-      return fail('Must be approved first for this transfer', 400, 'VALIDATION_ERROR')
+    if (existing.status !== 'PENDING' && existing.status !== 'APPROVED') {
+      return fail('Transfer cannot be dispatched in its current state', 400, 'VALIDATION_ERROR')
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const sourceStock = await tx.stock.findUnique({
-        where: {
-          productId_locationId: {
-            productId: existing.productId,
-            locationId: existing.fromLocationId,
+      // Check stock and decrement for all items
+      for (const item of existing.items) {
+        const qty = item.approvedQty || item.requestedQty
+        const sourceStock = await tx.stock.findUnique({
+          where: {
+            variantId_locationId: {
+              variantId: item.variantId,
+              locationId: existing.fromLocationId,
+            },
           },
-        },
-      })
+        })
 
-      if (!sourceStock || sourceStock.quantity < qty) {
-        throw new Error(`INSUFFICIENT:${sourceStock?.quantity ?? 0}`)
+        if (!sourceStock || sourceStock.quantity < qty) {
+          throw new Error(`INSUFFICIENT:${sourceStock?.quantity ?? 0}`)
+        }
+
+        await tx.stock.update({
+          where: {
+            variantId_locationId: {
+              variantId: item.variantId,
+              locationId: existing.fromLocationId,
+            },
+          },
+          data: { quantity: { decrement: qty } },
+        })
+
+        await tx.stockTransferItem.update({
+          where: { id: item.id },
+          data: { dispatchedQty: qty },
+        })
       }
 
-      await tx.stock.update({
-        where: {
-          productId_locationId: {
-            productId: existing.productId,
-            locationId: existing.fromLocationId,
-          },
-        },
-        data: { quantity: { decrement: qty } },
-      })
-
-      const expectedStatuses = canDispatchWithoutApproval ? ['PENDING', 'APPROVED'] : ['APPROVED']
-      const updatedRows = await tx.stockOutRequest.updateMany({
-        where: { id, status: { in: expectedStatuses } },
+      const updatedTransfer = await tx.stockTransfer.update({
+        where: { id, status: { in: ['PENDING', 'APPROVED'] } },
         data: {
-          status: 'IN_TRANSIT',
+          status: 'DISPATCHED',
           dispatchedAt: new Date(),
-          quantityDispatched: qty,
-        },
-      })
-
-      if (updatedRows.count !== 1) {
-        throw new Error('STATUS_CONFLICT')
-      }
-
-      await tx.stockOutRequest.update({
-        where: { id },
-        data: {
           dispatchedBy: user.sub!,
         },
-      })
-
-      return tx.stockOutRequest.findUnique({
-        where: { id },
         include: {
-          product: { select: { name: true, sku: true, unit: true } },
+          items: { include: { variant: { include: { product: true } } } },
           fromLocation: { select: { name: true } },
           toLocation: { select: { name: true } },
         },
       })
+
+      return updatedTransfer
     })
 
     await logActivity({
       userId: user.sub!,
       action: 'DISPATCH',
-      entity: 'StockOutRequest',
+      entity: 'StockTransfer',
       entityId: id,
-      details: `Mobile dispatch ${qty} ${existing.product.unit} of ${existing.product.name}`,
+      details: `Mobile dispatch for transfer ${existing.transferNo}`,
     })
 
     return ok({ request: updated })
@@ -142,69 +126,59 @@ export async function PATCH(
       return fail('Only destination location staff can receive this transfer', 403, 'FORBIDDEN')
     }
 
-    if (!['DISPATCHED', 'IN_TRANSIT'].includes(existing.status)) {
+    if (existing.status !== 'DISPATCHED') {
       return fail('Transfer must be dispatched first', 400, 'VALIDATION_ERROR')
     }
 
-    const qty = existing.quantityApproved || existing.quantityRequested
-
     const updated = await prisma.$transaction(async (tx) => {
-      if (existing.toLocationId) {
-        await tx.stock.upsert({
-          where: {
-            productId_locationId: {
-              productId: existing.productId,
-              locationId: existing.toLocationId,
+      for (const item of existing.items) {
+        const qty = item.dispatchedQty || item.approvedQty || item.requestedQty
+        if (existing.toLocationId) {
+          await tx.stock.upsert({
+            where: {
+              variantId_locationId: {
+                variantId: item.variantId,
+                locationId: existing.toLocationId,
+              },
             },
-          },
-          create: {
-            productId: existing.productId,
-            locationId: existing.toLocationId,
-            quantity: qty,
-          },
-          update: { quantity: { increment: qty } },
+            create: {
+              variantId: item.variantId,
+              locationId: existing.toLocationId,
+              quantity: qty,
+            },
+            update: { quantity: { increment: qty } },
+          })
+        }
+        await tx.stockTransferItem.update({
+          where: { id: item.id },
+          data: { receivedQty: qty },
         })
       }
 
       const receivedAt = new Date()
-      const updatedRows = await tx.stockOutRequest.updateMany({
-        where: { id, status: { in: ['DISPATCHED', 'IN_TRANSIT'] } },
+      const updatedTransfer = await tx.stockTransfer.update({
+        where: { id, status: 'DISPATCHED' },
         data: {
           status: 'RECEIVED',
-          quantityReceived: qty,
-          discrepancyQty: 0,
-          acknowledgedAt: receivedAt,
-        },
-      })
-
-      if (updatedRows.count !== 1) {
-        throw new Error('STATUS_CONFLICT')
-      }
-
-      await tx.stockOutRequest.update({
-        where: { id },
-        data: {
           receivedAt,
           receivedBy: user.sub!,
         },
-      })
-
-      return tx.stockOutRequest.findUnique({
-        where: { id },
         include: {
-          product: { select: { name: true, sku: true, unit: true } },
+          items: { include: { variant: { include: { product: true } } } },
           fromLocation: { select: { name: true } },
           toLocation: { select: { name: true } },
         },
       })
+
+      return updatedTransfer
     })
 
     await logActivity({
       userId: user.sub!,
       action: 'RECEIVE',
-      entity: 'StockOutRequest',
+      entity: 'StockTransfer',
       entityId: id,
-      details: `Mobile receive ${qty} ${existing.product.unit} of ${existing.product.name}`,
+      details: `Mobile receive for transfer ${existing.transferNo}`,
     })
 
     return ok({ request: updated })

@@ -1,6 +1,5 @@
 /**
- * Customer Order Service (Enhanced with Multi-Product Support & VAT)
- * 
+ * Customer Order Service
  * Handles customer order creation, approval workflow, and fulfillment.
  */
 
@@ -20,11 +19,7 @@ type CreateOrderFromCartInput = Omit<CreateOrder, 'items'> & {
 const orderInclude = {
   items: {
     include: {
-      product: {
-        include: {
-          category: true,
-        },
-      },
+      variant: { include: { product: true } },
     },
   },
   customer: {
@@ -32,10 +27,8 @@ const orderInclude = {
       id: true,
       name: true,
       email: true,
-      role: true,
     },
   },
-  sale: true,
 } satisfies Prisma.CustomerOrderInclude;
 
 export type CustomerOrderWithDetails = Prisma.CustomerOrderGetPayload<{
@@ -46,15 +39,10 @@ export type CustomerOrderWithDetails = Prisma.CustomerOrderGetPayload<{
 // ORDER NUMBER GENERATION
 // =============================================================================
 
-/**
- * Generate a unique order number
- * Format: ORD-YYYY-XXXX (e.g., ORD-2026-0001)
- */
 async function generateOrderNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `ORD-${year}`;
   
-  // Find the last order number for this year
   const lastOrder = await prisma.customerOrder.findFirst({
     where: {
       orderNumber: {
@@ -81,21 +69,17 @@ async function generateOrderNumber(): Promise<string> {
 // CREATE ORDER FROM CART
 // =============================================================================
 
-/**
- * Create a customer order from the shopping cart
- */
 export async function createOrderFromCart(
   customerId: string,
   data: CreateOrderFromCartInput,
   taxRate = 18
 ) {
-  // Get customer's cart
   const cart = await prisma.cart.findUnique({
     where: { customerId },
     include: {
       items: {
         include: {
-          product: true,
+          variant: true,
         },
       },
     },
@@ -105,14 +89,12 @@ export async function createOrderFromCart(
     throw new Error('Cart is empty');
   }
   
-  // Use cart items if no items provided
-  const orderItems = data.items ?? cart.items.map((item) => ({
-    productId: item.productId,
+  const orderItems = data.items ?? cart.items.map((item: any) => ({
+    variantId: item.variantId,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
   }));
   
-  // Calculate tax
   const orderData = prepareSaleData(
     orderItems.map((item) => ({
       quantity: item.quantity,
@@ -121,7 +103,6 @@ export async function createOrderFromCart(
     taxRate
   );
   
-  // Validate calculation
   validateTaxCalculation({
     subTotal: orderData.subTotal,
     taxRate: orderData.taxRate,
@@ -129,18 +110,15 @@ export async function createOrderFromCart(
     grandTotal: orderData.grandTotal,
   });
   
-  // Generate order number
   const orderNumber = await generateOrderNumber();
   
-  // Create order
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.customerOrder.create({
       data: {
         orderNumber,
         customerId,
         shippingAddress: data.shippingAddress,
-        billingAddress: data.billingAddress ?? data.shippingAddress,
-        phoneNumber: data.phoneNumber,
+        customerPhone: data.phoneNumber,
         subTotal: orderData.subTotal,
         taxRate: orderData.taxRate,
         taxAmount: orderData.taxAmount,
@@ -148,12 +126,11 @@ export async function createOrderFromCart(
         note: data.note,
         items: {
           create: orderItems.map((item, index) => ({
-            productId: item.productId,
+            variantId: item.variantId,
+            saleUnit: 'meters',
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             subTotal: orderData.items[index].subTotal,
-            taxRate: orderData.items[index].taxRate,
-            taxAmount: orderData.items[index].taxAmount,
             total: orderData.items[index].total,
           })),
         },
@@ -161,12 +138,10 @@ export async function createOrderFromCart(
       include: orderInclude,
     });
     
-    // Clear the cart
     await tx.cartItem.deleteMany({
       where: { cartId: cart.id },
     });
     
-    // Create audit log
     await tx.auditLog.create({
       data: {
         userId: customerId,
@@ -187,9 +162,6 @@ export async function createOrderFromCart(
   return order;
 }
 
-/**
- * Create a customer order directly (without cart)
- */
 export async function createOrder(
   customerId: string,
   data: CreateOrder,
@@ -199,7 +171,6 @@ export async function createOrder(
     throw new Error('Order must have at least one item');
   }
   
-  // Calculate tax
   const orderData = prepareSaleData(
     data.items.map((item) => ({
       quantity: item.quantity,
@@ -208,31 +179,27 @@ export async function createOrder(
     taxRate
   );
   
-  // Generate order number
   const orderNumber = await generateOrderNumber();
   
-  // Create order
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.customerOrder.create({
       data: {
         orderNumber,
         customerId,
         shippingAddress: data.shippingAddress,
-        billingAddress: data.billingAddress ?? data.shippingAddress,
-        phoneNumber: data.phoneNumber,
+        customerPhone: data.phoneNumber,
         subTotal: orderData.subTotal,
         taxRate: orderData.taxRate,
         taxAmount: orderData.taxAmount,
         grandTotal: orderData.grandTotal,
         note: data.note,
         items: {
-          create: data.items.map((item, index) => ({
-            productId: item.productId,
+          create: data.items.map((item: any, index: number) => ({
+            variantId: item.variantId,
+            saleUnit: 'meters',
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             subTotal: orderData.items[index].subTotal,
-            taxRate: orderData.items[index].taxRate,
-            taxAmount: orderData.items[index].taxAmount,
             total: orderData.items[index].total,
           })),
         },
@@ -240,7 +207,6 @@ export async function createOrder(
       include: orderInclude,
     });
     
-    // Create audit log
     await tx.auditLog.create({
       data: {
         userId: customerId,
@@ -273,9 +239,6 @@ export interface ListOrdersParams {
   limit: number;
 }
 
-/**
- * List customer orders with filters
- */
 export async function listOrders(params: ListOrdersParams) {
   const { customerId, status, startDate, endDate, page, limit } = params;
   
@@ -319,13 +282,6 @@ export async function listOrders(params: ListOrdersParams) {
   };
 }
 
-// =============================================================================
-// GET ORDER BY ID
-// =============================================================================
-
-/**
- * Get a customer order by ID
- */
 export async function getOrderById(id: string): Promise<CustomerOrderWithDetails | null> {
   return prisma.customerOrder.findUnique({
     where: { id },
@@ -333,9 +289,6 @@ export async function getOrderById(id: string): Promise<CustomerOrderWithDetails
   });
 }
 
-/**
- * Get an order by order number
- */
 export async function getOrderByNumber(orderNumber: string): Promise<CustomerOrderWithDetails | null> {
   return prisma.customerOrder.findUnique({
     where: { orderNumber },
@@ -343,13 +296,6 @@ export async function getOrderByNumber(orderNumber: string): Promise<CustomerOrd
   });
 }
 
-// =============================================================================
-// UPDATE ORDER STATUS
-// =============================================================================
-
-/**
- * Update the status of an order
- */
 export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
@@ -364,7 +310,6 @@ export async function updateOrderStatus(
     throw new Error('Order not found');
   }
   
-  // Validate status transition
   validateStatusTransition(order.status, status);
   
   const updatedOrder = await prisma.$transaction(async (tx) => {
@@ -377,7 +322,6 @@ export async function updateOrderStatus(
       include: orderInclude,
     });
     
-    // Create audit log
     await tx.auditLog.create({
       data: {
         userId,
@@ -398,18 +342,15 @@ export async function updateOrderStatus(
   return updatedOrder;
 }
 
-/**
- * Validate that a status transition is allowed
- */
 function validateStatusTransition(current: OrderStatus, next: OrderStatus): void {
   const validTransitions: Record<OrderStatus, OrderStatus[]> = {
     PENDING: ['APPROVED', 'CANCELLED'],
     APPROVED: ['PROCESSING', 'CANCELLED'],
     PROCESSING: ['SHIPPED', 'CANCELLED'],
     SHIPPED: ['DELIVERED', 'CANCELLED'],
-    DELIVERED: ['REFUNDED'],
+    DELIVERED: ['READY'],
     CANCELLED: [],
-    REFUNDED: [],
+    READY: [],
   };
   
   const allowed = validTransitions[current];
@@ -419,13 +360,6 @@ function validateStatusTransition(current: OrderStatus, next: OrderStatus): void
   }
 }
 
-// =============================================================================
-// APPROVE ORDER
-// =============================================================================
-
-/**
- * Approve a customer order
- */
 export async function approveOrder(orderId: string, approvedBy: string, note?: string) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.customerOrder.update({
@@ -456,13 +390,6 @@ export async function approveOrder(orderId: string, approvedBy: string, note?: s
   });
 }
 
-// =============================================================================
-// FULFILL ORDER (Convert to Sale)
-// =============================================================================
-
-/**
- * Fulfill an order by converting it to a sale
- */
 export async function fulfillOrder(
   orderId: string,
   fulfilledBy: string,
@@ -483,7 +410,6 @@ export async function fulfillOrder(
     throw new Error('Order must be approved before fulfillment');
   }
   
-  // Generate receipt number for the sale
   const today = new Date();
   const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
   const prefix = `RCP-${dateStr}`;
@@ -503,9 +429,7 @@ export async function fulfillOrder(
   
   const receiptNo = `${prefix}-${sequence.toString().padStart(4, '0')}`;
   
-  // Create sale and update stock in a transaction
   return prisma.$transaction(async (tx) => {
-    // Create sale
     const sale = await tx.sale.create({
       data: {
         receiptNo,
@@ -516,29 +440,30 @@ export async function fulfillOrder(
         taxRate: order.taxRate,
         taxAmount: order.taxAmount,
         grandTotal: order.grandTotal,
-        totalAmount: order.grandTotal,
-        paymentMode: 'CREDIT', // Orders are typically on credit
+        paymentMode: 'CREDIT',
         note: `Fulfilled from order ${order.orderNumber}`,
         items: {
           create: order.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
+            variantId: item.variantId,
+            saleUnit: item.saleUnit,
+            saleQty: item.quantity,
+            saleToStockFactor: 1,
+            stockQtyDeducted: item.quantity,
             unitPrice: item.unitPrice,
             subTotal: item.subTotal,
-            taxRate: item.taxRate,
-            taxAmount: item.taxAmount,
+            taxRate: order.taxRate,
+            taxAmount: (item.subTotal * order.taxRate) / 100,
             total: item.total,
           })),
         },
       },
     });
     
-    // Update stock for each item
     for (const item of order.items) {
       const stock = await tx.stock.findUnique({
         where: {
-          productId_locationId: {
-            productId: item.productId,
+          variantId_locationId: {
+            variantId: item.variantId,
             locationId,
           },
         },
@@ -546,14 +471,14 @@ export async function fulfillOrder(
       
       if (!stock || stock.quantity < item.quantity) {
         throw new Error(
-          `Insufficient stock for product ${item.productId}. Required: ${item.quantity}, Available: ${stock?.quantity ?? 0}`
+          `Insufficient stock for variant ${item.variantId}. Required: ${item.quantity}, Available: ${stock?.quantity ?? 0}`
         );
       }
       
       await tx.stock.update({
         where: {
-          productId_locationId: {
-            productId: item.productId,
+          variantId_locationId: {
+            variantId: item.variantId,
             locationId,
           },
         },
@@ -565,19 +490,16 @@ export async function fulfillOrder(
       });
     }
     
-    // Update order
     const updatedOrder = await tx.customerOrder.update({
       where: { id: orderId },
       data: {
         status: 'SHIPPED',
-        saleId: sale.id,
         fulfilledBy,
         fulfilledAt: new Date(),
       },
       include: orderInclude,
     });
     
-    // Create audit log
     await tx.auditLog.create({
       data: {
         userId: fulfilledBy,
@@ -587,7 +509,6 @@ export async function fulfillOrder(
         details: JSON.stringify({
           orderNumber: order.orderNumber,
           receiptNo: sale.receiptNo,
-          saleId: sale.id,
         }),
       },
     });
@@ -599,13 +520,6 @@ export async function fulfillOrder(
   });
 }
 
-// =============================================================================
-// CANCEL ORDER
-// =============================================================================
-
-/**
- * Cancel a customer order
- */
 export async function cancelOrder(orderId: string, cancelledBy: string, reason: string) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.customerOrder.update({

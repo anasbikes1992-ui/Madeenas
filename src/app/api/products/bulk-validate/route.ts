@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 interface ValidationItem {
-  productColorId: string;
+  variantId: string;
   quantity: number;
 }
 
@@ -33,24 +33,19 @@ export async function POST(request: NextRequest) {
     // Validate all items in parallel
     const validations = await Promise.all(
       items.map(async (item) => {
-        const stock = await prisma.stockVariant.findUnique({
+        const stock = await prisma.stock.findUnique({
           where: {
-            productColorId_locationId: {
-              productColorId: item.productColorId,
+            variantId_locationId: {
+              variantId: item.variantId,
               locationId,
             },
           },
           include: {
-            productColor: {
+            variant: {
               include: {
-                variant: {
-                  include: {
-                    product: {
-                      include: { category: true },
-                    },
-                  },
+                product: {
+                  include: { category: true },
                 },
-                color: true,
               },
             },
           },
@@ -60,7 +55,7 @@ export async function POST(request: NextRequest) {
         const isValid = availableQty >= item.quantity;
 
         return {
-          productColorId: item.productColorId,
+          variantId: item.variantId,
           requestedQty: item.quantity,
           availableQty,
           isValid,
@@ -70,12 +65,10 @@ export async function POST(request: NextRequest) {
           // Include product details for error messages
           product: stock
             ? {
-                name: stock.productColor.variant.product.name,
-                variant: stock.productColor.variant.code,
-                color: stock.productColor.color.code,
-                unit:
-                  stock.productColor.variant.unit ||
-                  stock.productColor.variant.product.unit,
+                name: stock.variant.product.name,
+                variant: stock.variant.sku,
+                color: stock.variant.colorName,
+                unit: stock.variant.stockUnit,
               }
             : null,
         };

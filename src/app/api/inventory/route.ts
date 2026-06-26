@@ -19,8 +19,8 @@ export async function GET() {
     // Fetch all stocks with related data
     const allStocks = await prisma.stock.findMany({
       include: {
-        product: {
-          include: { category: true },
+        variant: {
+          include: { product: { include: { category: true } } },
         },
         location: true,
       },
@@ -28,7 +28,7 @@ export async function GET() {
 
     // Filter for low stock items in JavaScript
     const lowStockItems = allStocks
-      .filter((s) => s.quantity < (s.product.lowStockAt || 10))
+      .filter((s) => s.quantity < (s.variant.lowStockAt || 10))
       .sort((a, b) => a.quantity - b.quantity)
 
     return NextResponse.json({
@@ -36,15 +36,15 @@ export async function GET() {
       items: lowStockItems.map((item) => ({
         id: item.id,
         product: {
-          id: item.product.id,
-          name: item.product.name,
-          sku: item.product.sku,
-          category: item.product.category.name,
+          id: item.variant.product.id,
+          name: item.variant.product.name + ' - ' + item.variant.colorName,
+          sku: item.variant.sku,
+          category: item.variant.product.category.name,
         },
         location: item.location.name,
         currentQuantity: item.quantity,
-        lowStockThreshold: item.product.lowStockAt,
-        status: item.quantity === 0 ? 'STOCKOUT' : item.quantity < item.product.lowStockAt / 2 ? 'CRITICAL' : 'LOW',
+        lowStockThreshold: item.variant.lowStockAt,
+        status: item.quantity === 0 ? 'STOCKOUT' : item.quantity < item.variant.lowStockAt / 2 ? 'CRITICAL' : 'LOW',
       })),
     })
   } catch (error) {
@@ -68,21 +68,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { productId, locationId, reorderQuantity, supplierId } = await request.json()
+    const { variantId, locationId, reorderQuantity, supplierId } = await request.json()
 
-    if (!productId || !locationId || !reorderQuantity) {
+    if (!variantId || !locationId || !reorderQuantity) {
       return NextResponse.json(
-        { error: 'Missing required fields: productId, locationId, reorderQuantity' },
+        { error: 'Missing required fields: variantId, locationId, reorderQuantity' },
         { status: 400 },
       )
     }
 
-    // Verify product exists
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
+    // Verify variant exists
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      include: { product: true }
     })
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    if (!variant) {
+      return NextResponse.json({ error: 'Variant not found' }, { status: 404 })
     }
 
     // Verify location exists
@@ -96,16 +97,19 @@ export async function POST(request: NextRequest) {
     // Create stock in record for reorder
     const reorderRecord = await prisma.stockIn.create({
       data: {
-        productId,
+        variantId,
         locationId,
-        quantity: reorderQuantity,
-        costPrice: product.costPrice,
+        receivedUnit: variant.stockUnit,
+        receivedQty: reorderQuantity,
+        conversionFactor: 1,
+        quantityAddedToStock: reorderQuantity,
+        costPrice: variant.costPrice,
         receivedBy: session.user.id,
-        note: `Auto-reorder from low stock alert. Threshold: ${product.lowStockAt}`,
+        note: `Auto-reorder from low stock alert. Threshold: ${variant.lowStockAt}`,
         supplierId: supplierId || null,
       },
       include: {
-        product: true,
+        variant: { include: { product: true } },
         location: true,
         user: true,
       },
@@ -114,8 +118,8 @@ export async function POST(request: NextRequest) {
     // Update stock quantity
     await prisma.stock.upsert({
       where: {
-        productId_locationId: {
-          productId,
+        variantId_locationId: {
+          variantId,
           locationId,
         },
       },
@@ -125,7 +129,7 @@ export async function POST(request: NextRequest) {
         },
       },
       create: {
-        productId,
+        variantId,
         locationId,
         quantity: reorderQuantity,
       },
@@ -135,17 +139,17 @@ export async function POST(request: NextRequest) {
     await logActivity({
       userId: session.user.id,
       action: 'REORDER',
-      entity: 'Product',
-      entityId: productId,
-      details: `Auto-reorder created: ${reorderQuantity} units for ${product.name} at ${location.name}`,
+      entity: 'ProductVariant',
+      entityId: variantId,
+      details: `Auto-reorder created: ${reorderQuantity} units for ${variant.product.name} (${variant.colorName}) at ${location.name}`,
     })
 
     return NextResponse.json({
       success: true,
       reorderRecord: {
         id: reorderRecord.id,
-        productName: reorderRecord.product.name,
-        quantity: reorderRecord.quantity,
+        productName: reorderRecord.variant.product.name + ' (' + reorderRecord.variant.colorName + ')',
+        quantity: reorderRecord.quantityAddedToStock,
         location: reorderRecord.location.name,
         createdAt: reorderRecord.createdAt,
       },
@@ -172,7 +176,7 @@ export async function getReorderSuggestions() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
     const salesVelocity = await prisma.saleItem.groupBy({
-      by: ['productId'],
+      by: ['variantId'],
       where: {
         sale: {
           createdAt: {
@@ -181,35 +185,36 @@ export async function getReorderSuggestions() {
         },
       },
       _sum: {
-        quantity: true,
+        saleQty: true,
       },
     })
 
     // For each product with sales, calculate suggested reorder quantity
     const suggestions = await Promise.all(
       salesVelocity.map(async (sv) => {
-        const product = await prisma.product.findUnique({
-          where: { id: sv.productId },
+        const variant = await prisma.productVariant.findUnique({
+          where: { id: sv.variantId },
           include: {
+            product: true,
             stocks: {
               include: { location: true },
             },
           },
         })
 
-        if (!product) return null
+        if (!variant) return null
 
-        const dailyVelocity = (sv._sum.quantity || 0) / 30
-        const daysOfInventory = dailyVelocity > 0 ? product.stocks.reduce((sum, s) => sum + s.quantity, 0) / dailyVelocity : 999
+        const dailyVelocity = (sv._sum.saleQty || 0) / 30
+        const daysOfInventory = dailyVelocity > 0 ? variant.stocks.reduce((sum, s) => sum + s.quantity, 0) / dailyVelocity : 999
 
         return {
-          productId: product.id,
-          sku: product.sku,
-          name: product.name,
-          currentStock: product.stocks.reduce((sum, s) => sum + s.quantity, 0),
+          productId: variant.id,
+          sku: variant.sku,
+          name: variant.product.name + ' - ' + variant.colorName,
+          currentStock: variant.stocks.reduce((sum, s) => sum + s.quantity, 0),
           dailySalesVelocity: dailyVelocity.toFixed(1),
           daysOfInventory: daysOfInventory.toFixed(1),
-          lowStockThreshold: product.lowStockAt,
+          lowStockThreshold: variant.lowStockAt,
           suggestedReorderQuantity: Math.ceil(dailyVelocity * 30), // 30 days supply
           urgency:
             daysOfInventory < 5

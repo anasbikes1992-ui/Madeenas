@@ -4,15 +4,24 @@ import { formatDate } from './utils'
 
 export interface SaleInvoiceItem {
   id?: string
-  quantity: number
+  // Legacy fields (kept for backward compat)
+  quantity?: number
   unit?: string | null
+  product?: {
+    name: string
+    sku?: string | null
+  } | null
+  // New variant-based fields
+  saleQty?: number
+  saleUnit?: string | null
   unitPrice: number
   subTotal?: number | null
   total?: number | null
-  product: {
-    name: string
+  variant?: {
     sku?: string | null
-  }
+    colorName?: string | null
+    product?: { name: string } | null
+  } | null
 }
 
 export interface SaleInvoiceData {
@@ -165,14 +174,23 @@ export async function exportSaleInvoicePDF(sale: SaleInvoiceData, options?: Expo
 
   autoTable(doc, {
     startY: 80,
-    head: [['Product', 'SKU', 'Qty', 'Unit Price', 'Line Total']],
-    body: sale.items.map((item) => [
-      item.product.name,
-      item.product.sku || '—',
-      `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`,
-      item.unitPrice.toFixed(2),
-      (item.subTotal ?? item.total ?? item.quantity * item.unitPrice).toFixed(2),
-    ]),
+    head: [['Product', 'SKU / Color', 'Qty', 'Unit Price', 'Line Total']],
+    body: sale.items.map((item) => {
+      // Support both old product-based and new variant-based items
+      const productName = item.variant?.product?.name || item.product?.name || 'Unknown'
+      const sku = item.variant?.sku || item.product?.sku || '—'
+      const colorName = item.variant?.colorName ? ` (${item.variant.colorName})` : ''
+      const qty = item.saleQty ?? item.quantity ?? 0
+      const unit = item.saleUnit || item.unit || ''
+      const lineTotal = item.subTotal ?? item.total ?? qty * item.unitPrice
+      return [
+        productName,
+        `${sku}${colorName}`,
+        `${qty}${unit ? ` ${unit}` : ''}`,
+        item.unitPrice.toFixed(2),
+        lineTotal.toFixed(2),
+      ]
+    }),
     theme: 'striped',
     headStyles: { fillColor: [79, 70, 229], textColor: 255 },
     alternateRowStyles: { fillColor: [248, 250, 252] },

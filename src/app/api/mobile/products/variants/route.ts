@@ -2,11 +2,11 @@
  * GET /api/mobile/products/variants
  *
  * Returns the full hierarchical catalog for the mobile app:
- *   Category → Product → ProductVariant (shade/design/code) → ProductColor (color + stock per location)
+ *   Category → Product → ProductVariant (color/shade) → Stock per location
  *
  * Query params:
  *   locationId   (optional) — when supplied, include stock quantities for that location
- *   search       (optional) — searches product name, variant code, variant design
+ *   search       (optional) — searches product name, variant SKU, variant colorName
  *   categoryId   (optional) — filter to a single category
  *   page         (default 1)
  *   limit        (default 50, max 200)
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const productWhere: Record<string, unknown> = { isActive: true }
   if (categoryId) productWhere.categoryId = categoryId
 
-  // Apply search across product name, variant code, and variant design
+  // Apply search across product name, variant SKU, and variant colorName
   if (search) {
     productWhere.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
         variants: {
           some: {
             OR: [
-              { code: { contains: search, mode: 'insensitive' } },
-              { design: { contains: search, mode: 'insensitive' } },
+              { sku: { contains: search, mode: 'insensitive' } },
+              { colorName: { contains: search, mode: 'insensitive' } },
             ],
             isActive: true,
           },
@@ -56,27 +56,20 @@ export async function GET(request: NextRequest) {
         category: { select: { id: true, name: true, slug: true, color: true } },
         variants: {
           where: { isActive: true },
-          orderBy: { code: 'asc' },
+          orderBy: { sku: 'asc' },
           include: {
-            colors: {
-              where: { isActive: true },
-              include: {
-                color: { select: { id: true, code: true, name: true, hexValue: true } },
-                // Include stock for requested location or all locations
-                stocks: locationId
-                  ? {
-                      where: { locationId },
-                      select: { locationId: true, quantity: true },
-                    }
-                  : {
-                      include: {
-                        location: {
-                          select: { id: true, name: true, code: true, type: true },
-                        },
-                      },
+            stocks: locationId
+              ? {
+                  where: { locationId },
+                  select: { locationId: true, quantity: true },
+                }
+              : {
+                  include: {
+                    location: {
+                      select: { id: true, name: true, code: true, type: true },
                     },
-              },
-            },
+                  },
+                },
           },
         },
       },
@@ -87,32 +80,32 @@ export async function GET(request: NextRequest) {
     prisma.product.count({ where: productWhere }),
   ])
 
-  // Shape the response so each ProductColor exposes a clean `stock` summary
+  // Shape the response so each ProductVariant exposes a clean `stock` summary
   const shaped = products.map((product) => ({
     id: product.id,
     name: product.name,
-    sku: product.sku,
-    unit: product.unit,
     category: product.category,
     variants: product.variants.map((variant) => ({
       id: variant.id,
-      code: variant.code,
-      design: variant.design,
-      unit: variant.unit,
+      sku: variant.sku,
+      colorName: variant.colorName,
+      colorHex: variant.colorHex,
+      stockUnit: variant.stockUnit,
+      stockUnitLabel: variant.stockUnitLabel,
+      saleUnit: variant.saleUnit,
+      saleUnitLabel: variant.saleUnitLabel,
+      saleToStockFactor: variant.saleToStockFactor,
       costPrice: variant.costPrice,
-      colors: variant.colors.map((pc) => ({
-        id: pc.id,
-        sku: pc.sku,
-        color: pc.color,
-        // Normalized stock: if locationId was provided return a single quantity,
-        // otherwise return the full per-location breakdown
-        stock: locationId
-          ? (pc.stocks[0]?.quantity ?? 0)
-          : (pc.stocks as Array<{ location: { id: string; name: string; code: string; type: string }; quantity: number }>).map((sv) => ({
-              location: sv.location,
-              quantity: sv.quantity,
-            })),
-      })),
+      salePrice: variant.salePrice,
+      lowStockAt: variant.lowStockAt,
+      // Normalized stock: if locationId was provided return a single quantity,
+      // otherwise return the full per-location breakdown
+      stock: locationId
+        ? ((variant.stocks as Array<{ locationId: string; quantity: number }>)[0]?.quantity ?? 0)
+        : (variant.stocks as Array<{ location: { id: string; name: string; code: string; type: string }; quantity: number }>).map((sv) => ({
+            location: sv.location,
+            quantity: sv.quantity,
+          })),
     })),
   }))
 
