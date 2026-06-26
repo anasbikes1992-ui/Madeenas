@@ -173,43 +173,46 @@ export default function NewProductPage() {
                   
                   <div>
                     <label className="label text-xs">Stock Unit *</label>
-                    <select
+                    <input
+                      list="unitsList"
                       {...register(`variants.${index}.stockUnit`)}
                       className="input"
+                      placeholder="e.g. m, pcs"
                       onChange={(e) => {
-                        const u = units.find(x => x.abbreviation === e.target.value)
+                        const val = e.target.value
+                        const u = units.find(x => x.abbreviation === val || x.name === val)
                         if (u) {
                           setValue(`variants.${index}.stockUnit`, u.abbreviation)
                           setValue(`variants.${index}.stockUnitLabel`, u.name)
+                        } else {
+                          setValue(`variants.${index}.stockUnit`, val)
+                          setValue(`variants.${index}.stockUnitLabel`, val)
                         }
                       }}
-                    >
-                      <option value="">Select...</option>
-                      {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name} ({u.abbreviation})</option>)}
-                    </select>
+                    />
                   </div>
                   <div className="hidden">
                     <input {...register(`variants.${index}.stockUnitLabel`)} />
                   </div>
                   <div>
                     <label className="label text-xs">Alt Unit (Optional)</label>
-                    <select
+                    <input
+                      list="unitsList"
                       {...register(`variants.${index}.altUnit`)}
                       className="input"
+                      placeholder="e.g. roll, box"
                       onChange={(e) => {
-                        const u = units.find(x => x.abbreviation === e.target.value)
+                        const val = e.target.value
+                        const u = units.find(x => x.abbreviation === val || x.name === val)
                         if (u) {
                           setValue(`variants.${index}.altUnit`, u.abbreviation)
                           setValue(`variants.${index}.altUnitLabel`, u.name)
                         } else {
-                          setValue(`variants.${index}.altUnit`, '')
-                          setValue(`variants.${index}.altUnitLabel`, '')
+                          setValue(`variants.${index}.altUnit`, val)
+                          setValue(`variants.${index}.altUnitLabel`, val)
                         }
                       }}
-                    >
-                      <option value="">None</option>
-                      {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name} ({u.abbreviation})</option>)}
-                    </select>
+                    />
                   </div>
                   <div className="hidden">
                     <input {...register(`variants.${index}.altUnitLabel`)} />
@@ -217,33 +220,35 @@ export default function NewProductPage() {
                   
                   <div>
                     <label className="label text-xs">Sale Unit *</label>
-                    <select
+                    <input
+                      list="unitsList"
                       {...register(`variants.${index}.saleUnit`)}
                       className="input"
+                      placeholder="e.g. m, pcs"
                       onChange={(e) => {
-                        const saleAbbr = e.target.value
-                        const u = units.find(x => x.abbreviation === saleAbbr)
+                        const val = e.target.value
+                        const u = units.find(x => x.abbreviation === val || x.name === val)
                         if (u) {
                           setValue(`variants.${index}.saleUnit`, u.abbreviation)
                           setValue(`variants.${index}.saleUnitLabel`, u.name)
                           
                           // Check if conversion exists from saleUnit to stockUnit
                           const stockAbbr = watch(`variants.${index}.stockUnit`)
-                          if (stockAbbr && stockAbbr !== saleAbbr) {
+                          if (stockAbbr && stockAbbr !== u.abbreviation) {
                             const stockUnit = units.find(x => x.abbreviation === stockAbbr)
                             const conversion = u.conversionsFrom?.find((c: any) => c.toUnitId === stockUnit?.id)
                             if (conversion) {
                               setValue(`variants.${index}.saleToStockFactor`, conversion.factor)
                             }
-                          } else if (stockAbbr === saleAbbr) {
+                          } else if (stockAbbr === u.abbreviation) {
                             setValue(`variants.${index}.saleToStockFactor`, 1)
                           }
+                        } else {
+                          setValue(`variants.${index}.saleUnit`, val)
+                          setValue(`variants.${index}.saleUnitLabel`, val)
                         }
                       }}
-                    >
-                      <option value="">Select...</option>
-                      {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name} ({u.abbreviation})</option>)}
-                    </select>
+                    />
                   </div>
                   <div className="hidden">
                     <input {...register(`variants.${index}.saleUnitLabel`)} />
@@ -262,13 +267,17 @@ export default function NewProductPage() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end gap-3 pt-6">
           <button type="button" onClick={() => router.back()} className="btn-secondary">Cancel</button>
-          <button type="submit" disabled={saving} className="btn-primary min-w-[120px]">
+          <button type="submit" disabled={saving} className="btn-primary min-w-[140px]">
             {saving ? 'Saving...' : 'Save Product'}
           </button>
         </div>
       </form>
+      
+      <datalist id="unitsList">
+        {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name}</option>)}
+      </datalist>
     </div>
   )
 }

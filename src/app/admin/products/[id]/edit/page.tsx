@@ -11,10 +11,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params)
   const router = useRouter()
   const [categories, setCategories] = useState<any[]>([])
+  const [units, setUnits] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<any>({
+  const { register, control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<any>({
     resolver: zodResolver(productUpdateSchema as any),
   })
 
@@ -26,13 +27,17 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     async function fetchData() {
       try {
-        const [catRes, prodRes] = await Promise.all([
+        const [catRes, prodRes, unitsRes] = await Promise.all([
           fetch('/api/categories'),
-          fetch(`/api/products/${id}`)
+          fetch(`/api/products/${id}`),
+          fetch('/api/settings/units')
         ])
         
         const catData = await catRes.json()
         setCategories(catData)
+        
+        const unitsData = await unitsRes.json()
+        setUnits(unitsData)
         
         const prodData = await prodRes.json()
         if (prodRes.ok) {
@@ -174,32 +179,89 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   
                   <div>
                     <label className="label text-xs">Stock Unit *</label>
-                    <input {...register(`variants.${index}.stockUnit`)} className="input" placeholder="e.g. meters" />
+                    <input
+                      list="unitsList"
+                      {...register(`variants.${index}.stockUnit`)}
+                      className="input"
+                      placeholder="e.g. m, pcs"
+                      onChange={(e) => {
+                        const val = e.target.value
+                        const u = units.find(x => x.abbreviation === val || x.name === val)
+                        if (u) {
+                          setValue(`variants.${index}.stockUnit`, u.abbreviation)
+                          setValue(`variants.${index}.stockUnitLabel`, u.name)
+                        } else {
+                          setValue(`variants.${index}.stockUnit`, val)
+                          setValue(`variants.${index}.stockUnitLabel`, val)
+                        }
+                      }}
+                    />
                   </div>
-                  <div>
-                    <label className="label text-xs">Stock Unit Label *</label>
-                    <input {...register(`variants.${index}.stockUnitLabel`)} className="input" placeholder="e.g. Meters" />
+                  <div className="hidden">
+                    <input {...register(`variants.${index}.stockUnitLabel`)} />
                   </div>
                   <div>
                     <label className="label text-xs">Alt Unit (Optional)</label>
-                    <input {...register(`variants.${index}.altUnit`)} className="input" placeholder="e.g. bales" />
+                    <input
+                      list="unitsList"
+                      {...register(`variants.${index}.altUnit`)}
+                      className="input"
+                      placeholder="e.g. roll, box"
+                      onChange={(e) => {
+                        const val = e.target.value
+                        const u = units.find(x => x.abbreviation === val || x.name === val)
+                        if (u) {
+                          setValue(`variants.${index}.altUnit`, u.abbreviation)
+                          setValue(`variants.${index}.altUnitLabel`, u.name)
+                        } else {
+                          setValue(`variants.${index}.altUnit`, val)
+                          setValue(`variants.${index}.altUnitLabel`, val)
+                        }
+                      }}
+                    />
                   </div>
-                  <div>
-                    <label className="label text-xs">Alt Unit Label</label>
-                    <input {...register(`variants.${index}.altUnitLabel`)} className="input" placeholder="e.g. Bales" />
+                  <div className="hidden">
+                    <input {...register(`variants.${index}.altUnitLabel`)} />
                   </div>
                   
                   <div>
                     <label className="label text-xs">Sale Unit *</label>
-                    <input {...register(`variants.${index}.saleUnit`)} className="input" placeholder="e.g. yards" />
+                    <input
+                      list="unitsList"
+                      {...register(`variants.${index}.saleUnit`)}
+                      className="input"
+                      placeholder="e.g. m, pcs"
+                      onChange={(e) => {
+                        const val = e.target.value
+                        const u = units.find(x => x.abbreviation === val || x.name === val)
+                        if (u) {
+                          setValue(`variants.${index}.saleUnit`, u.abbreviation)
+                          setValue(`variants.${index}.saleUnitLabel`, u.name)
+                          
+                          // Check if conversion exists from saleUnit to stockUnit
+                          const stockAbbr = watch(`variants.${index}.stockUnit`)
+                          if (stockAbbr && stockAbbr !== u.abbreviation) {
+                            const stockUnit = units.find(x => x.abbreviation === stockAbbr)
+                            const conversion = u.conversionsFrom?.find((c: any) => c.toUnitId === stockUnit?.id)
+                            if (conversion) {
+                              setValue(`variants.${index}.saleToStockFactor`, conversion.factor)
+                            }
+                          } else if (stockAbbr === u.abbreviation) {
+                            setValue(`variants.${index}.saleToStockFactor`, 1)
+                          }
+                        } else {
+                          setValue(`variants.${index}.saleUnit`, val)
+                          setValue(`variants.${index}.saleUnitLabel`, val)
+                        }
+                      }}
+                    />
                   </div>
-                  <div>
-                    <label className="label text-xs">Sale Unit Label *</label>
-                    <input {...register(`variants.${index}.saleUnitLabel`)} className="input" placeholder="e.g. Yards" />
+                  <div className="hidden">
+                    <input {...register(`variants.${index}.saleUnitLabel`)} />
                   </div>
                   <div>
                     <label className="label text-xs">Sale to Stock Factor *</label>
-                    <input type="number" step="0.0001" {...register(`variants.${index}.saleToStockFactor`)} className="input" title="1 Sale Unit = X Stock Units" />
+                    <input type="number" step="0.001" {...register(`variants.${index}.saleToStockFactor`)} className="input" placeholder="1" title="1 Sale Unit = X Stock Units" />
                   </div>
                   <div>
                     <label className="label text-xs">Low Stock Threshold</label>
@@ -218,6 +280,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </button>
         </div>
       </form>
+      
+      <datalist id="unitsList">
+        {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name}</option>)}
+      </datalist>
     </div>
   )
 }

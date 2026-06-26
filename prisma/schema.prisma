@@ -9,18 +9,629 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// =============================================================================
-// ENUMS
-// =============================================================================
+model User {
+  id                     String            @id @default(cuid())
+  name                   String
+  email                  String            @unique
+  password               String
+  locationId             String?
+  isActive               Boolean           @default(true)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  twoFactorBackupCodes   String[]          @default([])
+  twoFactorEnabled       Boolean           @default(false)
+  twoFactorSecret        String?
+  role                   UserRole          @default(STORE_KEEPER)
+  permissions            String[]          @default([])
+  useCustomPermissions   Boolean           @default(false)
+  auditLogs              AuditLog[]
+  creditPaymentsRecorded CreditPayment[]
+  customerOrders         CustomerOrder[]
+  purchaseOrders         PurchaseOrder[]
+  returnsApproved        Return[]          @relation("ReturnApprovedBy")
+  returns                Return[]
+  sales                  Sale[]
+  shifts                 Shift[]
+  stockAdjustments       StockAdjustment[]
+  stockIns               StockIn[]
+  transfersApproved      StockTransfer[]   @relation("TransferApproved")
+  transfersDispatched    StockTransfer[]   @relation("TransferDispatched")
+  transfersReceived      StockTransfer[]   @relation("TransferReceived")
+  transfersRequested     StockTransfer[]   @relation("TransferRequested")
+  location               Location?         @relation(fields: [locationId], references: [id])
+}
+
+model Location {
+  id               String            @id @default(cuid())
+  name             String            @unique
+  code             String            @unique
+  address          String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  type             LocationType
+  phone            String?
+  purchaseOrders   PurchaseOrder[]
+  sales            Sale[]
+  shifts           Shift[]
+  stocks           Stock[]
+  stockAdjustments StockAdjustment[]
+  stockIns         StockIn[]
+  transfersFrom    StockTransfer[]   @relation("TransferFrom")
+  transfersTo      StockTransfer[]   @relation("TransferTo")
+  users            User[]
+}
+
+model Unit {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  abbreviation    String           @unique
+  createdAt       DateTime         @default(now())
+  conversionsFrom UnitConversion[] @relation("FromUnit")
+  conversionsTo   UnitConversion[] @relation("ToUnit")
+}
+
+model UnitConversion {
+  id         String @id @default(cuid())
+  fromUnitId String
+  toUnitId   String
+  factor     Float
+  fromUnit   Unit   @relation("FromUnit", fields: [fromUnitId], references: [id])
+  toUnit     Unit   @relation("ToUnit", fields: [toUnitId], references: [id])
+
+  @@unique([fromUnitId, toUnitId])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  color     String    @default("#6366f1")
+  icon      String?
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  name        String
+  categoryId  String
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  wcProductId String?
+  wcSyncedAt  DateTime?
+  images      String[]         @default([])
+  category    Category         @relation(fields: [categoryId], references: [id])
+  variants    ProductVariant[]
+
+  @@index([categoryId])
+  @@index([name])
+}
+
+model ProductVariant {
+  id                   String              @id @default(cuid())
+  productId            String
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  costPrice            Float?
+  sku                  String              @unique
+  colorName            String
+  colorHex             String              @default("#6366f1")
+  stockUnit            String
+  stockUnitLabel       String
+  altUnit              String?
+  altUnitLabel         String?
+  saleUnit             String
+  saleUnitLabel        String
+  saleToStockFactor    Float               @default(1.0)
+  altSaleUnit          String?
+  altSaleUnitLabel     String?
+  altSaleToStockFactor Float?
+  salePrice            Float?
+  lowStockAt           Float               @default(10.0)
+  wcVariantId          String?
+  wcSyncedAt           DateTime?
+  updatedAt            DateTime            @updatedAt
+  cartItems            CartItem[]
+  orderItems           OrderItem[]
+  product              Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchaseOrderItems   PurchaseOrderItem[]
+  returnItems          ReturnItem[]
+  saleItems            SaleItem[]
+  stocks               Stock[]
+  stockAdjustments     StockAdjustment[]
+  stockIns             StockIn[]
+  transferItems        StockTransferItem[]
+
+  @@unique([productId, colorName])
+  @@index([productId])
+  @@index([sku])
+  @@index([colorName])
+}
+
+model Stock {
+  id         String         @id @default(cuid())
+  locationId String
+  quantity   Float          @default(0)
+  updatedAt  DateTime       @updatedAt
+  variantId  String
+  location   Location       @relation(fields: [locationId], references: [id])
+  variant    ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([variantId, locationId])
+  @@index([variantId])
+  @@index([locationId])
+}
+
+model StockIn {
+  id                   String         @id @default(cuid())
+  locationId           String
+  batchNumber          String?
+  supplierId           String?
+  costPrice            Float?
+  note                 String?
+  receivedBy           String
+  createdAt            DateTime       @default(now())
+  variantId            String
+  receivedUnit         String
+  receivedQty          Float
+  conversionFactor     Float
+  quantityAddedToStock Float
+  invoiceNo            String?
+  purchaseOrderId      String?
+  location             Location       @relation(fields: [locationId], references: [id])
+  purchaseOrder        PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  user                 User           @relation(fields: [receivedBy], references: [id])
+  supplier             Supplier?      @relation(fields: [supplierId], references: [id])
+  variant              ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId])
+  @@index([locationId])
+  @@index([createdAt])
+}
+
+model StockAdjustment {
+  id               String           @id @default(cuid())
+  locationId       String
+  previousQuantity Float
+  countedQuantity  Float
+  delta            Float
+  note             String?
+  adjustedBy       String
+  createdAt        DateTime         @default(now())
+  variantId        String
+  reason           AdjustmentReason
+  user             User             @relation(fields: [adjustedBy], references: [id])
+  location         Location         @relation(fields: [locationId], references: [id])
+  variant          ProductVariant   @relation(fields: [variantId], references: [id])
+
+  @@index([variantId, locationId, createdAt])
+}
+
+model StockTransfer {
+  id               String              @id @default(cuid())
+  transferNo       String              @unique
+  fromLocationId   String
+  toLocationId     String
+  status           TransferStatus      @default(PENDING)
+  note             String?
+  requestedBy      String
+  approvedBy       String?
+  approvedAt       DateTime?
+  dispatchedBy     String?
+  dispatchedAt     DateTime?
+  receivedBy       String?
+  receivedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  approvedByUser   User?               @relation("TransferApproved", fields: [approvedBy], references: [id])
+  dispatchedByUser User?               @relation("TransferDispatched", fields: [dispatchedBy], references: [id])
+  fromLocation     Location            @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  receivedByUser   User?               @relation("TransferReceived", fields: [receivedBy], references: [id])
+  requestedByUser  User                @relation("TransferRequested", fields: [requestedBy], references: [id])
+  toLocation       Location            @relation("TransferTo", fields: [toLocationId], references: [id])
+  items            StockTransferItem[]
+
+  @@index([status])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+}
+
+model StockTransferItem {
+  id              String         @id @default(cuid())
+  transferId      String
+  variantId       String
+  requestedQty    Float
+  approvedQty     Float?
+  dispatchedQty   Float?
+  receivedQty     Float?
+  discrepancyNote String?
+  transfer        StockTransfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  variant         ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([transferId])
+  @@index([variantId])
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  name           String
+  contact        String?
+  email          String?
+  phone          String?
+  address        String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  purchaseOrders PurchaseOrder[]
+  stockIns       StockIn[]
+}
+
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  poNumber      String              @unique
+  supplierId    String
+  locationId    String
+  status        PurchaseOrderStatus @default(DRAFT)
+  note          String?
+  orderedBy     String
+  orderedAt     DateTime            @default(now())
+  expectedAt    DateTime?
+  receivedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  location      Location            @relation(fields: [locationId], references: [id])
+  orderedByUser User                @relation(fields: [orderedBy], references: [id])
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  items         PurchaseOrderItem[]
+  stockIns      StockIn[]
+}
+
+model PurchaseOrderItem {
+  id          String         @id @default(cuid())
+  poId        String
+  variantId   String
+  orderedUnit String
+  orderedQty  Float
+  receivedQty Float          @default(0)
+  unitCost    Float?
+  note        String?
+  po          PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([poId])
+}
+
+model Customer {
+  id               String          @id @default(cuid())
+  name             String
+  phone            String?         @unique
+  email            String?
+  isCreditEligible Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  whatsappPhone    String?
+  notes            String?
+  address          String?
+  creditLedger     CreditLedger?
+  orders           CustomerOrder[]
+  sales            Sale[]
+
+  @@index([phone])
+}
+
+model Shift {
+  id           String      @id @default(cuid())
+  locationId   String
+  openedBy     String
+  status       ShiftStatus @default(OPEN)
+  openingCash  Float       @default(0)
+  closingCash  Float?
+  cashSales    Float?
+  cardSales    Float?
+  chequeSales  Float?
+  creditSales  Float?
+  bankSales    Float?
+  note         String?
+  openedAt     DateTime    @default(now())
+  closedAt     DateTime?
+  sales        Sale[]
+  location     Location    @relation(fields: [locationId], references: [id])
+  openedByUser User        @relation(fields: [openedBy], references: [id])
+
+  @@index([locationId, status])
+}
+
+model Sale {
+  id              String         @id @default(cuid())
+  receiptNo       String         @unique
+  locationId      String
+  soldById        String
+  customerId      String?
+  customerName    String?
+  customerPhone   String?
+  note            String?
+  createdAt       DateTime       @default(now())
+  grandTotal      Float
+  subTotal        Float
+  taxAmount       Float
+  taxRate         Float          @default(0)
+  paymentMode     PaymentMode    @default(CASH)
+  shiftId         String?
+  discountAmount  Float          @default(0)
+  waInvoiceSent   Boolean        @default(false)
+  waInvoiceSentAt DateTime?
+  waInvoiceError  String?
+  auditLogs       AuditLog[]
+  chequePayment   ChequePayment?
+  creditEntry     CreditEntry?
+  returns         Return[]
+  customer        Customer?      @relation(fields: [customerId], references: [id])
+  location        Location       @relation(fields: [locationId], references: [id])
+  shift           Shift?         @relation(fields: [shiftId], references: [id])
+  soldBy          User           @relation(fields: [soldById], references: [id])
+  items           SaleItem[]
+
+  @@index([locationId, createdAt])
+  @@index([customerId])
+  @@index([receiptNo])
+}
+
+model SaleItem {
+  id                String         @id @default(cuid())
+  saleId            String
+  unitPrice         Float
+  subTotal          Float
+  taxAmount         Float
+  taxRate           Float          @default(0)
+  total             Float
+  variantId         String
+  saleUnit          String
+  saleQty           Float
+  saleToStockFactor Float
+  stockQtyDeducted  Float
+  discountType      String         @default("NONE")
+  discountValue     Float          @default(0)
+  discountAmount    Float          @default(0)
+  costAtSale        Float?
+  profitAmount      Float?
+  returnItems       ReturnItem[]
+  sale              Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  variant           ProductVariant @relation(fields: [variantId], references: [id])
+}
+
+model ChequePayment {
+  id                  String       @id @default(cuid())
+  saleId              String       @unique
+  bankName            String
+  chequeNo            String
+  chequeDate          DateTime
+  amount              Float
+  status              ChequeStatus @default(PENDING)
+  expectedClearDate   DateTime
+  clearedAt           DateTime?
+  bouncedAt           DateTime?
+  bounceReason        String?
+  reminder7DaySentAt  DateTime?
+  reminder14DaySentAt DateTime?
+  note                String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  sale                Sale         @relation(fields: [saleId], references: [id])
+
+  @@index([status])
+  @@index([chequeDate])
+  @@index([expectedClearDate])
+}
+
+model CreditLedger {
+  id           String        @id @default(cuid())
+  customerId   String        @unique
+  totalOwed    Float         @default(0)
+  lastActivity DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  entries      CreditEntry[]
+  customer     Customer      @relation(fields: [customerId], references: [id])
+}
+
+model CreditEntry {
+  id                  String       @id @default(cuid())
+  ledgerId            String
+  saleId              String?      @unique
+  type                String
+  amount              Float
+  note                String?
+  reminder7DaySentAt  DateTime?
+  reminder30DaySentAt DateTime?
+  createdAt           DateTime     @default(now())
+  ledger              CreditLedger @relation(fields: [ledgerId], references: [id])
+  sale                Sale?        @relation(fields: [saleId], references: [id])
+
+  @@index([ledgerId])
+}
+
+model CreditPayment {
+  id          String      @id @default(cuid())
+  ledgerId    String
+  customerId  String
+  amount      Float
+  paymentMode PaymentMode
+  reference   String?
+  recordedBy  String
+  note        String?
+  createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [recordedBy], references: [id])
+
+  @@index([ledgerId])
+  @@index([customerId])
+}
+
+model CustomerOrder {
+  id              String      @id @default(cuid())
+  customerId      String?
+  note            String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  approvedAt      DateTime?
+  approvedBy      String?
+  fulfilledAt     DateTime?
+  fulfilledBy     String?
+  grandTotal      Float       @default(0)
+  orderNumber     String      @unique
+  shippingAddress String?
+  subTotal        Float       @default(0)
+  taxAmount       Float       @default(0)
+  taxRate         Float       @default(0)
+  status          OrderStatus @default(PENDING)
+  source          OrderSource @default(STOREFRONT)
+  waMessageId     String?
+  waThreadId      String?
+  customerPhone   String?
+  orderedBy       String?
+  customerName    String?
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  orderedByUser   User?       @relation(fields: [orderedBy], references: [id])
+  items           OrderItem[]
+
+  @@index([status])
+  @@index([source])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id        String         @id @default(cuid())
+  orderId   String
+  quantity  Float
+  unitPrice Float
+  subTotal  Float
+  total     Float
+  variantId String
+  saleUnit  String
+  order     CustomerOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+}
+
+model Cart {
+  id         String     @id @default(cuid())
+  customerId String     @unique
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  items      CartItem[]
+}
+
+model CartItem {
+  id        String         @id @default(cuid())
+  cartId    String
+  quantity  Float
+  unitPrice Float
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  variantId String
+  saleUnit  String
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([cartId, variantId])
+}
+
+model Return {
+  id                   String       @id @default(cuid())
+  returnNumber         String       @unique
+  saleId               String
+  customerId           String?
+  status               ReturnStatus @default(PENDING)
+  customerNote         String?
+  totalRefundAmount    Float
+  approvedRefundAmount Float?
+  approvedBy           String?
+  approvedAt           DateTime?
+  adminNote            String?
+  refundMethod         String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  approvedByUser       User?        @relation("ReturnApprovedBy", fields: [approvedBy], references: [id])
+  customer             User?        @relation(fields: [customerId], references: [id])
+  sale                 Sale         @relation(fields: [saleId], references: [id])
+  items                ReturnItem[]
+}
+
+model ReturnItem {
+  id           String         @id @default(cuid())
+  returnId     String
+  saleItemId   String
+  quantity     Float
+  unitPrice    Float
+  refundAmount Float
+  note         String?
+  createdAt    DateTime       @default(now())
+  reason       ReturnReason
+  variantId    String
+  return       Return         @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItem     SaleItem       @relation(fields: [saleItemId], references: [id])
+  variant      ProductVariant @relation(fields: [variantId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+  saleId    String?
+  sale      Sale?    @relation(fields: [saleId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  role      String?
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([role, isRead])
+}
+
+model WACatalogueSyncLog {
+  id          String   @id @default(cuid())
+  syncType    String
+  status      String
+  syncedCount Int      @default(0)
+  errorCount  Int      @default(0)
+  errors      String?
+  createdAt   DateTime @default(now())
+}
+
+model BackupLog {
+  id           String   @id @default(cuid())
+  triggeredBy  String
+  status       String
+  sizeBytes    Int?
+  gzSizeBytes  Int?
+  totalRows    Int?
+  downloadUrl  String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+}
 
 enum UserRole {
-  SUPER_ADMIN
   ADMIN
   MANAGER
   STORE_KEEPER
   SHOP_STAFF
   FINANCE
   CUSTOMER
+  SUPER_ADMIN
 }
 
 enum LocationType {
@@ -94,362 +705,6 @@ enum AdjustmentReason {
   OTHER
 }
 
-// =============================================================================
-// USER & AUTH
-// =============================================================================
-
-model User {
-  id         String    @id @default(cuid())
-  name       String
-  email      String    @unique
-  password   String
-  role       UserRole  @default(STORE_KEEPER)
-  locationId String?
-  location   Location? @relation(fields: [locationId], references: [id])
-  isActive   Boolean   @default(true)
-
-  // 2FA
-  twoFactorEnabled     Boolean  @default(false)
-  twoFactorSecret      String?
-  twoFactorBackupCodes String[] @default([])
-
-  // Granular Permissions
-  useCustomPermissions Boolean  @default(false)
-  permissions          String[] @default([])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  stockIns               StockIn[]
-  stockAdjustments       StockAdjustment[]
-  transfersRequested     StockTransfer[]   @relation("TransferRequested")
-  transfersApproved      StockTransfer[]   @relation("TransferApproved")
-  transfersDispatched    StockTransfer[]   @relation("TransferDispatched")
-  transfersReceived      StockTransfer[]   @relation("TransferReceived")
-  customerOrders         CustomerOrder[]
-  sales                  Sale[]
-  shifts                 Shift[]
-  auditLogs              AuditLog[]
-  creditPaymentsRecorded CreditPayment[]
-  purchaseOrders         PurchaseOrder[]
-  returns                Return[]
-  returnsApproved        Return[]          @relation("ReturnApprovedBy")
-}
-
-// =============================================================================
-// LOCATION
-// =============================================================================
-
-model Location {
-  id        String       @id @default(cuid())
-  name      String       @unique
-  code      String       @unique
-  type      LocationType
-  address   String?
-  phone     String?
-  isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now())
-
-  users            User[]
-  stocks           Stock[]
-  stockIns         StockIn[]
-  stockAdjustments StockAdjustment[]
-  transfersFrom    StockTransfer[]   @relation("TransferFrom")
-  transfersTo      StockTransfer[]   @relation("TransferTo")
-  sales            Sale[]
-  shifts           Shift[]
-  purchaseOrders   PurchaseOrder[]
-}
-
-// =============================================================================
-// UNITS & CONVERSIONS
-// =============================================================================
-
-model Unit {
-  id           String @id @default(cuid())
-  name         String @unique // e.g., "Meter", "Yard", "Bale"
-  abbreviation String @unique // e.g., "m", "yd", "bl"
-  createdAt    DateTime @default(now())
-
-  // Relations
-  conversionsFrom UnitConversion[] @relation("FromUnit")
-  conversionsTo   UnitConversion[] @relation("ToUnit")
-}
-
-model UnitConversion {
-  id         String @id @default(cuid())
-  fromUnitId String
-  toUnitId   String
-  factor     Float  // e.g., 1 Yard = 0.9144 Meters => factor = 0.9144
-
-  fromUnit   Unit @relation("FromUnit", fields: [fromUnitId], references: [id])
-  toUnit     Unit @relation("ToUnit", fields: [toUnitId], references: [id])
-
-  @@unique([fromUnitId, toUnitId])
-}
-
-// =============================================================================
-// CATEGORY
-// =============================================================================
-
-model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  slug      String   @unique
-  color     String   @default("#6366f1")
-  icon      String?
-  createdAt DateTime @default(now())
-
-  products Product[]
-}
-
-// =============================================================================
-// PRODUCT (Design / Style grouping — display only)
-// =============================================================================
-
-model Product {
-  id          String   @id @default(cuid())
-  name        String
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
-  description String?
-  images      String[] @default([])
-  isActive    Boolean  @default(true)
-
-  // WhatsApp Business Catalogue sync
-  wcProductId String? // Meta Commerce catalogue product ID
-  wcSyncedAt  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  variants ProductVariant[]
-
-  @@index([categoryId])
-  @@index([name])
-}
-
-// =============================================================================
-// PRODUCT VARIANT (Color / Shade — actual stockable & sellable unit)
-// =============================================================================
-
-model ProductVariant {
-  id        String  @id @default(cuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  // Identity
-  sku       String @unique // Auto-generated: e.g. "CTN-PFC-457"
-  colorName String // "457" | "Navy Blue" | "Default"
-  colorHex  String @default("#6366f1")
-
-  // ── UNIT MATRIX ─────────────────────────────────────────────────────────────
-  // Canonical storage unit (all Stock quantities stored in this unit)
-  stockUnit      String // "metres" | "yards" | "pcs" | "kg"
-  stockUnitLabel String // "Metres" | "Pieces" | "Kilograms"
-
-  // Supplier / purchase unit (optional — used on StockIn form)
-  altUnit      String? // "bales" | "rolls" | "dozens" | "boxes"
-  altUnitLabel String? // "Bales" | "Rolls"
-  // NOTE: altUnit → stockUnit factor is entered PER BATCH on StockIn (variable)
-
-  // Primary sale unit (how customers buy)
-  saleUnit          String // Usually same as stockUnit, or a different unit
-  saleUnitLabel     String // Display label
-  saleToStockFactor Float  @default(1.0)
-  // 1 saleUnit = saleToStockFactor stockUnits
-  // Example: selling yards, stock in metres → 1 yard = 0.9144 metres
-
-  // Secondary sale unit (optional — sell same item in two units)
-  altSaleUnit          String? // e.g. "yards" when primary saleUnit is "metres"
-  altSaleUnitLabel     String?
-  altSaleToStockFactor Float? // 1 altSaleUnit = X stockUnits
-
-  // ── PRICING ─────────────────────────────────────────────────────────────────
-  costPrice Float? // Per stockUnit (for profit calculation)
-  salePrice Float? // Default retail price per saleUnit
-
-  // ── THRESHOLDS ───────────────────────────────────────────────────────────────
-  lowStockAt Float @default(10) // Trigger alert when stock < this (in stockUnit)
-
-  // ── WhatsApp Catalogue ───────────────────────────────────────────────────────
-  wcVariantId String? // Meta Commerce catalogue variant ID
-  wcSyncedAt  DateTime?
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  stocks             Stock[]
-  stockIns           StockIn[]
-  stockAdjustments   StockAdjustment[]
-  transferItems      StockTransferItem[]
-  purchaseOrderItems PurchaseOrderItem[]
-  saleItems          SaleItem[]
-  cartItems          CartItem[]
-  orderItems         OrderItem[]
-  returnItems        ReturnItem[]
-
-  @@unique([productId, colorName])
-  @@index([productId])
-  @@index([sku])
-  @@index([colorName])
-}
-
-// =============================================================================
-// STOCK (Single source of truth — always in stockUnit)
-// =============================================================================
-
-model Stock {
-  id         String         @id @default(cuid())
-  variantId  String
-  variant    ProductVariant @relation(fields: [variantId], references: [id])
-  locationId String
-  location   Location       @relation(fields: [locationId], references: [id])
-  quantity   Float          @default(0) // Always in variant.stockUnit
-
-  updatedAt DateTime @updatedAt
-
-  @@unique([variantId, locationId])
-  @@index([variantId])
-  @@index([locationId])
-}
-
-// =============================================================================
-// STOCK IN (Goods received — handles per-batch unit conversion)
-// =============================================================================
-
-model StockIn {
-  id         String         @id @default(cuid())
-  variantId  String
-  variant    ProductVariant @relation(fields: [variantId], references: [id])
-  locationId String
-  location   Location       @relation(fields: [locationId], references: [id])
-  supplierId String?
-  supplier   Supplier?      @relation(fields: [supplierId], references: [id])
-
-  // Linked purchase order (optional)
-  purchaseOrderId String?
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-
-  // What supplier delivered
-  receivedUnit         String // "bales" | "metres" | "pcs" | "rolls"
-  receivedQty          Float // Quantity in supplier's unit
-  conversionFactor     Float // 1 receivedUnit = X stockUnits (this batch)
-  quantityAddedToStock Float // = receivedQty × conversionFactor (in stockUnit)
-
-  batchNumber String?
-  invoiceNo   String?
-  costPrice   Float? // Cost per receivedUnit for this batch
-  note        String?
-
-  receivedBy String
-  user       User     @relation(fields: [receivedBy], references: [id])
-  createdAt  DateTime @default(now())
-
-  @@index([variantId])
-  @@index([locationId])
-  @@index([createdAt])
-}
-
-// =============================================================================
-// STOCK ADJUSTMENT
-// =============================================================================
-
-model StockAdjustment {
-  id               String           @id @default(cuid())
-  variantId        String
-  variant          ProductVariant   @relation(fields: [variantId], references: [id])
-  locationId       String
-  location         Location         @relation(fields: [locationId], references: [id])
-  previousQuantity Float
-  countedQuantity  Float
-  delta            Float // countedQuantity - previousQuantity
-  reason           AdjustmentReason
-  note             String?
-  adjustedBy       String
-  user             User             @relation(fields: [adjustedBy], references: [id])
-  createdAt        DateTime         @default(now())
-
-  @@index([variantId, locationId, createdAt])
-}
-
-// =============================================================================
-// STOCK TRANSFER (Multi-item inter-location movement)
-// =============================================================================
-
-model StockTransfer {
-  id             String         @id @default(cuid())
-  transferNo     String         @unique
-  fromLocationId String
-  fromLocation   Location       @relation("TransferFrom", fields: [fromLocationId], references: [id])
-  toLocationId   String
-  toLocation     Location       @relation("TransferTo", fields: [toLocationId], references: [id])
-  status         TransferStatus @default(PENDING)
-  note           String?
-
-  requestedBy      String
-  requestedByUser  User      @relation("TransferRequested", fields: [requestedBy], references: [id])
-  approvedBy       String?
-  approvedByUser   User?     @relation("TransferApproved", fields: [approvedBy], references: [id])
-  approvedAt       DateTime?
-  dispatchedBy     String?
-  dispatchedByUser User?     @relation("TransferDispatched", fields: [dispatchedBy], references: [id])
-  dispatchedAt     DateTime?
-  receivedBy       String?
-  receivedByUser   User?     @relation("TransferReceived", fields: [receivedBy], references: [id])
-  receivedAt       DateTime?
-
-  items     StockTransferItem[]
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
-
-  @@index([status])
-  @@index([fromLocationId])
-  @@index([toLocationId])
-}
-
-model StockTransferItem {
-  id         String         @id @default(cuid())
-  transferId String
-  transfer   StockTransfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  variantId  String
-  variant    ProductVariant @relation(fields: [variantId], references: [id])
-
-  requestedQty    Float // In stockUnit
-  approvedQty     Float?
-  dispatchedQty   Float?
-  receivedQty     Float?
-  discrepancyNote String?
-
-  @@index([transferId])
-  @@index([variantId])
-}
-
-// =============================================================================
-// SUPPLIER
-// =============================================================================
-
-model Supplier {
-  id        String   @id @default(cuid())
-  name      String
-  contact   String?
-  email     String?
-  phone     String?
-  address   String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  stockIns       StockIn[]
-  purchaseOrders PurchaseOrder[]
-}
-
-// =============================================================================
-// PURCHASE ORDER (Supplier PO tracking)
-// =============================================================================
-
 enum PurchaseOrderStatus {
   DRAFT
   SENT
@@ -458,453 +713,7 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
-model PurchaseOrder {
-  id            String              @id @default(cuid())
-  poNumber      String              @unique
-  supplierId    String
-  supplier      Supplier            @relation(fields: [supplierId], references: [id])
-  locationId    String
-  location      Location            @relation(fields: [locationId], references: [id])
-  status        PurchaseOrderStatus @default(DRAFT)
-  note          String?
-  orderedBy     String
-  orderedByUser User                @relation(fields: [orderedBy], references: [id])
-  orderedAt     DateTime            @default(now())
-  expectedAt    DateTime?
-  receivedAt    DateTime?
-
-  items    PurchaseOrderItem[]
-  stockIns StockIn[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model PurchaseOrderItem {
-  id          String         @id @default(cuid())
-  poId        String
-  po          PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
-  variantId   String
-  variant     ProductVariant @relation(fields: [variantId], references: [id])
-  orderedUnit String
-  orderedQty  Float
-  receivedQty Float          @default(0)
-  unitCost    Float?
-  note        String?
-
-  @@index([poId])
-}
-
-// =============================================================================
-// CUSTOMER
-// =============================================================================
-
-model Customer {
-  id               String   @id @default(cuid())
-  name             String
-  phone            String?  @unique
-  whatsappPhone    String? // May differ from contact phone
-  email            String?
-  address          String?
-  isCreditEligible Boolean  @default(false)
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  sales        Sale[]
-  orders       CustomerOrder[]
-  creditLedger CreditLedger?
-
-  @@index([phone])
-}
-
-// =============================================================================
-// POS SHIFT MANAGEMENT
-// =============================================================================
-
 enum ShiftStatus {
   OPEN
   CLOSED
-}
-
-model Shift {
-  id           String      @id @default(cuid())
-  locationId   String
-  location     Location    @relation(fields: [locationId], references: [id])
-  openedBy     String
-  openedByUser User        @relation(fields: [openedBy], references: [id])
-  status       ShiftStatus @default(OPEN)
-
-  openingCash Float   @default(0)
-  closingCash Float?
-  cashSales   Float?
-  cardSales   Float?
-  chequeSales Float?
-  creditSales Float?
-  bankSales   Float?
-  note        String?
-
-  openedAt DateTime  @default(now())
-  closedAt DateTime?
-
-  sales Sale[]
-
-  @@index([locationId, status])
-}
-
-// =============================================================================
-// SALE & POS
-// =============================================================================
-
-model Sale {
-  id            String      @id @default(cuid())
-  receiptNo     String      @unique
-  locationId    String
-  location      Location    @relation(fields: [locationId], references: [id])
-  soldById      String
-  soldBy        User        @relation(fields: [soldById], references: [id])
-  shiftId       String?
-  shift         Shift?      @relation(fields: [shiftId], references: [id])
-  customerId    String?
-  customer      Customer?   @relation(fields: [customerId], references: [id])
-  customerName  String?
-  customerPhone String?
-  paymentMode   PaymentMode @default(CASH)
-
-  subTotal       Float
-  discountAmount Float @default(0) // Order-level flat discount
-  taxRate        Float @default(0)
-  taxAmount      Float
-  grandTotal     Float // subTotal - discountAmount + taxAmount
-
-  note String?
-
-  // WhatsApp invoice tracking
-  waInvoiceSent   Boolean   @default(false)
-  waInvoiceSentAt DateTime?
-  waInvoiceError  String?
-
-  items         SaleItem[]
-  chequePayment ChequePayment?
-  creditEntry   CreditEntry?
-  returns       Return[]
-  auditLogs     AuditLog[]
-
-  createdAt DateTime @default(now())
-
-  @@index([locationId, createdAt])
-  @@index([customerId])
-  @@index([receiptNo])
-}
-
-model SaleItem {
-  id        String         @id @default(cuid())
-  saleId    String
-  sale      Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  variantId String
-  variant   ProductVariant @relation(fields: [variantId], references: [id])
-
-  // Sale unit (chosen at POS — may differ from stockUnit)
-  saleUnit          String // "metres" | "yards" | "pcs"
-  saleQty           Float
-  saleToStockFactor Float // Snapshot of factor at time of sale
-
-  // Actual stock deduction
-  stockQtyDeducted Float // = saleQty × saleToStockFactor (in stockUnit)
-
-  // Pricing
-  unitPrice      Float // Per saleUnit (admin may override default)
-  discountType   String @default("NONE") // "NONE" | "FIXED" | "PERCENT"
-  discountValue  Float  @default(0)
-  discountAmount Float  @default(0) // Computed discount in LKR
-  subTotal       Float // (unitPrice × saleQty) - discountAmount
-  taxRate        Float  @default(0)
-  taxAmount      Float
-  total          Float
-
-  // Profit tracking (snapshot at time of sale)
-  costAtSale   Float? // variant.costPrice at time of sale
-  profitAmount Float? // total - (costAtSale × stockQtyDeducted)
-
-  returnItems ReturnItem[]
-}
-
-// =============================================================================
-// CHEQUE PAYMENT
-// =============================================================================
-
-model ChequePayment {
-  id     String @id @default(cuid())
-  saleId String @unique
-  sale   Sale   @relation(fields: [saleId], references: [id])
-
-  bankName   String
-  chequeNo   String
-  chequeDate DateTime // Date printed on cheque
-  amount     Float
-  status     ChequeStatus @default(PENDING)
-
-  expectedClearDate DateTime // Auto: chequeDate + 7 days
-  clearedAt         DateTime?
-  bouncedAt         DateTime?
-  bounceReason      String?
-
-  // Reminder tracking
-  reminder7DaySentAt  DateTime?
-  reminder14DaySentAt DateTime?
-
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([chequeDate])
-  @@index([expectedClearDate])
-}
-
-// =============================================================================
-// CREDIT LEDGER
-// =============================================================================
-
-model CreditLedger {
-  id           String   @id @default(cuid())
-  customerId   String   @unique
-  customer     Customer @relation(fields: [customerId], references: [id])
-  totalOwed    Float    @default(0) // Running outstanding balance
-  lastActivity DateTime @default(now())
-  createdAt    DateTime @default(now())
-
-  entries CreditEntry[]
-}
-
-model CreditEntry {
-  id       String       @id @default(cuid())
-  ledgerId String
-  ledger   CreditLedger @relation(fields: [ledgerId], references: [id])
-  saleId   String?      @unique
-  sale     Sale?        @relation(fields: [saleId], references: [id])
-
-  type   String // "SALE" | "PAYMENT" | "ADJUSTMENT"
-  amount Float // Positive = owed, Negative = paid
-  note   String?
-
-  // Reminder tracking
-  reminder7DaySentAt  DateTime?
-  reminder30DaySentAt DateTime?
-
-  createdAt DateTime @default(now())
-
-  @@index([ledgerId])
-}
-
-model CreditPayment {
-  id          String      @id @default(cuid())
-  ledgerId    String
-  customerId  String
-  amount      Float
-  paymentMode PaymentMode
-  reference   String? // Cheque no. or bank reference
-  recordedBy  String
-  user        User        @relation(fields: [recordedBy], references: [id])
-  note        String?
-  createdAt   DateTime    @default(now())
-
-  @@index([ledgerId])
-  @@index([customerId])
-}
-
-// =============================================================================
-// CUSTOMER ORDER (Storefront + WhatsApp + Phone orders)
-// =============================================================================
-
-model CustomerOrder {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique
-  customerId  String?
-  customer    Customer?   @relation(fields: [customerId], references: [id])
-  source      OrderSource @default(STOREFRONT)
-  status      OrderStatus @default(PENDING)
-
-  // WhatsApp order metadata
-  waMessageId String?
-  waThreadId  String?
-
-  customerName    String?
-  customerPhone   String?
-  shippingAddress String?
-  note            String?
-
-  subTotal   Float @default(0)
-  taxRate    Float @default(0)
-  taxAmount  Float @default(0)
-  grandTotal Float @default(0)
-
-  approvedBy  String?
-  approvedAt  DateTime?
-  fulfilledBy String?
-  fulfilledAt DateTime?
-
-  items     OrderItem[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  orderedBy     String?
-  orderedByUser User?   @relation(fields: [orderedBy], references: [id])
-
-  @@index([status])
-  @@index([source])
-  @@index([customerId])
-}
-
-model OrderItem {
-  id        String         @id @default(cuid())
-  orderId   String
-  order     CustomerOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  variantId String
-  variant   ProductVariant @relation(fields: [variantId], references: [id])
-  saleUnit  String
-  quantity  Float
-  unitPrice Float
-  subTotal  Float
-  total     Float
-}
-
-// =============================================================================
-// CART (Storefront)
-// =============================================================================
-
-model Cart {
-  id         String     @id @default(cuid())
-  customerId String     @unique
-  items      CartItem[]
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-}
-
-model CartItem {
-  id        String         @id @default(cuid())
-  cartId    String
-  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  variantId String
-  variant   ProductVariant @relation(fields: [variantId], references: [id])
-  saleUnit  String
-  quantity  Float
-  unitPrice Float
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  @@unique([cartId, variantId])
-}
-
-// =============================================================================
-// RETURNS & REFUNDS
-// =============================================================================
-
-model Return {
-  id           String       @id @default(cuid())
-  returnNumber String       @unique
-  saleId       String
-  sale         Sale         @relation(fields: [saleId], references: [id])
-  customerId   String?
-  customer     User?        @relation(fields: [customerId], references: [id])
-  status       ReturnStatus @default(PENDING)
-  customerNote String?
-
-  totalRefundAmount    Float
-  approvedRefundAmount Float?
-  refundMethod         String?
-
-  approvedBy     String?
-  approvedByUser User?     @relation("ReturnApprovedBy", fields: [approvedBy], references: [id])
-  approvedAt     DateTime?
-  adminNote      String?
-
-  items     ReturnItem[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-}
-
-model ReturnItem {
-  id           String         @id @default(cuid())
-  returnId     String
-  return       Return         @relation(fields: [returnId], references: [id], onDelete: Cascade)
-  saleItemId   String
-  saleItem     SaleItem       @relation(fields: [saleItemId], references: [id])
-  variantId    String
-  variant      ProductVariant @relation(fields: [variantId], references: [id])
-  quantity     Float
-  unitPrice    Float
-  refundAmount Float
-  reason       ReturnReason
-  note         String?
-  createdAt    DateTime       @default(now())
-}
-
-// =============================================================================
-// AUDIT LOG
-// =============================================================================
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  action    String // "CREATE_SALE" | "APPROVE_TRANSFER" | etc.
-  entity    String // "Sale" | "StockTransfer" | etc.
-  entityId  String?
-  saleId    String?
-  sale      Sale?    @relation(fields: [saleId], references: [id])
-  details   String? // JSON
-  createdAt DateTime @default(now())
-
-  @@index([entity, entityId])
-  @@index([userId, createdAt])
-}
-
-// =============================================================================
-// IN-APP NOTIFICATION
-// =============================================================================
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String? // null = broadcast to role
-  role      String? // e.g. "ADMIN" — delivered to all users with this role
-  title     String
-  message   String
-  type      String   @default("INFO") // INFO | WARNING | ERROR | SUCCESS
-  isRead    Boolean  @default(false)
-  link      String? // e.g. "/admin/cheques/clxxx"
-  createdAt DateTime @default(now())
-
-  @@index([userId, isRead])
-  @@index([role, isRead])
-}
-
-// =============================================================================
-// WHATSAPP CATALOGUE SYNC LOG
-// =============================================================================
-
-model WACatalogueSyncLog {
-  id          String   @id @default(cuid())
-  syncType    String // "FULL" | "INCREMENTAL" | "SINGLE"
-  status      String // "SUCCESS" | "PARTIAL" | "FAILED"
-  syncedCount Int      @default(0)
-  errorCount  Int      @default(0)
-  errors      String? // JSON array of error messages
-  createdAt   DateTime @default(now())
-}
-
-// =============================================================================
-// DATABASE BACKUP LOG
-// =============================================================================
-
-model BackupLog {
-  id           String   @id @default(cuid())
-  triggeredBy  String // userId who clicked backup, or "SYSTEM" for auto
-  status       String // "SUCCESS" | "FAILED"
-  sizeBytes    Int?
-  gzSizeBytes  Int?
-  totalRows    Int?
-  downloadUrl  String? // Temporary signed URL if stored in Supabase Storage
-  errorMessage String?
-  createdAt    DateTime @default(now())
 }
