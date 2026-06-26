@@ -30,6 +30,7 @@ export type PermissionKey =
   | 'sales.create'
   | 'reports.read'
   | 'customerOrders.read'
+  | 'settings.manage'
 
 const permissionMatrix: Record<PermissionKey, AppRole[]> = {
   'users.manage': ['SUPER_ADMIN', 'ADMIN'],
@@ -54,6 +55,7 @@ const permissionMatrix: Record<PermissionKey, AppRole[]> = {
   'sales.create': ['SUPER_ADMIN', 'ADMIN', 'SHOP_STAFF'],
   'reports.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'],
   'customerOrders.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
+  'settings.manage': ['SUPER_ADMIN'],
 }
 
 export function hasPermission(role: string | null | undefined, permission: PermissionKey): boolean {
