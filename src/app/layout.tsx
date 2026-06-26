@@ -1,16 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Manrope, Playfair_Display } from 'next/font/google'
+import { Outfit, Fira_Code } from 'next/font/google'
 import Providers from '@/components/Providers'
 import OfflineStatus from '@/components/OfflineStatus'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope' })
-const playfair = Playfair_Display({ 
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-playfair'
-})
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
+const firaCode = Fira_Code({ subsets: ['latin'], variable: '--font-fira-code' })
 
 export const metadata: Metadata = {
   title: {
@@ -32,8 +27,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${manrope.variable} ${playfair.variable} dark`} suppressHydrationWarning>
-      <body className="min-h-screen bg-bg text-text antialiased selection:bg-accent-soft selection:text-text">
+    <html lang="en" className={`${outfit.variable} ${firaCode.variable} font-sans dark`} suppressHydrationWarning>
+      <body className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 antialiased selection:bg-[#0052FF]/30 selection:text-white relative overflow-x-hidden">
+        {/* Aurora Background Elements */}
+        <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
+          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[#0052FF]/20 dark:bg-[#0052FF]/10 blur-[120px] mix-blend-screen animate-blob" />
+          <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-[#4D7CFF]/20 dark:bg-[#4D7CFF]/10 blur-[120px] mix-blend-screen animate-blob animation-delay-2000" />
+          <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-[#8A2BE2]/15 dark:bg-[#8A2BE2]/10 blur-[120px] mix-blend-screen animate-blob animation-delay-4000" />
+        </div>
+        
         <Providers>
           {children}
           <OfflineStatus />

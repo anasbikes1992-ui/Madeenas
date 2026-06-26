@@ -105,21 +105,21 @@ export default function InventoryPage() {
         )
       })()}
 
-      <div className="table-container overflow-x-auto">
-        <table className="table whitespace-nowrap">
+      <div className="table-container">
+        <table className="w-full text-left border-collapse">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-slate-50 dark:bg-navy-900 z-10 min-w-64">Product Variant / SKU</th>
-              {warehouses.map(l => <th key={l.id} className="text-center">{l.name}</th>)}
-              {shops.map(l => <th key={l.id} className="text-center">{l.name}</th>)}
-              <th className="text-center font-bold">Total</th>
+              <th className="table-header w-[35%]">Product Variant / SKU</th>
+              {warehouses.map(l => <th key={l.id} className="table-header text-center">{l.name}</th>)}
+              {shops.map(l => <th key={l.id} className="table-header text-center">{l.name}</th>)}
+              <th className="table-header text-center text-slate-800 dark:text-slate-200">Total</th>
             </tr>
           </thead>
           <tbody>
             {variants.length === 0 ? (
               <tr>
-                <td colSpan={locations.length + 2} className="text-center py-12 text-slate-400">
-                  No inventory data.
+                <td colSpan={locations.length + 2} className="py-12 text-center text-sm text-[var(--text-muted)]">
+                  No inventory data available.
                 </td>
               </tr>
             ) : variants.map((variant: any) => {
@@ -130,17 +130,17 @@ export default function InventoryPage() {
               const lowThreshold = variant.lowStockThreshold || 0
 
               return (
-                <tr key={variant.id}>
-                  <td className="sticky left-0 bg-white dark:bg-navy-950 z-10">
-                    <div>
-                      <p className="font-medium text-sm text-slate-900 dark:text-white">
+                <tr key={variant.id} className="table-row-evolution">
+                  <td className="table-cell">
+                    <div className="flex flex-col gap-1">
+                      <p className="font-bold text-[var(--text)]">
                         {variant.product?.name}
-                        {variant.colorName && <span className="text-slate-500 ml-1">— {variant.colorName}</span>}
+                        {variant.colorName && <span className="font-medium text-[var(--primary)] ml-1.5 px-2 py-0.5 rounded-full bg-[var(--primary-soft)]/10 text-xs border border-[var(--primary)]/20">{variant.colorName}</span>}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <code className="text-xs text-slate-400 dark:text-navy-300">{variant.sku}</code>
+                      <div className="flex items-center gap-2">
+                        <code className="text-[11px] font-mono font-semibold tracking-wider text-[var(--text-muted)]">{variant.sku}</code>
                         {variant.product?.category && (
-                          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: variant.product.category.color + '22', color: variant.product.category.color }}>
+                          <span className="text-[10px] px-2 py-0.5 rounded-[6px] font-bold tracking-widest uppercase border" style={{ background: variant.product.category.color + '15', color: variant.product.category.color, borderColor: variant.product.category.color + '30' }}>
                             {variant.product.category.name}
                           </span>
                         )}
@@ -152,27 +152,31 @@ export default function InventoryPage() {
                     const qty = stock?.quantity ?? 0
                     const level = classifyStockLevel(qty, lowThreshold)
                     return (
-                      <td key={loc.id} className="text-center">
+                      <td key={loc.id} className="table-cell text-center align-middle">
                         {qty > 0 ? (
-                          <span className={`stock-${level} font-mono text-sm`}>
-                            {qty.toLocaleString()}
-                            <span className="block text-[10px] text-slate-500 dark:text-navy-400 font-normal mt-0.5">
+                          <div className="flex flex-col items-center">
+                            <span className={`badge-${level === 'healthy' ? 'success' : level === 'low' ? 'warning' : 'danger'} font-mono text-[13px] tracking-widest`}>
+                              {qty.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] font-medium tracking-wider uppercase text-[var(--text-muted)] mt-1 opacity-70">
                               {variant.stockUnit}
                             </span>
-                          </span>
+                          </div>
                         ) : (
-                          <span className="text-slate-300 dark:text-navy-600 text-sm">—</span>
+                          <span className="text-[var(--border-strong)] font-bold">—</span>
                         )}
                       </td>
                     )
                   })}
-                  <td className="text-center">
-                    <span className={`font-bold stock-${classifyStockLevel(total, lowThreshold)}`}>
-                      {total.toLocaleString()}
-                      <span className="block text-[10px] text-slate-500 dark:text-navy-400 font-normal mt-0.5">
+                  <td className="table-cell text-center align-middle bg-[var(--primary)]/5 dark:bg-white/5 border-l border-[var(--border)]">
+                    <div className="flex flex-col items-center">
+                      <span className={`badge-${classifyStockLevel(total, lowThreshold) === 'healthy' ? 'success' : classifyStockLevel(total, lowThreshold) === 'low' ? 'warning' : 'danger'} font-mono text-[14px] tracking-widest shadow-sm`}>
+                        {total.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-bold tracking-wider uppercase text-[var(--text-muted)] mt-1 opacity-80">
                         {variant.stockUnit}
                       </span>
-                    </span>
+                    </div>
                   </td>
                 </tr>
               )
