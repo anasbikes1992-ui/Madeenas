@@ -13,6 +13,7 @@ import {
 import { ROLE_LABELS, getDashboardPath } from '@/lib/constants'
 import { getInitials } from '@/lib/utils'
 import NotificationBell from '@/components/NotificationBell'
+import ThemeToggle from '@/components/ThemeToggle'
 
 interface NavItem {
   href: string
@@ -90,6 +91,7 @@ const navItems: NavGroup[] = [
       { href: '/admin/settings/users', label: 'Users', Icon: Users, roles: ['SUPER_ADMIN','ADMIN'] },
       { href: '/admin/settings/locations', label: 'Locations', Icon: Building2, roles: ['SUPER_ADMIN','ADMIN'] },
       { href: '/admin/settings/categories', label: 'Categories', Icon: Tag, roles: ['SUPER_ADMIN','ADMIN'] },
+      { href: '/admin/settings/units', label: 'Units Matrix', Icon: Boxes, roles: ['SUPER_ADMIN'] },
       { href: '/admin/settings/suppliers', label: 'Suppliers', Icon: Boxes, roles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
       { href: '/admin/settings/backup', label: 'Backup & Data', Icon: Database, roles: ['SUPER_ADMIN','ADMIN'] },
     ]
@@ -147,50 +149,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           // Colorful gradient palettes for each group
           const groupColors = [
             { 
-              from: 'from-sky-500', to: 'to-blue-600', text: 'text-sky-100', glow: 'shadow-sky-500/20',
-              hover: 'hover:from-sky-500/20 hover:to-blue-500/20', active: 'from-sky-500/30 to-blue-600/40',
-              iconBg: 'bg-sky-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(14,165,233,0.3)]'
-            },
-            { 
-              from: 'from-emerald-500', to: 'to-teal-600', text: 'text-emerald-100', glow: 'shadow-emerald-500/20',
-              hover: 'hover:from-emerald-500/20 hover:to-teal-500/20', active: 'from-emerald-500/30 to-teal-600/40',
-              iconBg: 'bg-emerald-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(16,185,129,0.3)]'
-            },
-            { 
-              from: 'from-amber-500', to: 'to-orange-600', text: 'text-amber-100', glow: 'shadow-amber-500/20',
-              hover: 'hover:from-amber-500/20 hover:to-orange-500/20', active: 'from-amber-500/30 to-orange-600/40',
-              iconBg: 'bg-amber-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(245,158,11,0.3)]'
-            },
-            { 
-              from: 'from-purple-500', to: 'to-pink-600', text: 'text-purple-100', glow: 'shadow-purple-500/20',
-              hover: 'hover:from-purple-500/20 hover:to-pink-500/20', active: 'from-purple-500/30 to-pink-600/40',
-              iconBg: 'bg-purple-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(168,85,247,0.3)]'
-            },
-            { 
-              from: 'from-rose-500', to: 'to-red-600', text: 'text-rose-100', glow: 'shadow-rose-500/20',
-              hover: 'hover:from-rose-500/20 hover:to-red-500/20', active: 'from-rose-500/30 to-red-600/40',
-              iconBg: 'bg-rose-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(244,63,94,0.3)]'
-            },
-            { 
-              from: 'from-cyan-500', to: 'to-blue-600', text: 'text-cyan-100', glow: 'shadow-cyan-500/20',
-              hover: 'hover:from-cyan-500/20 hover:to-blue-500/20', active: 'from-cyan-500/30 to-blue-600/40',
-              iconBg: 'bg-cyan-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(6,182,212,0.3)]'
-            },
-            { 
-              from: 'from-indigo-500', to: 'to-purple-600', text: 'text-indigo-100', glow: 'shadow-indigo-500/20',
-              hover: 'hover:from-indigo-500/20 hover:to-purple-500/20', active: 'from-indigo-500/30 to-purple-600/40',
-              iconBg: 'bg-indigo-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(99,102,241,0.3)]'
-            },
-            { 
-              from: 'from-lime-500', to: 'to-green-600', text: 'text-lime-100', glow: 'shadow-lime-500/20',
-              hover: 'hover:from-lime-500/20 hover:to-green-500/20', active: 'from-lime-500/30 to-green-600/40',
-              iconBg: 'bg-lime-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(132,204,22,0.3)]'
-            },
-            { 
-              from: 'from-fuchsia-500', to: 'to-purple-600', text: 'text-fuchsia-100', glow: 'shadow-fuchsia-500/20',
-              hover: 'hover:from-fuchsia-500/20 hover:to-purple-500/20', active: 'from-fuchsia-500/30 to-purple-600/40',
-              iconBg: 'bg-fuchsia-500/20', activeShadow: 'shadow-[0_8px_24px_rgba(217,70,239,0.3)]'
-            },
+              from: 'from-blue-600', to: 'to-indigo-900', text: 'text-blue-100', glow: 'shadow-blue-500/20',
+              hover: 'hover:from-blue-600/20 hover:to-indigo-800/20', active: 'from-blue-600/50 to-indigo-800/60',
+              iconBg: 'bg-white/10', activeShadow: 'shadow-[0_8px_24px_rgba(37,99,235,0.3)] border border-white/10'
+            }
           ];
           const colors = groupColors[groupIdx % groupColors.length];
 
@@ -316,6 +278,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </nav>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
             <NotificationBell />
             <Link href="/gallery" target="_blank" className="btn-secondary btn-sm hidden sm:flex min-h-11 items-center">
               🖼️ Gallery

@@ -10,9 +10,10 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 export default function NewProductPage() {
   const router = useRouter()
   const [categories, setCategories] = useState<any[]>([])
+  const [units, setUnits] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm<any>({
+  const { register, control, handleSubmit, formState: { errors }, watch, setValue } = useForm<any>({
     resolver: zodResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -22,12 +23,12 @@ export default function NewProductPage() {
         sku: `TXT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
         colorName: '',
         colorHex: '#6366f1',
-        stockUnit: 'meters',
-        stockUnitLabel: 'Meters',
-        altUnit: 'bales',
-        altUnitLabel: 'Bales',
-        saleUnit: 'meters',
-        saleUnitLabel: 'Meters',
+        stockUnit: '',
+        stockUnitLabel: '',
+        altUnit: '',
+        altUnitLabel: '',
+        saleUnit: '',
+        saleUnitLabel: '',
         saleToStockFactor: 1,
         costPrice: null,
         salePrice: null,
@@ -42,12 +43,15 @@ export default function NewProductPage() {
   })
 
   useEffect(() => {
-    async function fetchCategories() {
-      const res = await fetch('/api/categories')
-      const data = await res.json()
-      setCategories(data)
+    async function fetchData() {
+      const [catsRes, unitsRes] = await Promise.all([
+        fetch('/api/categories'),
+        fetch('/api/settings/units')
+      ])
+      setCategories(await catsRes.json())
+      setUnits(await unitsRes.json())
     }
-    fetchCategories()
+    fetchData()
   }, [])
 
   const onSubmit = async (data: ProductFormData) => {
@@ -169,28 +173,80 @@ export default function NewProductPage() {
                   
                   <div>
                     <label className="label text-xs">Stock Unit *</label>
-                    <input {...register(`variants.${index}.stockUnit`)} className="input" placeholder="e.g. meters" />
+                    <select
+                      {...register(`variants.${index}.stockUnit`)}
+                      className="input"
+                      onChange={(e) => {
+                        const u = units.find(x => x.abbreviation === e.target.value)
+                        if (u) {
+                          setValue(`variants.${index}.stockUnit`, u.abbreviation)
+                          setValue(`variants.${index}.stockUnitLabel`, u.name)
+                        }
+                      }}
+                    >
+                      <option value="">Select...</option>
+                      {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name} ({u.abbreviation})</option>)}
+                    </select>
                   </div>
-                  <div>
-                    <label className="label text-xs">Stock Unit Label *</label>
-                    <input {...register(`variants.${index}.stockUnitLabel`)} className="input" placeholder="e.g. Meters" />
+                  <div className="hidden">
+                    <input {...register(`variants.${index}.stockUnitLabel`)} />
                   </div>
                   <div>
                     <label className="label text-xs">Alt Unit (Optional)</label>
-                    <input {...register(`variants.${index}.altUnit`)} className="input" placeholder="e.g. bales" />
+                    <select
+                      {...register(`variants.${index}.altUnit`)}
+                      className="input"
+                      onChange={(e) => {
+                        const u = units.find(x => x.abbreviation === e.target.value)
+                        if (u) {
+                          setValue(`variants.${index}.altUnit`, u.abbreviation)
+                          setValue(`variants.${index}.altUnitLabel`, u.name)
+                        } else {
+                          setValue(`variants.${index}.altUnit`, '')
+                          setValue(`variants.${index}.altUnitLabel`, '')
+                        }
+                      }}
+                    >
+                      <option value="">None</option>
+                      {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name} ({u.abbreviation})</option>)}
+                    </select>
                   </div>
-                  <div>
-                    <label className="label text-xs">Alt Unit Label</label>
-                    <input {...register(`variants.${index}.altUnitLabel`)} className="input" placeholder="e.g. Bales" />
+                  <div className="hidden">
+                    <input {...register(`variants.${index}.altUnitLabel`)} />
                   </div>
                   
                   <div>
                     <label className="label text-xs">Sale Unit *</label>
-                    <input {...register(`variants.${index}.saleUnit`)} className="input" placeholder="e.g. yards" />
+                    <select
+                      {...register(`variants.${index}.saleUnit`)}
+                      className="input"
+                      onChange={(e) => {
+                        const saleAbbr = e.target.value
+                        const u = units.find(x => x.abbreviation === saleAbbr)
+                        if (u) {
+                          setValue(`variants.${index}.saleUnit`, u.abbreviation)
+                          setValue(`variants.${index}.saleUnitLabel`, u.name)
+                          
+                          // Check if conversion exists from saleUnit to stockUnit
+                          const stockAbbr = watch(`variants.${index}.stockUnit`)
+                          if (stockAbbr && stockAbbr !== saleAbbr) {
+                            const stockUnit = units.find(x => x.abbreviation === stockAbbr)
+                            const conversion = u.conversionsFrom?.find((c: any) => c.toUnitId === stockUnit?.id)
+                            if (conversion) {
+                              setValue(`variants.${index}.saleToStockFactor`, conversion.factor)
+                            }
+                          } else if (stockAbbr === saleAbbr) {
+                            setValue(`variants.${index}.saleToStockFactor`, 1)
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">Select...</option>
+                      {units.map(u => <option key={u.id} value={u.abbreviation}>{u.name} ({u.abbreviation})</option>)}
+                    </select>
                   </div>
-                  <div>
-                    <label className="label text-xs">Sale Unit Label *</label>
-                    <input {...register(`variants.${index}.saleUnitLabel`)} className="input" placeholder="e.g. Yards" />
+                  <div className="hidden">
+                    <input {...register(`variants.${index}.saleUnitLabel`)} />
                   </div>
                   <div>
                     <label className="label text-xs">Sale to Stock Factor *</label>

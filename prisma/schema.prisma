@@ -158,6 +158,33 @@ model Location {
 }
 
 // =============================================================================
+// UNITS & CONVERSIONS
+// =============================================================================
+
+model Unit {
+  id           String @id @default(cuid())
+  name         String @unique // e.g., "Meter", "Yard", "Bale"
+  abbreviation String @unique // e.g., "m", "yd", "bl"
+  createdAt    DateTime @default(now())
+
+  // Relations
+  conversionsFrom UnitConversion[] @relation("FromUnit")
+  conversionsTo   UnitConversion[] @relation("ToUnit")
+}
+
+model UnitConversion {
+  id         String @id @default(cuid())
+  fromUnitId String
+  toUnitId   String
+  factor     Float  // e.g., 1 Yard = 0.9144 Meters => factor = 0.9144
+
+  fromUnit   Unit @relation("FromUnit", fields: [fromUnitId], references: [id])
+  toUnit     Unit @relation("ToUnit", fields: [toUnitId], references: [id])
+
+  @@unique([fromUnitId, toUnitId])
+}
+
+// =============================================================================
 // CATEGORY
 // =============================================================================
 
