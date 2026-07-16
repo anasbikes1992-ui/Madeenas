@@ -44,9 +44,13 @@ next-env.d.ts
 
 /src/generated/prisma
 
-.vercel
-
-.vercel
 .env*.local
 *.backup
 cred.txt
+
+# test artifacts
+/playwright-report
+/test-results
+/scratch
+login-failed.png
+dashboard-screenshot.png
