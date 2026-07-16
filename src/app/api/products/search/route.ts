@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cachedQuery, CACHE_KEYS, CACHE_TTL } from '@/lib/cache';
+import { getAuthUser } from '@/lib/get-auth-user';
 
 export const dynamic = 'force-dynamic';
 
+const MAX_SEARCH_RESULTS = 100;
+
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get('q') || '';
     const locationId = searchParams.get('locationId') || '';
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Math.min(
+      Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1),
+      MAX_SEARCH_RESULTS
+    );
 
     if (!locationId) {
       return NextResponse.json(

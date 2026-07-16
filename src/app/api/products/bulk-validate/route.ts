@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthUser } from '@/lib/get-auth-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,11 @@ interface ValidationItem {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { items, locationId } = body as {
       items: ValidationItem[];

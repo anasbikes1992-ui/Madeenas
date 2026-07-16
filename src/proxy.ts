@@ -12,8 +12,6 @@ const PUBLIC_PATHS = [
   '/gallery',
   '/login',
   '/signup',
-  '/api-docs',
-  '/openapi.json',
   '/customer/login',
   '/customer/signup',
 ]

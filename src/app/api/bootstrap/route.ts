@@ -21,13 +21,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}))
-    const email    = String(body.email    || 'anasbikes1992@gmail.com')
-    const name     = String(body.name     || 'Anas (Super Admin)')
-    const password = String(body.password || '12345678')
-    const role     = String(body.role     || 'SUPER_ADMIN')
+    const email    = String(body.email || '')
+    const name     = String(body.name  || 'Super Admin')
+    const password = String(body.password || '')
+    const role     = String(body.role  || 'SUPER_ADMIN')
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'A valid email is required' }, { status: 400 })
+    }
+    if (password.length < 12) {
+      return NextResponse.json(
+        { error: 'Password must be at least 12 characters' },
+        { status: 400 }
+      )
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
