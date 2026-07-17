@@ -6,6 +6,7 @@
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { money, round2, mul, num } from '@/lib/money'
+import { CreditEntryType } from '@prisma/client'
 import { dispatchReturnNotification } from './notification-dispatcher.service'
 
 export const createReturnSchema = z.object({
@@ -347,30 +348,60 @@ export async function processRefund(
     throw new Error('Return must be approved before processing refund')
   }
 
-  const updated = await prisma.return.update({
-    where: { id: returnId },
-    data: {
-      status: 'COMPLETED',
-      refundMethod,
-      adminNote: transactionReference ? `Transaction Ref: ${transactionReference}` : undefined,
-    },
-    include: {
-      customer: true,
-    },
+  // `??` not `||`: an approved refund of zero must stay zero.
+  const refundAmount = round2(returnRequest.approvedRefundAmount ?? returnRequest.totalRefundAmount)
+
+  if (refundMethod === 'STORE_CREDIT' && !returnRequest.customerId) {
+    throw new Error('Store credit requires a customer on the return')
+  }
+
+  // The status change and the money movement are written together: a return can
+  // never be marked refunded without the store credit actually being recorded.
+  const updated = await prisma.$transaction(async (tx) => {
+    if (refundMethod === 'STORE_CREDIT' && returnRequest.customerId && refundAmount.greaterThan(0)) {
+      const ledger = await tx.creditLedger.upsert({
+        where: { customerId: returnRequest.customerId },
+        update: {},
+        create: { customerId: returnRequest.customerId },
+        select: { id: true, totalOwed: true },
+      })
+
+      // Store credit reduces what the customer owes; a customer who owes
+      // nothing ends up with a negative balance, i.e. credit to spend.
+      await tx.creditEntry.create({
+        data: {
+          ledgerId: ledger.id,
+          type: CreditEntryType.REFUND_CREDIT,
+          amount: refundAmount,
+          balance: 0,
+          note: `Store credit for return ${returnRequest.returnNumber}`,
+        },
+      })
+
+      await tx.creditLedger.update({
+        where: { id: ledger.id },
+        data: {
+          totalOwed: round2(money(ledger.totalOwed).minus(refundAmount)),
+          lastActivity: new Date(),
+        },
+      })
+    }
+
+    return tx.return.update({
+      where: { id: returnId },
+      data: {
+        status: 'COMPLETED',
+        refundMethod,
+        adminNote: transactionReference ? `Transaction Ref: ${transactionReference}` : undefined,
+      },
+      include: {
+        customer: true,
+      },
+    })
   })
 
-  // Handle refund method
-  if (refundMethod === 'STORE_CREDIT' && returnRequest.customerId) {
-    // Create store credit for customer
-    await prisma.user.update({
-      where: { id: returnRequest.customerId },
-      data: {
-        // Note: Add storeCredit field to User model if implementing this
-        // storeCredit: { increment: returnRequest.approvedRefundAmount || returnRequest.totalRefundAmount }
-      },
-    }).catch((err) => console.warn('[Store Credit] User model may need storeCredit field:', err))
-  }
-  // For BANK_TRANSFER or ORIGINAL_METHOD, manual processing is tracked via transactionReference
+  // BANK_TRANSFER and ORIGINAL_METHOD are settled outside the system; the
+  // transactionReference is the audit trail for those.
 
   // Dispatch refund completion notifications
   await dispatchReturnNotification('RETURN_REFUNDED', updated as any).catch((err) => {

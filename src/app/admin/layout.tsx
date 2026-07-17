@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Package, BarChart2, ArrowDownToLine, SlidersHorizontal,
   BookOpen, ArrowLeftRight, Bell, History,
   ShoppingBag, Image, ShoppingCart, Receipt, DollarSign, TrendingUp,
-  FileText, Users, Building2, Tag, Boxes, Database,
+  FileText, Users, Building2, Tag, Boxes, Database, CreditCard,
 } from 'lucide-react'
 import { ROLE_LABELS, getDashboardPath } from '@/lib/constants'
 import { getInitials } from '@/lib/utils'
@@ -76,6 +76,7 @@ const navItems: NavGroup[] = [
     group: 'Finance',
     items: [
       { href: '/admin/finance/dashboard', label: 'Finance Overview', Icon: DollarSign, roles: ['SUPER_ADMIN','ADMIN','FINANCE'] },
+      { href: '/admin/finance/credit', label: 'Credit Accounts', Icon: CreditCard, roles: ['SUPER_ADMIN','ADMIN','FINANCE','MANAGER'] },
     ]
   },
   {

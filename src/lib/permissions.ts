@@ -28,6 +28,8 @@ export type PermissionKey =
   | 'stock.adjust'
   | 'sales.read'
   | 'sales.create'
+  | 'credit.read'
+  | 'credit.recordPayment'
   | 'reports.read'
   | 'customerOrders.read'
   | 'settings.manage'
@@ -40,6 +42,7 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'inventory.read', 'inventory.reorder',
   'stock.request', 'stock.approve', 'stock.dispatch', 'stock.receive', 'stock.in', 'stock.adjust',
   'sales.read', 'sales.create',
+  'credit.read', 'credit.recordPayment',
   'reports.read', 'customerOrders.read', 'settings.manage'
 ]
 
@@ -64,6 +67,10 @@ export const permissionMatrix: Record<PermissionKey, AppRole[]> = {
   'stock.adjust': ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
   'sales.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE', 'SHOP_STAFF', 'STORE_KEEPER'],
   'sales.create': ['SUPER_ADMIN', 'ADMIN', 'SHOP_STAFF'],
+  'credit.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE', 'SHOP_STAFF'],
+  // Recording a repayment moves money against a customer's balance, so it is
+  // restricted more tightly than reading it.
+  'credit.recordPayment': ['SUPER_ADMIN', 'ADMIN', 'FINANCE'],
   'reports.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'],
   'customerOrders.read': ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
   'settings.manage': ['SUPER_ADMIN'],
