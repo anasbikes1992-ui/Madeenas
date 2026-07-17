@@ -4,8 +4,10 @@
  */
 
 import { prisma } from '@/lib/db';
-import { prepareSaleData, validateTaxCalculation } from '@/lib/tax';
 import { createSaleInTx, SALE_TX_OPTIONS } from '@/services/sales.service';
+import { computeSaleTotals } from '@/lib/money';
+import { nextDocNumber } from '@/lib/doc-number';
+import { getVatRate } from '@/lib/settings';
 import { num } from '@/lib/money';
 import type { Prisma, OrderStatus } from '@prisma/client';
 import type { CreateOrder } from '@/lib/validation';
@@ -38,46 +40,27 @@ export type CustomerOrderWithDetails = Prisma.CustomerOrderGetPayload<{
 }>;
 
 // =============================================================================
-// ORDER NUMBER GENERATION
-// =============================================================================
-
-async function generateOrderNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `ORD-${year}`;
-  
-  const lastOrder = await prisma.customerOrder.findFirst({
-    where: {
-      orderNumber: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      orderNumber: 'desc',
-    },
-  });
-  
-  let sequence = 1;
-  if (lastOrder) {
-    const lastSequence = parseInt(lastOrder.orderNumber.split('-')[2], 10);
-    if (!isNaN(lastSequence)) {
-      sequence = lastSequence + 1;
-    }
-  }
-  
-  return `${prefix}-${sequence.toString().padStart(4, '0')}`;
-}
-
-// =============================================================================
 // CREATE ORDER FROM CART
 // =============================================================================
 
+/**
+ * Turn a signed-in customer's cart into an order.
+ *
+ * `userId` is a User id. `Cart.customerId` also stores a User id (it has no
+ * relation), but `CustomerOrder.customerId` is a foreign key to the **Customer**
+ * table — a different entity. Passing the User id straight through violated
+ * that constraint, so checkout failed for every customer. The User's Customer
+ * record is resolved (and created if missing) before the order is written.
+ */
 export async function createOrderFromCart(
-  customerId: string,
+  userId: string,
   data: CreateOrderFromCartInput,
-  taxRate = 18
+  taxRateOverride?: number
 ) {
+  const taxRate = taxRateOverride ?? (await getVatRate());
+
   const cart = await prisma.cart.findUnique({
-    where: { customerId },
+    where: { customerId: userId },
     include: {
       items: {
         include: {
@@ -86,145 +69,99 @@ export async function createOrderFromCart(
       },
     },
   });
-  
+
   if (!cart || cart.items.length === 0) {
     throw new Error('Cart is empty');
   }
-  
-  const orderItems = data.items ?? cart.items.map((item: any) => ({
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true },
+  });
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const orderItems = data.items ?? cart.items.map((item) => ({
     variantId: item.variantId,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
+    quantity: num(item.quantity),
+    unitPrice: num(item.unitPrice),
   }));
-  
-  const orderData = prepareSaleData(
-    orderItems.map((item) => ({
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    })),
+
+  const totals = computeSaleTotals(
+    orderItems.map((item) => ({ unitPrice: item.unitPrice, quantity: item.quantity })),
     taxRate
   );
-  
-  validateTaxCalculation({
-    subTotal: orderData.subTotal,
-    taxRate: orderData.taxRate,
-    taxAmount: orderData.taxAmount,
-    grandTotal: orderData.grandTotal,
-  });
-  
-  const orderNumber = await generateOrderNumber();
-  
+
   const order = await prisma.$transaction(async (tx) => {
+    // Orders link to a Customer, so ensure this user has one. Match on phone
+    // (unique) when given, otherwise on email.
+    const phone = data.phoneNumber?.trim() || null;
+    let customer = phone
+      ? await tx.customer.findUnique({ where: { phone } })
+      : await tx.customer.findFirst({ where: { email: user.email } });
+
+    if (!customer) {
+      customer = await tx.customer.create({
+        data: {
+          name: user.name,
+          email: user.email,
+          phone,
+          address: data.shippingAddress,
+        },
+      });
+    }
+
     const newOrder = await tx.customerOrder.create({
       data: {
-        orderNumber,
-        customerId,
+        orderNumber: await nextDocNumber(tx, 'order'),
+        customerId: customer.id,
+        customerName: user.name,
+        orderedBy: user.id,
         shippingAddress: data.shippingAddress,
         customerPhone: data.phoneNumber,
-        subTotal: orderData.subTotal,
-        taxRate: orderData.taxRate,
-        taxAmount: orderData.taxAmount,
-        grandTotal: orderData.grandTotal,
+        subTotal: totals.subTotal,
+        taxRate: totals.taxRate,
+        taxAmount: totals.taxAmount,
+        grandTotal: totals.grandTotal,
         note: data.note,
         items: {
           create: orderItems.map((item, index) => ({
             variantId: item.variantId,
-            saleUnit: 'meters',
+            // Sell in the variant's own unit rather than assuming metres.
+            saleUnit:
+              cart.items.find((c) => c.variantId === item.variantId)?.variant.saleUnit ?? 'unit',
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subTotal: orderData.items[index].subTotal,
-            total: orderData.items[index].total,
+            unitPrice: totals.items[index].unitPrice,
+            subTotal: totals.items[index].subTotal,
+            total: totals.items[index].total,
           })),
         },
       },
       include: orderInclude,
     });
-    
+
     await tx.cartItem.deleteMany({
       where: { cartId: cart.id },
     });
-    
+
     await tx.auditLog.create({
       data: {
-        userId: customerId,
+        userId: user.id,
         action: 'CREATE_CUSTOMER_ORDER',
         entity: 'CustomerOrder',
         entityId: newOrder.id,
         details: JSON.stringify({
           orderNumber: newOrder.orderNumber,
-          grandTotal: newOrder.grandTotal,
+          grandTotal: newOrder.grandTotal.toString(),
           itemCount: orderItems.length,
         }),
       },
     });
-    
-    return newOrder;
-  });
-  
-  return order;
-}
 
-export async function createOrder(
-  customerId: string,
-  data: CreateOrder,
-  taxRate = 18
-) {
-  if (!data.items || data.items.length === 0) {
-    throw new Error('Order must have at least one item');
-  }
-  
-  const orderData = prepareSaleData(
-    data.items.map((item) => ({
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    })),
-    taxRate
-  );
-  
-  const orderNumber = await generateOrderNumber();
-  
-  const order = await prisma.$transaction(async (tx) => {
-    const newOrder = await tx.customerOrder.create({
-      data: {
-        orderNumber,
-        customerId,
-        shippingAddress: data.shippingAddress,
-        customerPhone: data.phoneNumber,
-        subTotal: orderData.subTotal,
-        taxRate: orderData.taxRate,
-        taxAmount: orderData.taxAmount,
-        grandTotal: orderData.grandTotal,
-        note: data.note,
-        items: {
-          create: data.items.map((item: any, index: number) => ({
-            variantId: item.variantId,
-            saleUnit: 'meters',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subTotal: orderData.items[index].subTotal,
-            total: orderData.items[index].total,
-          })),
-        },
-      },
-      include: orderInclude,
-    });
-    
-    await tx.auditLog.create({
-      data: {
-        userId: customerId,
-        action: 'CREATE_CUSTOMER_ORDER',
-        entity: 'CustomerOrder',
-        entityId: newOrder.id,
-        details: JSON.stringify({
-          orderNumber: newOrder.orderNumber,
-          grandTotal: newOrder.grandTotal,
-        }),
-      },
-    });
-    
     return newOrder;
   });
-  
+
   return order;
 }
 

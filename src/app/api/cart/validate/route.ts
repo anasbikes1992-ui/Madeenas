@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 import * as cartService from '@/services/cart.service'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
+    // Resolve web sessions AND mobile Bearer tokens, matching the rest of the
+    // cart routes. This checked the session cookie only, so the mobile app —
+    // which authenticates with a Bearer token — got a 401 every time it tried
+    // to validate a cart before checkout.
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (session.user.role !== 'CUSTOMER') {
+    if (user.role !== 'CUSTOMER') {
       return NextResponse.json(
         { success: false, error: 'Only customers can use shopping cart' },
         { status: 403 }
@@ -26,7 +30,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validation = await cartService.validateCartStock(session.user.id, locationId)
+    const validation = await cartService.validateCartStock(user.id, locationId)
 
     return NextResponse.json({
       success: true,

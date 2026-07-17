@@ -10,10 +10,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
+    // No hardcoded fallback: when the client does not pin a rate, the cart uses
+    // the configured VAT rate. Defaulting to 18 here silently overrode the
+    // setting on every request.
     const { searchParams } = new URL(request.url)
-    const taxRate = parseFloat(searchParams.get('taxRate') || '18')
+    const taxRateParam = searchParams.get('taxRate')
+    const taxRate = taxRateParam !== null ? Number(taxRateParam) : undefined
+    const validTaxRate =
+      taxRate !== undefined && Number.isFinite(taxRate) && taxRate >= 0 && taxRate <= 100
+        ? taxRate
+        : undefined
 
-    const cart = await cartService.getCartWithTotals(user.id, taxRate)
+    const cart = await cartService.getCartWithTotals(user.id, validTaxRate)
 
     return NextResponse.json({
       success: true,
