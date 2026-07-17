@@ -1,36 +1,96 @@
 @import "tailwindcss";
 
+/*
+ * Opt into class-based dark mode.
+ *
+ * Tailwind v4 is configured in CSS and ignores `darkMode: 'class'` in
+ * tailwind.config.ts unless it is loaded via @config. Without this, every
+ * `dark:` utility in the app followed the OS setting only, so the in-app theme
+ * toggle set the `.dark` class and nothing responded to it.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
+  /*
+   * Semantic design tokens.
+   *
+   * A restrained neutral surface scale with one accent, so emphasis comes from
+   * hierarchy rather than colour. Data colours (positive/negative/warning) are
+   * reserved for meaning — a figure is green because it is good news, never for
+   * decoration.
+   */
   :root {
-    --bg: #FAFAFA;
+    --bg: #F6F7F9;
     --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
     --surface-strong: #F8FAFC;
     --surface-muted: #F1F5F9;
-    --border: #E2E8F0;
+    --surface-hover: #F1F5F9;
+    --border: #E4E7EC;
     --border-strong: #CBD5E1;
-    --text: #0F172A;
-    --text-muted: #64748B;
-    --primary: #0052FF;
-    --primary-strong: #0040CC;
-    --primary-soft: #4D7CFF;
-    --accent: #0052FF;
-    --accent-soft: rgba(0, 82, 255, 0.1);
+
+    /* Text hierarchy: primary for content, secondary for support, muted for meta. */
+    --text-primary: #101828;
+    --text-secondary: #475467;
+    --text-muted: #667085;
+    --text: var(--text-primary);
+
+    --primary: #1F4FD8;
+    --primary-strong: #1740B4;
+    --primary-soft: #5B84F0;
+    --primary-tint: #EEF3FF;
+    --accent: var(--primary);
+    --accent-soft: rgba(31, 79, 216, 0.1);
+
+    /* Semantic data colours. */
+    --positive: #067647;
+    --positive-tint: #ECFDF3;
+    --negative: #B42318;
+    --negative-tint: #FEF3F2;
+    --warning: #B54708;
+    --warning-tint: #FFFAEB;
+
+    /* Consistent radius and elevation scales. */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.06), 0 2px 4px -2px rgba(16, 24, 40, 0.04);
+    --shadow-lg: 0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
   }
 
   .dark {
     --bg: #0B0F19;
-    --surface: rgba(255, 255, 255, 0.03);
-    --surface-strong: rgba(255, 255, 255, 0.05);
-    --surface-muted: rgba(255, 255, 255, 0.02);
-    --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.12);
-    --text: #F8FAFC;
-    --text-muted: #94A3B8;
-    --primary: #4D7CFF;
-    --primary-strong: #6B94FF;
-    --primary-soft: #0052FF;
-    --accent: #4D7CFF;
-    --accent-soft: rgba(77, 124, 255, 0.15);
+    --surface: #131826;
+    --surface-raised: #171D2E;
+    --surface-strong: #1B2233;
+    --surface-muted: #10151F;
+    --surface-hover: #1B2233;
+    --border: #242C3D;
+    --border-strong: #333D52;
+
+    --text-primary: #F2F4F7;
+    --text-secondary: #B4BCCA;
+    --text-muted: #8A94A6;
+    --text: var(--text-primary);
+
+    --primary: #6E96FF;
+    --primary-strong: #8AACFF;
+    --primary-soft: #3D6BE5;
+    --primary-tint: #16203A;
+    --accent: var(--primary);
+    --accent-soft: rgba(110, 150, 255, 0.15);
+
+    --positive: #47CD89;
+    --positive-tint: #0C2A1D;
+    --negative: #F97066;
+    --negative-tint: #2E1310;
+    --warning: #FDB022;
+    --warning-tint: #2E2008;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 16px -4px rgba(0, 0, 0, 0.45);
   }
 
   * {

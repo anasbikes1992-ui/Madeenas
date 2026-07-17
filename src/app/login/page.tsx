@@ -108,29 +108,13 @@ function LoginForm() {
         </button>
       </form>
 
-      {process.env.NODE_ENV !== 'production' && (
-        <div className="mt-8 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-          <p className="text-xs text-slate-500 mb-3">Demo accounts:</p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {[
-              { role: 'Super Admin', email: 'anasbikes1992@gmail.com', pass: '123456' },
-              { role: 'Manager', email: 'manager@Nexus.app', pass: 'password123' },
-              { role: 'Store Keeper', email: 'storekeeper@Nexus.app', pass: 'password123' },
-              { role: 'Finance', email: 'finance@Nexus.app', pass: 'password123' },
-            ].map(u => (
-              <button
-                key={u.email}
-                type="button"
-                onClick={() => { setEmail(u.email); setPassword(u.pass) }}
-                className="text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg px-3 py-2 transition-colors"
-              >
-                <div className="font-medium text-slate-700">{u.role}</div>
-                <div className="text-slate-400 truncate">{u.email}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/*
+        The click-to-fill "demo accounts" panel is gone. It listed real
+        addresses — including the owner's — next to their plaintext passwords.
+        Although it was dev-gated and stripped from production builds, the
+        credentials still lived in source control, and any non-production
+        deployment handed out a working super-admin login.
+      */}
     </div>
   )
 }

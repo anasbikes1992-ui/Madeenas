@@ -20,22 +20,34 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#3730A3',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F6F7F9' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B0F19' },
+  ],
   width: 'device-width',
   initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${firaCode.variable} font-sans dark`} suppressHydrationWarning>
-      <body className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 antialiased selection:bg-[#0052FF]/30 selection:text-white relative overflow-x-hidden">
-        {/* Aurora Background Elements */}
-        <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
-          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[#0052FF]/20 dark:bg-[#0052FF]/10 blur-[120px] mix-blend-screen animate-blob" />
-          <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-[#4D7CFF]/20 dark:bg-[#4D7CFF]/10 blur-[120px] mix-blend-screen animate-blob animation-delay-2000" />
-          <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-[#8A2BE2]/15 dark:bg-[#8A2BE2]/10 blur-[120px] mix-blend-screen animate-blob animation-delay-4000" />
-        </div>
-        
+    // No hardcoded `dark` class here: next-themes owns the theme and setting it
+    // statically fought the user's own toggle.
+    <html
+      lang="en"
+      className={`${outfit.variable} ${firaCode.variable} font-sans`}
+      suppressHydrationWarning
+    >
+      {/*
+        Colours come from the design tokens in globals.css rather than hardcoded
+        slate/hex values, so the whole app follows one palette and the theme
+        toggle actually reaches every surface.
+
+        The three blurred, infinitely animating "aurora" gradient blobs that used
+        to sit behind everything are gone: they burned GPU on every screen for
+        decoration, and a stock-management tool reads as more trustworthy without
+        them.
+      */}
+      <body className="relative min-h-screen overflow-x-hidden bg-[var(--bg)] text-[var(--text-primary)] antialiased">
         <Providers>
           {children}
           <OfflineStatus />

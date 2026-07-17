@@ -1,308 +1,381 @@
 /**
- * Enhanced Premium Admin Dashboard
- * Luxury textile-inspired design with sophisticated animations
+ * Admin dashboard.
+ *
+ * Structure: a KPI row of the figures the owner actually runs the shop on,
+ * a revenue trend, then the exceptions that need action (pending transfers,
+ * low stock) and recent activity.
+ *
+ * Profit and receivables are real numbers now — profit was hardcoded to zero
+ * on every sale, and customer debt was never recorded at all.
  */
 
 'use client'
 
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Package, Clock, AlertTriangle, ShoppingBag, TrendingUp, Activity } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
-import { StatCard } from '@/components/ui/StatCard'
-import { LuxuryButton } from '@/components/ui/LuxuryButton'
-import { GlassCard } from '@/components/ui/GlassCard'
-import { pageTransition, staggerContainer, fadeUp } from '@/lib/animations'
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import {
+  AlertTriangle,
+  Clock,
+  Package,
+  Receipt,
+  RefreshCw,
+  ShoppingBag,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { StatTile } from '@/components/dashboard/StatTile'
+import { Panel, EmptyState } from '@/components/dashboard/Panel'
+import { RevenueChart, type TrendPoint } from '@/components/dashboard/RevenueChart'
+
+interface LowStockItem {
+  id: string
+  quantity: number
+  variant?: { sku?: string; product?: { name?: string } }
+  location?: { name?: string }
+}
+
+interface TransferRequest {
+  id: string
+  status: string
+  createdAt: string
+  fromLocation?: { name?: string }
+  requestedByUser?: { name?: string }
+}
+
+interface RecentSale {
+  id: string
+  receiptNo: string
+  grandTotal: number
+  paymentMode: string
+  customerName: string | null
+  locationName: string
+  createdAt: string
+}
+
+interface Financials {
+  today: { revenue: number; profit: number; salesCount: number }
+  month: { revenue: number; profit: number; salesCount: number; margin: number }
+  receivables: number
+  salesTrend: TrendPoint[]
+  recentSales: RecentSale[]
+}
 
 interface DashboardStats {
   totalProducts: number
-  totalLocations: number
   pendingRequests: number
   newCustomerOrders: number
   lowStockCount: number
-  totalStockUnits: number
-  recentStockIns: any[]
-  recentStockOuts: any[]
-  lowStockItems: any[]
+  lowStockItems: LowStockItem[]
+  recentStockOuts: TransferRequest[]
+  /** Null when the signed-in role may not see money figures. */
+  financials: Financials | null
 }
 
-const STATUS_CLASSES: Record<string, { bg: string; text: string; border: string }> = {
-  PENDING: { bg: 'bg-semantic-warning/10', text: 'text-semantic-warning', border: 'border-semantic-warning/30' },
-  APPROVED: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/30' },
-  DISPATCHED: { bg: 'bg-accent-indigo/10', text: 'text-accent-indigo', border: 'border-accent-indigo/30' },
-  ACKNOWLEDGED: { bg: 'bg-semantic-success/10', text: 'text-semantic-success', border: 'border-semantic-success/30' },
-  REJECTED: { bg: 'bg-semantic-error/10', text: 'text-semantic-error', border: 'border-semantic-error/30' },
+const STATUS_TONE: Record<string, string> = {
+  PENDING: 'bg-[var(--warning-tint)] text-[var(--warning)]',
+  APPROVED: 'bg-[var(--primary-tint)] text-[var(--primary)]',
+  DISPATCHED: 'bg-[var(--primary-tint)] text-[var(--primary)]',
+  RECEIVED: 'bg-[var(--positive-tint)] text-[var(--positive)]',
+  CANCELLED: 'bg-[var(--negative-tint)] text-[var(--negative)]',
 }
 
 export default function EnhancedDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [approving, setApproving] = useState<Set<string>>(new Set())
 
-  async function loadStats() {
+  const loadStats = useCallback(async () => {
     setError(null)
+    setRefreshing(true)
     try {
-      const r = await fetch('/api/dashboard')
-      if (!r.ok) throw new Error(`Dashboard API error: ${r.status}`)
-      const data = await r.json()
-      setStats(data)
+      const res = await fetch('/api/dashboard')
+      if (!res.ok) throw new Error('Could not load the dashboard.')
+      setStats(await res.json())
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard data')
+      setError(e instanceof Error ? e.message : 'Could not load the dashboard.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { void loadStats() }, [])
-
-  async function handleApprove(id: string) {
-    setApproving(prev => new Set(prev).add(id))
-    await fetch(`/api/stock-out/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve' }),
-    })
-    setApproving(prev => { const next = new Set(prev); next.delete(id); return next })
+  useEffect(() => {
     void loadStats()
-  }
-
-  async function handleReject(id: string) {
-    setApproving(prev => new Set(prev).add(id))
-    await fetch(`/api/stock-out/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reject', rejectionReason: 'Rejected from dashboard' }),
-    })
-    setApproving(prev => { const next = new Set(prev); next.delete(id); return next })
-    void loadStats()
-  }
+  }, [loadStats])
 
   if (loading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, ease: 'linear', repeat: Infinity }}
-          className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent"
-        />
+      <div className="space-y-6">
+        <div className="h-8 w-56 animate-pulse rounded-[var(--radius-sm)] bg-[var(--surface-muted)]" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-[var(--radius-lg)] bg-[var(--surface-muted)]"
+            />
+          ))}
+        </div>
+        <div className="h-72 animate-pulse rounded-[var(--radius-lg)] bg-[var(--surface-muted)]" />
       </div>
     )
   }
 
-  if (error) {
+  if (error || !stats) {
     return (
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={pageTransition}
-        className="flex h-[60vh] flex-col items-center justify-center gap-4"
-      >
-        <div className="rounded-xl bg-semantic-error/10 p-4 border border-semantic-error/30">
-          <p className="text-semantic-error">{error}</p>
-        </div>
-        <LuxuryButton onClick={loadStats}>Retry</LuxuryButton>
-      </motion.div>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+        <p className="text-sm text-[var(--text-secondary)]">{error ?? 'No data available.'}</p>
+        <button
+          onClick={() => void loadStats()}
+          className="rounded-[var(--radius-sm)] bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        >
+          Retry
+        </button>
+      </div>
     )
   }
 
-  if (!stats) return null
+  const { financials } = stats
 
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={pageTransition}
-      className="space-y-8 p-8"
-    >
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-4xl font-bold tracking-tight text-text-primary mb-2">
-            Dashboard Overview
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+            Dashboard
           </h1>
-          <p className="text-text-secondary">
-            Welcome back. Here's what's happening with your textile inventory.
+          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <motion.div
-            animate={{ rotate: [0, 360] }}
-            transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
-            className="h-2 w-2 rounded-full bg-semantic-success"
+        <button
+          onClick={() => void loadStats()}
+          className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)]"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </header>
+
+      {/* KPI row — money first for roles allowed to see it. */}
+      {financials ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile
+            label="Revenue today"
+            value={formatCurrency(financials.today.revenue)}
+            Icon={Receipt}
+            hint={`${financials.today.salesCount} ${
+              financials.today.salesCount === 1 ? 'sale' : 'sales'
+            }`}
+            href="/admin/sales"
           />
-          <span className="text-sm text-text-secondary">Live</span>
+          <StatTile
+            label="Profit this month"
+            value={formatCurrency(financials.month.profit)}
+            Icon={TrendingUp}
+            hint={`${financials.month.margin}% margin on ${formatCurrency(
+              financials.month.revenue
+            )}`}
+            tone={financials.month.profit >= 0 ? 'positive' : 'negative'}
+          />
+          <StatTile
+            label="Receivables"
+            value={formatCurrency(financials.receivables)}
+            Icon={Wallet}
+            hint={financials.receivables > 0 ? 'Owed by customers' : 'All accounts settled'}
+            tone={financials.receivables > 0 ? 'warning' : 'neutral'}
+            href="/admin/finance/credit"
+          />
+          <StatTile
+            label="Low stock"
+            value={String(stats.lowStockCount)}
+            Icon={AlertTriangle}
+            hint={stats.lowStockCount > 0 ? 'Items need restocking' : 'Stock levels healthy'}
+            tone={stats.lowStockCount > 0 ? 'negative' : 'neutral'}
+            href="/admin/inventory"
+          />
         </div>
-      </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile
+            label="Products"
+            value={String(stats.totalProducts)}
+            Icon={Package}
+            hint="Active SKUs"
+            href="/admin/products"
+          />
+          <StatTile
+            label="Pending transfers"
+            value={String(stats.pendingRequests)}
+            Icon={Clock}
+            hint={stats.pendingRequests > 0 ? 'Awaiting approval' : 'None waiting'}
+            tone={stats.pendingRequests > 0 ? 'warning' : 'neutral'}
+            href="/admin/transfers"
+          />
+          <StatTile
+            label="Low stock"
+            value={String(stats.lowStockCount)}
+            Icon={AlertTriangle}
+            hint={stats.lowStockCount > 0 ? 'Items need restocking' : 'Stock levels healthy'}
+            tone={stats.lowStockCount > 0 ? 'negative' : 'neutral'}
+            href="/admin/inventory"
+          />
+          <StatTile
+            label="Customer orders"
+            value={String(stats.newCustomerOrders)}
+            Icon={ShoppingBag}
+            hint="New inquiries"
+            href="/admin/customer-orders"
+          />
+        </div>
+      )}
 
-      {/* Stats Grid */}
-      <motion.div
-        variants={staggerContainer}
-        className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <StatCard
-          label="Total Products"
-          value={stats.totalProducts}
-          Icon={Package}
-          description="Active SKUs"
-          variant="indigo"
-          onClick={() => window.location.href = '/admin/products'}
-        />
-        <StatCard
-          label="Pending Requests"
-          value={stats.pendingRequests}
-          Icon={Clock}
-          description="Awaiting approval"
-          variant="saffron"
-          trend={stats.pendingRequests > 0 ? { value: 'Action required', direction: 'neutral' } : undefined}
-          onClick={() => window.location.href = '/admin/stock-out'}
-        />
-        <StatCard
-          label="Low Stock Items"
-          value={stats.lowStockCount}
-          Icon={AlertTriangle}
-          description="Need restocking"
-          variant="rose"
-          trend={stats.lowStockCount > 0 ? { value: 'Critical', direction: 'down' } : undefined}
-        />
-        <StatCard
-          label="Customer Orders"
-          value={stats.newCustomerOrders}
-          Icon={ShoppingBag}
-          description="New inquiries"
-          variant="emerald"
-          onClick={() => window.location.href = '/admin/customer-orders'}
-        />
-      </motion.div>
-
-      {/* Recent Activity */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Pending Requests */}
-        <GlassCard padding="lg">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-2xl font-bold text-text-primary mb-1">
-                Pending Requests
-              </h2>
-              <p className="text-sm text-text-secondary">
-                {stats.pendingRequests} awaiting your action
-              </p>
-            </div>
-            <div className="rounded-lg bg-semantic-warning/15 p-3">
-              <Clock className="h-5 w-5 text-semantic-warning" />
-            </div>
+      {/* Revenue trend + secondary counts */}
+      {financials && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <Panel
+              title="Revenue"
+              subtitle="Last 14 days"
+              action={{ label: 'View sales', href: '/admin/sales' }}
+            >
+              <RevenueChart data={financials.salesTrend} />
+            </Panel>
           </div>
-
-          <motion.div variants={staggerContainer} className="space-y-3">
-            <AnimatePresence mode="popLayout">
-              {stats.recentStockOuts.slice(0, 5).map((req: any) => {
-                const statusStyle = STATUS_CLASSES[req.status] || STATUS_CLASSES.PENDING
-                return (
-                  <motion.div
-                    key={req.id}
-                    variants={fadeUp}
-                    layout
-                    className="group rounded-lg border border-border-base bg-surface-elevated/50 p-4 transition-all hover:border-border-accent hover:bg-surface-card"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <span className="font-medium text-text-primary">
-                            {req.requestedBy?.name || 'Unknown'}
-                          </span>
-                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
-                            {req.status}
-                          </span>
-                        </div>
-                        <p className="text-sm text-text-secondary">
-                          {req.destination?.name} • {formatDate(req.createdAt)}
-                        </p>
-                      </div>
-                      {req.status === 'PENDING' && (
-                        <div className="flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                          <LuxuryButton
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleApprove(req.id)}
-                            loading={approving.has(req.id)}
-                          >
-                            Approve
-                          </LuxuryButton>
-                          <LuxuryButton
-                            size="sm"
-                            variant="danger"
-                            onClick={() => handleReject(req.id)}
-                            loading={approving.has(req.id)}
-                          >
-                            Reject
-                          </LuxuryButton>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </AnimatePresence>
-          </motion.div>
-
-          {stats.pendingRequests === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-4 rounded-full bg-semantic-success/10 p-4">
-                <Activity className="h-8 w-8 text-semantic-success" />
-              </div>
-              <p className="text-text-secondary">All caught up! No pending requests.</p>
-            </div>
-          )}
-        </GlassCard>
-
-        {/* Low Stock Alert */}
-        <GlassCard padding="lg" variant="bordered">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-2xl font-bold text-text-primary mb-1">
-                Low Stock Alert
-              </h2>
-              <p className="text-sm text-text-secondary">
-                {stats.lowStockCount} items need attention
-              </p>
-            </div>
-            <div className="rounded-lg bg-semantic-error/15 p-3">
-              <AlertTriangle className="h-5 w-5 text-semantic-error" />
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <StatTile
+              label="Products"
+              value={String(stats.totalProducts)}
+              Icon={Package}
+              hint="Active SKUs"
+              href="/admin/products"
+            />
+            <StatTile
+              label="Pending transfers"
+              value={String(stats.pendingRequests)}
+              Icon={Clock}
+              hint={stats.pendingRequests > 0 ? 'Awaiting approval' : 'None waiting'}
+              tone={stats.pendingRequests > 0 ? 'warning' : 'neutral'}
+              href="/admin/transfers"
+            />
+            <StatTile
+              label="Customer orders"
+              value={String(stats.newCustomerOrders)}
+              Icon={ShoppingBag}
+              hint="New inquiries"
+              href="/admin/customer-orders"
+            />
           </div>
+        </div>
+      )}
 
-          <motion.div variants={staggerContainer} className="space-y-3">
-            {stats.lowStockItems.slice(0, 5).map((item: any) => (
-              <motion.div
-                key={item.id}
-                variants={fadeUp}
-                className="group rounded-lg border border-border-base bg-surface-elevated/50 p-4 transition-all hover:border-semantic-error/30 hover:bg-surface-card"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-text-primary mb-1">{item.name}</p>
-                    <p className="text-sm text-text-secondary">
-                      SKU: {item.sku} • Only {item.totalStock} units left
+      {/* Exceptions and activity */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel
+          title="Low stock"
+          subtitle={
+            stats.lowStockCount === 0
+              ? 'Nothing needs restocking'
+              : `${stats.lowStockCount} ${stats.lowStockCount === 1 ? 'item' : 'items'} below threshold`
+          }
+          action={{ label: 'Inventory', href: '/admin/inventory' }}
+        >
+          {stats.lowStockItems.length === 0 ? (
+            <EmptyState message="Stock levels are healthy." />
+          ) : (
+            <ul className="divide-y divide-[var(--border)]">
+              {stats.lowStockItems.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                      {item.variant?.product?.name ?? 'Unknown product'}
+                    </p>
+                    <p className="truncate text-xs text-[var(--text-muted)]">
+                      {item.variant?.sku} · {item.location?.name}
                     </p>
                   </div>
-                  <div className="rounded-lg bg-semantic-error/10 px-3 py-1 text-sm font-semibold text-semantic-error">
-                    {item.totalStock}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {stats.lowStockCount === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-4 rounded-full bg-semantic-success/10 p-4">
-                <TrendingUp className="h-8 w-8 text-semantic-success" />
-              </div>
-              <p className="text-text-secondary">Stock levels are healthy!</p>
-            </div>
+                  <span className="shrink-0 rounded-full bg-[var(--negative-tint)] px-2.5 py-1 text-xs font-semibold text-[var(--negative)]">
+                    {item.quantity} left
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
-        </GlassCard>
+        </Panel>
+
+        {financials ? (
+          <Panel
+            title="Recent sales"
+            subtitle="Latest receipts"
+            action={{ label: 'All sales', href: '/admin/sales' }}
+          >
+            {financials.recentSales.length === 0 ? (
+              <EmptyState message="No sales recorded yet." />
+            ) : (
+              <ul className="divide-y divide-[var(--border)]">
+                {financials.recentSales.map((sale) => (
+                  <li key={sale.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+                        {sale.receiptNo}
+                      </p>
+                      <p className="truncate text-xs text-[var(--text-muted)]">
+                        {sale.customerName ?? 'Walk-in'} · {sale.locationName} ·{' '}
+                        {sale.paymentMode.replace('_', ' ').toLowerCase()}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-[var(--text-primary)]">
+                      {formatCurrency(sale.grandTotal)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        ) : (
+          <Panel
+            title="Pending transfers"
+            subtitle={`${stats.pendingRequests} awaiting action`}
+            action={{ label: 'All transfers', href: '/admin/transfers' }}
+          >
+            {stats.recentStockOuts.length === 0 ? (
+              <EmptyState message="No transfer requests." />
+            ) : (
+              <ul className="divide-y divide-[var(--border)]">
+                {stats.recentStockOuts.map((req) => (
+                  <li key={req.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/admin/transfers/${req.id}`}
+                        className="truncate text-sm font-medium text-[var(--text-primary)] hover:text-[var(--primary)]"
+                      >
+                        {req.requestedByUser?.name ?? 'Unknown'}
+                      </Link>
+                      <p className="truncate text-xs text-[var(--text-muted)]">
+                        {req.fromLocation?.name} · {formatDate(req.createdAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+                        STATUS_TONE[req.status] ?? STATUS_TONE.PENDING
+                      }`}
+                    >
+                      {req.status.toLowerCase()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
       </div>
-    </motion.div>
+    </div>
   )
 }
