@@ -13,7 +13,7 @@ ON CONFLICT ("code") DO NOTHING;
 -- Note: '123456' hashed with bcrypt (salt 10)
 -- 'password123' hashed with bcrypt (salt 10)
 INSERT INTO "User" ("id", "name", "email", "password", "role", "locationId", "isActive", "createdAt", "updatedAt") VALUES
-('usr_super1', 'Anas (Super Admin)', 'anasbikes1992@gmail.com', '$2a$10$1Y.O53d10kO1Bq1sVz/uMe55u.2F0x1eL8o0671r0A9wS1x3s5W.G', 'SUPER_ADMIN', NULL, true, NOW(), NOW()),
+('usr_super1', 'System Admin', 'admin@madeenas.lk', '$2a$10$1Y.O53d10kO1Bq1sVz/uMe55u.2F0x1eL8o0671r0A9wS1x3s5W.G', 'SUPER_ADMIN', NULL, true, NOW(), NOW()),
 ('usr_super2', 'Madeena Admin', 'madeenas.lk@gmail.com', '$2a$10$1Y.O53d10kO1Bq1sVz/uMe55u.2F0x1eL8o0671r0A9wS1x3s5W.G', 'SUPER_ADMIN', NULL, true, NOW(), NOW()),
 ('usr_fin1', 'Finance Dept', 'finance@textilestock.com', '$2a$10$1H40.2M/70q0x03O04w0xOM7Q4X7q72X7R3x4/3x27X44x04X4/3G', 'FINANCE', NULL, true, NOW(), NOW()),
 ('usr_mgr1', 'WH Manager', 'manager.wh@textilestock.com', '$2a$10$1H40.2M/70q0x03O04w0xOM7Q4X7q72X7R3x4/3x27X44x04X4/3G', 'MANAGER', 'loc_wh_a', true, NOW(), NOW()),

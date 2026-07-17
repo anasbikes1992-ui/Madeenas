@@ -5,8 +5,8 @@ const prisma = new PrismaClient()
 
 async function createAdmin() {
   try {
-    const email = 'anasbikes1992@gmail.com'
-    const password = '12345678'
+    const email = process.env.ADMIN_EMAIL || 'admin@madeenas.lk'
+    const password = process.env.ADMIN_PASSWORD || '12345678'
     const hashedPassword = await bcrypt.hash(password, 10)
 
     // Check if user already exists
