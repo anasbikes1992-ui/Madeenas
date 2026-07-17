@@ -36,7 +36,7 @@ async function scanFile(filePath: string): Promise<void> {
   const lines = content.split('\n');
 
   let inForLoop = false;
-  let inMapCall = false;
+  const inMapCall = false;
   let forLoopStartLine = 0;
 
   for (let i = 0; i < lines.length; i++) {

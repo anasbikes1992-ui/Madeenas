@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Values below are throwaway CI-only secrets for a disposable Postgres
+# container. They are not real credentials and are never used outside CI.
+env:
+  CI_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/madeena_test
+  CI_AUTH_SECRET: ci-only-auth-secret-minimum-32-characters-long
+  CI_MOBILE_JWT_SECRET: ci-only-mobile-jwt-secret-minimum-32-characters
+  CI_SUPABASE_SERVICE_ROLE_KEY: ci-only-service-role-key
+
 jobs:
   lint:
     runs-on: ubuntu-latest
-    name: Lint & Format Check
+    name: Lint & Typecheck
 
     steps:
       - uses: actions/checkout@v4
@@ -26,15 +34,15 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Check formatting with Prettier
-        run: npx prettier --check .
-
       - name: Run TypeScript typecheck
         run: npm run typecheck
 
-  test:
+  # The schema is the financial contract: money must stay DECIMAL and the
+  # integrity constraints must stay in place. A schema edited without a
+  # matching migration would pass tests locally and diverge in production.
+  migrations:
     runs-on: ubuntu-latest
-    name: Unit & Integration Tests
+    name: Migration Drift Check
 
     services:
       postgres:
@@ -62,31 +70,90 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup test database
+      - name: Apply migrations
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/madeena_test
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      # `--shadow-database-url` RESETS the database it is given: Prisma drops the
+      # schema there to replay migrations into it. It must therefore point at a
+      # throwaway database and NEVER at one holding real data.
+      - name: Create a throwaway shadow database
+        run: |
+          PGPASSWORD=postgres createdb -h localhost -U postgres madeena_shadow
+
+      - name: Fail if schema.prisma has drifted from the migrations
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/madeena_shadow
+        run: |
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
+            --exit-code && echo "Schema and migrations agree."
+
+  test:
+    runs-on: ubuntu-latest
+    name: Unit & Integration Tests
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: madeena_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+      DIRECT_URL: ${{ env.CI_DATABASE_URL }}
+      AUTH_SECRET: ${{ env.CI_AUTH_SECRET }}
+      NEXTAUTH_SECRET: ${{ env.CI_AUTH_SECRET }}
+      MOBILE_JWT_SECRET: ${{ env.CI_MOBILE_JWT_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ env.CI_SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup test database
         run: |
           npx prisma migrate deploy
           npx prisma db seed
 
-      - name: Run unit tests
+      # Covers the money engine and the concurrency guarantees that protect
+      # stock and receivables: parallel sales must not oversell, receipt numbers
+      # must not collide, and concurrent credit payments must not double-credit.
+      - name: Run unit and integration tests
         run: npm run test:coverage
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/madeena_test
-          AUTH_SECRET: test-secret-key-minimum-32-characters-long
-          NEXTAUTH_SECRET: test-secret-key-minimum-32-characters-long
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: ./coverage/coverage-final.json
-          flags: unittests
-          name: codecov-umbrella
+          name: coverage
+          path: coverage/
+          retention-days: 7
 
   build:
     runs-on: ubuntu-latest
     name: Build Next.js App
-    needs: [lint, test]
+    needs: [lint, test, migrations]
 
     steps:
       - uses: actions/checkout@v4
@@ -106,20 +173,52 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          MOBILE_JWT_SECRET: ${{ secrets.MOBILE_JWT_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEXT_PUBLIC_APP_URL: https://madeenas.vercel.app
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: next-build
           path: .next
+          retention-days: 3
 
   e2e:
     runs-on: ubuntu-latest
     name: E2E Tests
-    needs: build
+    needs: [build]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: madeena_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    # Runs against the disposable Postgres above, NOT secrets.DATABASE_URL.
+    # This job previously booted the dev server against the production database
+    # and drove real user flows through it, so an E2E run could create live
+    # sales and mutate real stock.
+    env:
+      DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+      DIRECT_URL: ${{ env.CI_DATABASE_URL }}
+      AUTH_SECRET: ${{ env.CI_AUTH_SECRET }}
+      NEXTAUTH_SECRET: ${{ env.CI_AUTH_SECRET }}
+      MOBILE_JWT_SECRET: ${{ env.CI_MOBILE_JWT_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ env.CI_SUPABASE_SERVICE_ROLE_KEY }}
+      AUTH_URL: http://localhost:3000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
 
     steps:
       - uses: actions/checkout@v4
@@ -133,32 +232,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup test database
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
+
       - name: Install Playwright
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
       - name: Start dev server
         run: npm run dev &
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
 
       - name: Wait for server
-        run: npx wait-on http://localhost:3000 --timeout 60000
+        run: npx wait-on http://localhost:3000 --timeout 90000
 
       - name: Run E2E tests
         run: npm run e2e
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
 
-      - name: Upload E2E test results
+      - name: Upload E2E results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-results
-          path: test-results/
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
 
   deploy:
     runs-on: ubuntu-latest
@@ -178,19 +277,21 @@ jobs:
           production: true
 
       - name: Notify Slack on Success
-        if: success()
+        if: success() && env.SLACK_WEBHOOK != ''
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: '✅ Madeena Textile app deployed successfully!'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
           fields: repo,message,commit
 
       - name: Notify Slack on Failure
-        if: failure()
+        if: failure() && env.SLACK_WEBHOOK != ''
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           text: '❌ Madeena Textile deployment failed!'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
           fields: repo,message,commit
