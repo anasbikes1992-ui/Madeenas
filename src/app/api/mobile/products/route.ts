@@ -3,8 +3,39 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
+import { num } from '@/lib/money'
+import { computeRetailPrice } from '@/lib/pricing'
+import { getRetailMarkup, getVatRate } from '@/lib/settings'
+import { z } from 'zod'
 
 const MANAGE_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER'])
+
+/**
+ * A product is created together with its first variant: SKU, price, and stock
+ * all live on the variant, so a variant-less product is unsellable.
+ */
+const createProductSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters'),
+  categoryId: z.string().trim().min(1, 'categoryId is required'),
+  description: z.string().trim().max(2000).optional().nullable(),
+  images: z.array(z.string()).optional(),
+  isActive: z.boolean().optional(),
+  variant: z
+    .object({
+      sku: z.string().trim().min(1, 'SKU is required'),
+      colorName: z.string().trim().min(1, 'Colour is required'),
+      colorHex: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex colour')
+        .optional(),
+      unit: z.string().trim().min(1, 'Unit is required'),
+      unitLabel: z.string().trim().optional(),
+      lowStockAt: z.coerce.number().nonnegative().optional(),
+      costPrice: z.coerce.number().nonnegative().optional().nullable(),
+      salePrice: z.coerce.number().nonnegative().optional().nullable(),
+    })
+    .optional(),
+})
 
 export async function GET(request: NextRequest) {
   const user = await getMobileUser(request)
@@ -56,7 +87,46 @@ export async function GET(request: NextRequest) {
     prisma.product.count({ where }),
   ])
 
-  return ok({ products, total, page, limit })
+  const [markup, taxRate] = await Promise.all([getRetailMarkup(), getVatRate()])
+
+  // Flattened to one entry per VARIANT: the POS sells variants (a colour of a
+  // product), not products, and sku/price/stock all live on the variant. The
+  // previous shape nested variants inside products while the app read `sku` and
+  // `costPrice` from the top level, so every parse threw and the catalogue came
+  // back empty.
+  //
+  // Prices are computed here. Clients must display `salePrice`/`retailPrice`
+  // and never apply their own markup.
+  const items = products.flatMap((product) =>
+    product.variants.map((variant) => ({
+      id: variant.id,
+      variantId: variant.id,
+      productId: product.id,
+      name: product.name,
+      sku: variant.sku,
+      colorName: variant.colorName,
+      colorHex: variant.colorHex,
+      category: product.category,
+      description: product.description,
+      unit: variant.saleUnit,
+      unitLabel: variant.saleUnitLabel,
+      stockUnit: variant.stockUnit,
+      saleToStockFactor: num(variant.saleToStockFactor, 1),
+      lowStockAt: num(variant.lowStockAt),
+      // POS line price (authoritative).
+      salePrice: variant.salePrice === null ? null : num(variant.salePrice),
+      // Customer-facing retail price derived from cost x markup.
+      retailPrice: computeRetailPrice(variant.costPrice, markup),
+      images: product.images,
+      stocks: variant.stocks.map((s) => ({
+        location: s.location,
+        quantity: num(s.quantity),
+      })),
+      totalStock: variant.stocks.reduce((sum, s) => sum + num(s.quantity), 0),
+    }))
+  )
+
+  return ok({ products: items, total, page, limit, taxRate })
 }
 
 export async function POST(request: NextRequest) {
@@ -73,33 +143,65 @@ export async function POST(request: NextRequest) {
     return fail('Invalid JSON body', 400, 'BAD_REQUEST')
   }
 
-  const b = body as {
-    name?: string
-    categoryId?: string
-    description?: string
-    images?: string[]
-    isActive?: boolean
+  const parsed = createProductSchema.safeParse(body)
+  if (!parsed.success) {
+    return fail(
+      parsed.error.issues[0]?.message ?? 'Validation error',
+      400,
+      'VALIDATION'
+    )
   }
+  const data = parsed.data
 
-  if (!b.name || typeof b.name !== 'string' || b.name.trim().length < 2) {
-    return fail('Name must be at least 2 characters', 400, 'VALIDATION')
-  }
-  if (!b.categoryId || typeof b.categoryId !== 'string') {
-    return fail('categoryId is required', 400, 'VALIDATION')
-  }
-
-  const category = await prisma.category.findUnique({ where: { id: b.categoryId } })
+  const category = await prisma.category.findUnique({ where: { id: data.categoryId } })
   if (!category) return fail('Category not found', 404, 'NOT_FOUND')
 
-  const product = await prisma.product.create({
-    data: {
-      name: b.name.trim(),
-      categoryId: b.categoryId,
-      description: b.description ?? null,
-      images: b.images ?? [],
-      isActive: b.isActive ?? true,
-    },
-    include: { category: true },
+  if (data.variant) {
+    const existingSku = await prisma.productVariant.findUnique({
+      where: { sku: data.variant.sku },
+      select: { id: true },
+    })
+    if (existingSku) return fail('That SKU is already in use', 409, 'DUPLICATE_SKU')
+  }
+
+  // Product and its first variant are created together: a product with no
+  // variant has no SKU, price, or stock and cannot be sold, so it must never
+  // exist as a half-finished record.
+  const product = await prisma.$transaction(async (tx) => {
+    const created = await tx.product.create({
+      data: {
+        name: data.name.trim(),
+        categoryId: data.categoryId,
+        description: data.description ?? null,
+        images: data.images ?? [],
+        isActive: data.isActive ?? true,
+      },
+    })
+
+    if (data.variant) {
+      const v = data.variant
+      await tx.productVariant.create({
+        data: {
+          productId: created.id,
+          sku: v.sku.trim(),
+          colorName: v.colorName.trim(),
+          colorHex: v.colorHex ?? '#6366f1',
+          stockUnit: v.unit,
+          stockUnitLabel: v.unitLabel ?? v.unit,
+          saleUnit: v.unit,
+          saleUnitLabel: v.unitLabel ?? v.unit,
+          saleToStockFactor: 1,
+          lowStockAt: v.lowStockAt ?? 10,
+          costPrice: v.costPrice ?? null,
+          salePrice: v.salePrice ?? null,
+        },
+      })
+    }
+
+    return tx.product.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { category: true, variants: true },
+    })
   })
 
   await logActivity({

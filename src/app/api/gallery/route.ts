@@ -7,7 +7,7 @@ import { limitRequestsAsync } from '@/lib/rate-limit'
 import { auth } from '@/lib/auth'
 import { computeRetailPrice } from '@/lib/pricing'
 import { getRetailMarkup, getVatRate } from '@/lib/settings'
-import { computeSaleTotals } from '@/lib/money'
+import { computeSaleTotals, num } from '@/lib/money'
 import { nextDocNumber } from '@/lib/doc-number'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
@@ -78,6 +78,10 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '24')
+  // `flat=1` returns one entry per variant instead of products with nested
+  // variants. The web storefront renders products; the mobile app renders
+  // variants (a colour is what a customer actually orders).
+  const flat = searchParams.get('flat') === '1'
 
   const where: any = { isActive: true }
   if (category) where.category = { slug: category }
@@ -136,6 +140,35 @@ export async function GET(request: NextRequest) {
       retailPrice: variants[0]?.retailPrice ?? null,
     }
   })
+
+  if (flat) {
+    const items = pricedProducts.flatMap((product) =>
+      product.variants.map((variant) => ({
+        id: variant.id,
+        variantId: variant.id,
+        productId: product.id,
+        name: product.name,
+        sku: variant.sku,
+        colorName: variant.colorName,
+        colorHex: variant.colorHex,
+        category: product.category,
+        description: product.description,
+        unit: variant.saleUnit,
+        lowStockAt: num(variant.lowStockAt),
+        retailPrice: variant.retailPrice,
+        images: product.images,
+        totalStock: variant.stocks.reduce((sum, s) => sum + num(s.quantity), 0),
+      }))
+    )
+    return NextResponse.json({
+      products: items,
+      total,
+      categories,
+      page,
+      limit,
+      taxRate: vatRate,
+    })
+  }
 
   return NextResponse.json({
     products: pricedProducts,
