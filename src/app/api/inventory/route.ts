@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { logActivity } from '@/lib/audit'
 import { hasPermission } from '@/lib/permissions'
+import { num } from '@/lib/money'
 
 /**
  * GET /api/inventory/low-stock
@@ -28,24 +29,28 @@ export async function GET() {
 
     // Filter for low stock items in JavaScript
     const lowStockItems = allStocks
-      .filter((s) => s.quantity < (s.variant.lowStockAt || 10))
-      .sort((a, b) => a.quantity - b.quantity)
+      .filter((s) => num(s.quantity) < num(s.variant.lowStockAt, 10))
+      .sort((a, b) => num(a.quantity) - num(b.quantity))
 
     return NextResponse.json({
       lowStockCount: lowStockItems.length,
-      items: lowStockItems.map((item) => ({
-        id: item.id,
-        product: {
-          id: item.variant.product.id,
-          name: item.variant.product.name + ' - ' + item.variant.colorName,
-          sku: item.variant.sku,
-          category: item.variant.product.category.name,
-        },
-        location: item.location.name,
-        currentQuantity: item.quantity,
-        lowStockThreshold: item.variant.lowStockAt,
-        status: item.quantity === 0 ? 'STOCKOUT' : item.quantity < item.variant.lowStockAt / 2 ? 'CRITICAL' : 'LOW',
-      })),
+      items: lowStockItems.map((item) => {
+        const quantity = num(item.quantity)
+        const threshold = num(item.variant.lowStockAt)
+        return {
+          id: item.id,
+          product: {
+            id: item.variant.product.id,
+            name: item.variant.product.name + ' - ' + item.variant.colorName,
+            sku: item.variant.sku,
+            category: item.variant.product.category.name,
+          },
+          location: item.location.name,
+          currentQuantity: quantity,
+          lowStockThreshold: threshold,
+          status: quantity === 0 ? 'STOCKOUT' : quantity < threshold / 2 ? 'CRITICAL' : 'LOW',
+        }
+      }),
     })
   } catch (error) {
     console.error('Low stock query error:', error)
@@ -204,17 +209,18 @@ export async function getReorderSuggestions() {
 
         if (!variant) return null
 
-        const dailyVelocity = (sv._sum.saleQty || 0) / 30
-        const daysOfInventory = dailyVelocity > 0 ? variant.stocks.reduce((sum, s) => sum + s.quantity, 0) / dailyVelocity : 999
+        const currentStock = variant.stocks.reduce((sum, s) => sum + num(s.quantity), 0)
+        const dailyVelocity = num(sv._sum.saleQty) / 30
+        const daysOfInventory = dailyVelocity > 0 ? currentStock / dailyVelocity : 999
 
         return {
           productId: variant.id,
           sku: variant.sku,
           name: variant.product.name + ' - ' + variant.colorName,
-          currentStock: variant.stocks.reduce((sum, s) => sum + s.quantity, 0),
+          currentStock,
           dailySalesVelocity: dailyVelocity.toFixed(1),
           daysOfInventory: daysOfInventory.toFixed(1),
-          lowStockThreshold: variant.lowStockAt,
+          lowStockThreshold: num(variant.lowStockAt),
           suggestedReorderQuantity: Math.ceil(dailyVelocity * 30), // 30 days supply
           urgency:
             daysOfInventory < 5

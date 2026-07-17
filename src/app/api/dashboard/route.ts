@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { num } from '@/lib/money'
 
 export async function GET() {
   const session = await auth()
@@ -30,7 +31,8 @@ export async function GET() {
       }).then(stocks =>
         stocks.filter(s => {
           try {
-            return s.quantity > 0 && s.quantity <= (s.variant?.lowStockAt ?? 10)
+            const quantity = num(s.quantity)
+            return quantity > 0 && quantity <= num(s.variant?.lowStockAt, 10)
           } catch {
             return false
           }

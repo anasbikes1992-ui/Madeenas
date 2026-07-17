@@ -5,10 +5,10 @@
  */
 
 import { prisma } from '@/lib/db';
-
-/** Retail markup applied on top of cost price for customer-facing prices */
-const RETAIL_MARKUP = 1.2;
 import { calculateLineItemTax, calculateMultipleItemsTax } from '@/lib/tax';
+import { retailPriceFor } from '@/lib/pricing';
+import { getVatRate } from '@/lib/settings';
+import { num } from '@/lib/money';
 import type { Prisma } from '@prisma/client';
 
 // =============================================================================
@@ -57,12 +57,13 @@ export async function getOrCreateCart(customerId: string): Promise<CartWithDetai
   return cart;
 }
 
-export async function getCartWithTotals(customerId: string, taxRate = 18) {
+export async function getCartWithTotals(customerId: string, taxRateOverride?: number) {
   const cart = await getOrCreateCart(customerId);
-  
+  const taxRate = taxRateOverride ?? (await getVatRate());
+
   const items = cart.items.map((item) => ({
     ...item,
-    ...calculateLineItemTax(item.quantity, Number(item.unitPrice), taxRate),
+    ...calculateLineItemTax(num(item.quantity), num(item.unitPrice), taxRate),
   }));
 
   const totals = calculateMultipleItemsTax(
@@ -132,8 +133,10 @@ export async function addToCart(params: AddToCartParams) {
     },
   });
   
-  const costPrice = Number(variant.costPrice) || 0;
-  const retailPrice = costPrice * RETAIL_MARKUP;
+  const retailPrice = await retailPriceFor(variant.costPrice);
+  if (retailPrice === null) {
+    throw new Error('Product variant does not have a price set');
+  }
 
   if (existingItem) {
     await prisma.cartItem.update({
@@ -141,7 +144,7 @@ export async function addToCart(params: AddToCartParams) {
         id: existingItem.id,
       },
       data: {
-        quantity: existingItem.quantity + quantity,
+        quantity: { increment: quantity },
         unitPrice: retailPrice,
       },
     });
@@ -286,13 +289,14 @@ export async function validateCartStock(
       },
     });
     
-    const available = stock?.quantity ?? 0;
-    
-    if (available < item.quantity) {
+    const available = num(stock?.quantity);
+    const requested = num(item.quantity);
+
+    if (available < requested) {
       errors.push({
         variantId: item.variantId,
         productName: item.variant.product.name,
-        requested: item.quantity,
+        requested,
         available,
       });
     }
@@ -331,14 +335,16 @@ export async function syncCart(customerId: string, items: SyncCartItem[]) {
       },
     });
     
-    if (variant && variant.isActive && variant.product.isActive && variant.costPrice) {
+    if (variant && variant.isActive && variant.product.isActive) {
+      const unitPrice = await retailPriceFor(variant.costPrice);
+      if (unitPrice === null) continue;
       await prisma.cartItem.create({
         data: {
           cartId: cart.id,
           variantId: item.variantId,
           saleUnit: variant.saleUnit,
           quantity: item.quantity,
-          unitPrice: Number(variant.costPrice) * RETAIL_MARKUP,
+          unitPrice,
         },
       });
     }
@@ -363,5 +369,5 @@ export async function getCartItemCount(customerId: string): Promise<number> {
     return 0;
   }
   
-  return cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  return cart.items.reduce((sum, item) => sum + num(item.quantity), 0);
 }

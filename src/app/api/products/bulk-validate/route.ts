@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/get-auth-user';
+import { num } from '@/lib/money';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        const availableQty = stock?.quantity || 0;
+        const availableQty = num(stock?.quantity);
         const isValid = availableQty >= item.quantity;
 
         return {

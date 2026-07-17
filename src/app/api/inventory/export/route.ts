@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
+import { num, mul } from '@/lib/money'
 
 function toCsvValue(value: string | number | null | undefined) {
   if (value === null || value === undefined) return ''
@@ -41,10 +42,10 @@ export async function GET(request: NextRequest) {
     locationCode: row.location.code,
     locationName: row.location.name,
     locationType: row.location.type,
-    quantity: row.quantity,
+    quantity: num(row.quantity),
     quantityInAlternateUnit:
       row.variant.saleToStockFactor && row.variant.altUnit
-        ? Number((row.quantity * row.variant.saleToStockFactor).toFixed(4))
+        ? Number(mul(row.quantity, row.variant.saleToStockFactor).toFixed(4))
         : null,
   }))
 

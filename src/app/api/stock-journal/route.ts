@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { num } from '@/lib/money'
 
 const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF', 'FINANCE']
 
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
       unit: entry.variant.stockUnit,
       fromLocation: null,
       toLocation: entry.location.name,
-      quantity: entry.quantityAddedToStock ?? entry.receivedQty,
+      quantity: num(entry.quantityAddedToStock ?? entry.receivedQty),
       date: entry.createdAt.toISOString(),
       actor: entry.user.name,
       note: entry.note ?? null,
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
       unit: item.variant.stockUnit,
       fromLocation: transfer.fromLocation.name,
       toLocation: transfer.toLocation.name,
-      quantity: -(item.dispatchedQty || item.requestedQty || 0),
+      quantity: -num(item.dispatchedQty ?? item.requestedQty),
       date: (transfer.receivedAt || transfer.dispatchedAt || transfer.updatedAt).toISOString(),
       actor: transfer.requestedByUser.name,
       note: transfer.note ?? null,
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
       unit: entry.variant.stockUnit,
       fromLocation: entry.location.name,
       toLocation: entry.location.name,
-      quantity: entry.delta,
+      quantity: num(entry.delta),
       date: entry.createdAt.toISOString(),
       actor: entry.user.name,
       note: entry.note || entry.reason || null,

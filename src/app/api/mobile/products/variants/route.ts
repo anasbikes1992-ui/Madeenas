@@ -15,6 +15,9 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
+import { num } from '@/lib/money'
+import { computeRetailPrice } from '@/lib/pricing'
+import { getRetailMarkup, getVatRate } from '@/lib/settings'
 
 export async function GET(request: NextRequest) {
   const user = await getMobileUser(request)
@@ -80,6 +83,8 @@ export async function GET(request: NextRequest) {
     prisma.product.count({ where: productWhere }),
   ])
 
+  const [markup, taxRate] = await Promise.all([getRetailMarkup(), getVatRate()])
+
   // Shape the response so each ProductVariant exposes a clean `stock` summary
   const shaped = products.map((product) => ({
     id: product.id,
@@ -94,20 +99,24 @@ export async function GET(request: NextRequest) {
       stockUnitLabel: variant.stockUnitLabel,
       saleUnit: variant.saleUnit,
       saleUnitLabel: variant.saleUnitLabel,
-      saleToStockFactor: variant.saleToStockFactor,
-      costPrice: variant.costPrice,
-      salePrice: variant.salePrice,
-      lowStockAt: variant.lowStockAt,
+      saleToStockFactor: num(variant.saleToStockFactor, 1),
+      costPrice: variant.costPrice === null ? null : num(variant.costPrice),
+      // Authoritative POS price. Clients display this and must never compute
+      // their own markup — the server owns pricing.
+      salePrice: variant.salePrice === null ? null : num(variant.salePrice),
+      retailPrice: computeRetailPrice(variant.costPrice, markup),
+      lowStockAt: num(variant.lowStockAt),
       // Normalized stock: if locationId was provided return a single quantity,
       // otherwise return the full per-location breakdown
       stock: locationId
-        ? ((variant.stocks as Array<{ locationId: string; quantity: number }>)[0]?.quantity ?? 0)
-        : (variant.stocks as Array<{ location: { id: string; name: string; code: string; type: string }; quantity: number }>).map((sv) => ({
-            location: sv.location,
-            quantity: sv.quantity,
+        ? num(variant.stocks[0]?.quantity)
+        : variant.stocks.map((sv) => ({
+            location: 'location' in sv ? sv.location : null,
+            quantity: num(sv.quantity),
           })),
     })),
   }))
 
-  return ok({ products: shaped, total, page, limit })
+  // taxRate travels with the catalogue so the app never hardcodes VAT.
+  return ok({ products: shaped, total, page, limit, taxRate })
 }

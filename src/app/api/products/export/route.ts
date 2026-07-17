@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
+import { num } from '@/lib/money'
 
 function toCsvValue(value: string | number | null | undefined) {
   if (value === null || value === undefined) return ''
@@ -64,9 +65,9 @@ export async function GET(request: NextRequest) {
           colorHex: variant.colorHex,
           stockUnit: variant.stockUnit,
           altUnit: variant.altUnit || '',
-          saleToStockFactor: variant.saleToStockFactor || 1,
-          lowStockAt: variant.lowStockAt || 0,
-          costPrice: variant.costPrice,
+          saleToStockFactor: num(variant.saleToStockFactor, 1),
+          lowStockAt: num(variant.lowStockAt),
+          costPrice: variant.costPrice === null ? null : num(variant.costPrice),
           locationCode: '',
           locationName: '',
           stockQuantity: 0,
@@ -84,12 +85,12 @@ export async function GET(request: NextRequest) {
         colorHex: variant.colorHex,
         stockUnit: variant.stockUnit,
         altUnit: variant.altUnit || '',
-        saleToStockFactor: variant.saleToStockFactor || 1,
-        lowStockAt: variant.lowStockAt || 0,
-        costPrice: variant.costPrice,
+        saleToStockFactor: num(variant.saleToStockFactor, 1),
+        lowStockAt: num(variant.lowStockAt),
+        costPrice: variant.costPrice === null ? null : num(variant.costPrice),
         locationCode: stock.location.code,
         locationName: stock.location.name,
-        stockQuantity: stock.quantity,
+        stockQuantity: num(stock.quantity),
         isActive: product.isActive && variant.isActive,
       }))
     })

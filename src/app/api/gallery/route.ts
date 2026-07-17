@@ -5,6 +5,10 @@ import { sendOrderWhatsAppNotifications } from '@/lib/whatsapp'
 import { createNotification } from '@/lib/audit'
 import { limitRequestsAsync } from '@/lib/rate-limit'
 import { auth } from '@/lib/auth'
+import { computeRetailPrice } from '@/lib/pricing'
+import { getRetailMarkup, getVatRate } from '@/lib/settings'
+import { computeSaleTotals } from '@/lib/money'
+import { nextDocNumber } from '@/lib/doc-number'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 
@@ -68,23 +72,6 @@ async function ensureCustomerUser(name: string, email: string, phone: string | n
   return user.id
 }
 
-async function generateOrderNumber() {
-  const year = new Date().getFullYear()
-  const prefix = `ORD-${year}`
-  const lastOrder = await prisma.customerOrder.findFirst({
-    where: { orderNumber: { startsWith: prefix } },
-    orderBy: { orderNumber: 'desc' },
-  })
-
-  let sequence = 1
-  if (lastOrder) {
-    const lastSequence = parseInt(lastOrder.orderNumber.split('-')[2] || '0', 10)
-    if (!Number.isNaN(lastSequence)) sequence = lastSequence + 1
-  }
-
-  return `${prefix}-${String(sequence).padStart(4, '0')}`
-}
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const category = searchParams.get('category')
@@ -99,7 +86,7 @@ export async function GET(request: NextRequest) {
     { variants: { some: { colorName: { contains: search, mode: 'insensitive' } } } },
   ]
 
-  const [products, total, categories] = await Promise.all([
+  const [products, total, categories, markup, vatRate] = await Promise.all([
     prisma.product.findMany({
       where,
       include: {
@@ -131,9 +118,33 @@ export async function GET(request: NextRequest) {
         },
       },
     }),
+    getRetailMarkup(),
+    getVatRate(),
   ])
 
-  return NextResponse.json({ products, total, categories, page, limit })
+  // Retail prices are computed server-side and cost prices are never exposed
+  // to the storefront. Clients display `retailPrice` as-is; a null value means
+  // the variant is not priced and cannot be ordered.
+  const pricedProducts = products.map((product) => {
+    const variants = product.variants.map(({ costPrice, ...variant }) => ({
+      ...variant,
+      retailPrice: computeRetailPrice(costPrice, markup),
+    }))
+    return {
+      ...product,
+      variants,
+      retailPrice: variants[0]?.retailPrice ?? null,
+    }
+  })
+
+  return NextResponse.json({
+    products: pricedProducts,
+    total,
+    categories,
+    page,
+    limit,
+    taxRate: vatRate,
+  })
 }
 
 export async function POST(request: NextRequest) {
@@ -189,68 +200,72 @@ export async function POST(request: NextRequest) {
       }
 
       const variantMap = new Map(variants.map((variant) => [variant.id, variant]))
-      const taxRate = 18
+      const [markup, taxRate] = await Promise.all([getRetailMarkup(), getVatRate()])
+
       const lineItems = parsedBatch.data.items.map((item) => {
         const variant = variantMap.get(item.variantId)
         if (!variant) {
           throw new Error('One or more variants are not available')
         }
-        const unitPrice = variant.costPrice && variant.costPrice > 0 ? variant.costPrice * 1.25 : 1
-        const subTotal = unitPrice * item.quantity
-        const taxAmount = (subTotal * taxRate) / 100
+        const unitPrice = computeRetailPrice(variant.costPrice, markup)
+        if (unitPrice === null) {
+          throw new Error(
+            `${variant.product.name} (${variant.colorName}) is not priced and cannot be ordered`
+          )
+        }
         return {
           variantId: item.variantId,
           quantity: item.quantity,
           unitPrice,
-          subTotal,
-          taxRate,
-          taxAmount,
-          total: subTotal + taxAmount,
           variant,
           colorPreference: item.colorPreference,
           note: item.note,
         }
       })
 
-      const subTotal = lineItems.reduce((sum, item) => sum + item.subTotal, 0)
-      const taxAmount = lineItems.reduce((sum, item) => sum + item.taxAmount, 0)
-      const grandTotal = subTotal + taxAmount
+      // Exact decimal totals — same engine as the sale path.
+      const totals = computeSaleTotals(
+        lineItems.map((item) => ({ unitPrice: item.unitPrice, quantity: item.quantity })),
+        taxRate
+      )
 
-      const order = await prisma.customerOrder.create({
-        data: {
-          orderNumber: await generateOrderNumber(),
-          customerId,
-          status: 'PENDING',
-          subTotal,
-          taxRate,
-          taxAmount,
-          grandTotal,
-          shippingAddress: 'Address will be confirmed with customer',
-          customerPhone: parsedBatch.data.customerPhone ?? 'UNKNOWN',
-          note: lineItems
-            .map((item) => {
-              const extra = [item.colorPreference ? `color=${item.colorPreference}` : null, item.note]
-                .filter(Boolean)
-                .join(', ')
-              return extra ? `${item.variant.product.name} (${item.variant.colorName}): ${extra}` : null
-            })
-            .filter(Boolean)
-            .join('\n') || null,
-          items: {
-            create: lineItems.map((item) => ({
-              variantId: item.variantId,
-              saleUnit: item.variant.stockUnit,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              subTotal: item.subTotal,
-              total: item.total,
-            })),
+      const order = await prisma.$transaction(async (tx) =>
+        tx.customerOrder.create({
+          data: {
+            orderNumber: await nextDocNumber(tx, 'order'),
+            customerId,
+            status: 'PENDING',
+            subTotal: totals.subTotal,
+            taxRate: totals.taxRate,
+            taxAmount: totals.taxAmount,
+            grandTotal: totals.grandTotal,
+            shippingAddress: 'Address will be confirmed with customer',
+            customerPhone: parsedBatch.data.customerPhone ?? 'UNKNOWN',
+            note: lineItems
+              .map((item) => {
+                const extra = [item.colorPreference ? `color=${item.colorPreference}` : null, item.note]
+                  .filter(Boolean)
+                  .join(', ')
+                return extra ? `${item.variant.product.name} (${item.variant.colorName}): ${extra}` : null
+              })
+              .filter(Boolean)
+              .join('\n') || null,
+            items: {
+              create: lineItems.map((item, index) => ({
+                variantId: item.variantId,
+                saleUnit: item.variant.stockUnit,
+                quantity: item.quantity,
+                unitPrice: totals.items[index].unitPrice,
+                subTotal: totals.items[index].subTotal,
+                total: totals.items[index].total,
+              })),
+            },
           },
-        },
-        include: {
-          items: true,
-        },
-      })
+          include: {
+            items: true,
+          },
+        })
+      )
 
       await createNotification({
         role: 'ADMIN',
@@ -311,39 +326,47 @@ export async function POST(request: NextRequest) {
       session?.user?.role === 'CUSTOMER'
         ? (session.user.id as string)
         : await ensureCustomerUser(parsed.customerName, parsed.customerEmail, parsed.customerPhone)
-    const unitPrice = variant.costPrice && variant.costPrice > 0 ? variant.costPrice * 1.25 : 1
-    const subTotal = unitPrice * parsed.quantity
-    const taxRate = 18
-    const taxAmount = (subTotal * taxRate) / 100
-    const grandTotal = subTotal + taxAmount
 
-    const order = await prisma.customerOrder.create({
-      data: {
-        orderNumber: await generateOrderNumber(),
-        customerId,
-        status: 'PENDING',
-        subTotal,
-        taxRate,
-        taxAmount,
-        grandTotal,
-        shippingAddress: 'Address will be confirmed with customer',
-        customerPhone: parsed.customerPhone ?? 'UNKNOWN',
-        note: parsed.note,
-        items: {
-          create: [
-            {
-              variantId: parsed.variantId,
-              saleUnit: variant.stockUnit,
-              quantity: parsed.quantity,
-              unitPrice,
-              subTotal,
-              total: grandTotal,
-            },
-          ],
+    const [markup, taxRate] = await Promise.all([getRetailMarkup(), getVatRate()])
+    const unitPrice = computeRetailPrice(variant.costPrice, markup)
+    if (unitPrice === null) {
+      return NextResponse.json(
+        { error: `${variant.product.name} (${variant.colorName}) is not priced and cannot be ordered` },
+        { status: 409 }
+      )
+    }
+
+    const totals = computeSaleTotals([{ unitPrice, quantity: parsed.quantity }], taxRate)
+
+    const order = await prisma.$transaction(async (tx) =>
+      tx.customerOrder.create({
+        data: {
+          orderNumber: await nextDocNumber(tx, 'order'),
+          customerId,
+          status: 'PENDING',
+          subTotal: totals.subTotal,
+          taxRate: totals.taxRate,
+          taxAmount: totals.taxAmount,
+          grandTotal: totals.grandTotal,
+          shippingAddress: 'Address will be confirmed with customer',
+          customerPhone: parsed.customerPhone ?? 'UNKNOWN',
+          note: parsed.note,
+          items: {
+            create: [
+              {
+                variantId: parsed.variantId,
+                saleUnit: variant.stockUnit,
+                quantity: parsed.quantity,
+                unitPrice: totals.items[0].unitPrice,
+                subTotal: totals.items[0].subTotal,
+                total: totals.items[0].total,
+              },
+            ],
+          },
         },
-      },
-      include: { items: true },
-    })
+        include: { items: true },
+      })
+    )
 
     await createNotification({
       role: 'ADMIN',

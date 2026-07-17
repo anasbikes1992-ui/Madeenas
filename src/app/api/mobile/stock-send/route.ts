@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
+import { num } from '@/lib/money'
 import { z } from 'zod'
 
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
   for (const item of payload.items) {
     const variant = variantMap.get(item.variantId)
     if (!variant || !variant.isActive) return fail('Variant not found', 404, 'NOT_FOUND')
-    const available = stockMap.get(item.variantId) ?? 0
+    const available = num(stockMap.get(item.variantId))
     if (available < item.quantityDispatched) {
       return fail(`Insufficient stock for ${variant.product?.name}. Available: ${available}`, 422, 'INSUFFICIENT_STOCK')
     }

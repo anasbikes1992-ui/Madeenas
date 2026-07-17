@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/db'
+import { num } from '@/lib/money'
 import { z } from 'zod'
 
 // =============================================================================
@@ -296,10 +297,10 @@ export async function calculateBulkPricing(
 
       let totalStock = 0
       product.variants.forEach((v) => {
-        totalStock += v.stocks.reduce((sum: number, s: any) => sum + s.quantity, 0)
+        totalStock += v.stocks.reduce((sum, s) => sum + num(s.quantity), 0)
       })
-      
-      const lowStockAt = product.variants.length > 0 ? product.variants[0].lowStockAt : 10;
+
+      const lowStockAt = product.variants.length > 0 ? num(product.variants[0].lowStockAt, 10) : 10
       const maxStock = lowStockAt * 10 // Rough estimate
 
       const context: PricingContext = {

@@ -25,18 +25,43 @@ describe('customerOrderAdminUpdateSchema', () => {
 })
 
 describe('productCreateSchema', () => {
-  it('validates hex color', () => {
+  const validVariant = {
+    colorName: 'Blue',
+    colorHex: '#112233',
+    sku: 'TST-001',
+    stockUnit: 'metres',
+    stockUnitLabel: 'Metres',
+    saleUnit: 'metres',
+    saleUnitLabel: 'Metres',
+    saleToStockFactor: 1,
+    lowStockAt: 10,
+  }
+
+  it('accepts a product with at least one variant', () => {
     const ok = productCreateSchema.safeParse({
       name: 'Test',
-      design: 'Solid',
-      sku: 'TST-001',
-      color: 'Blue',
-      colorHex: '#112233',
       categoryId: 'cat1',
-      unit: 'meters',
-      lowStockAt: 10,
+      variants: [validVariant],
     })
     expect(ok.success).toBe(true)
+  })
+
+  it('rejects an invalid hex color', () => {
+    const bad = productCreateSchema.safeParse({
+      name: 'Test',
+      categoryId: 'cat1',
+      variants: [{ ...validVariant, colorHex: 'blue' }],
+    })
+    expect(bad.success).toBe(false)
+  })
+
+  it('requires at least one variant', () => {
+    const bad = productCreateSchema.safeParse({
+      name: 'Test',
+      categoryId: 'cat1',
+      variants: [],
+    })
+    expect(bad.success).toBe(false)
   })
 })
 

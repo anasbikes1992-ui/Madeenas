@@ -67,12 +67,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (action === 'reject' || action === 'cancel') {
-      const updated = await prisma.stockTransfer.update({
-        where: { id },
-        data: {
-          status: 'CANCELLED',
-        },
+      // Only pre-dispatch transfers can be cancelled — cancelling a dispatched
+      // transfer would strand already-deducted stock.
+      const cancelled = await prisma.stockTransfer.updateMany({
+        where: { id, status: { in: ['PENDING', 'APPROVED'] } },
+        data: { status: 'CANCELLED' },
       })
+      if (cancelled.count === 0) {
+        return NextResponse.json(
+          { error: 'Only pending or approved transfers can be cancelled' },
+          { status: 409 }
+        )
+      }
+      const updated = await prisma.stockTransfer.findUnique({ where: { id } })
       return NextResponse.json(updated)
     }
 
@@ -80,62 +87,103 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (!hasPermission(role, 'stock.dispatch', session?.user)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
       const updated = await prisma.$transaction(async (tx) => {
-        // deduct stock
-        for (const item of existing.items) {
-          await tx.stock.updateMany({
-            where: { variantId: item.variantId, locationId: existing.fromLocationId },
-            data: { quantity: { decrement: item.requestedQty } },
-          })
-        }
-        return tx.stockTransfer.update({
-          where: { id },
+        // Status-guarded transition prevents double dispatch (which would
+        // deduct stock twice).
+        const transition = await tx.stockTransfer.updateMany({
+          where: { id, status: 'APPROVED' },
           data: {
             status: 'DISPATCHED',
             dispatchedBy: session.user.id,
             dispatchedAt: new Date(),
           },
         })
+        if (transition.count === 0) {
+          throw new Error('TRANSFER_NOT_DISPATCHABLE')
+        }
+
+        // Guarded decrement: the quantity >= needed condition makes
+        // overselling the source location impossible under concurrency.
+        for (const item of existing.items) {
+          const deducted = await tx.stock.updateMany({
+            where: {
+              variantId: item.variantId,
+              locationId: existing.fromLocationId,
+              quantity: { gte: item.requestedQty },
+            },
+            data: { quantity: { decrement: item.requestedQty } },
+          })
+          if (deducted.count === 0) {
+            throw new Error(`INSUFFICIENT_STOCK:${item.variantId}`)
+          }
+          await tx.stockTransferItem.update({
+            where: { id: item.id },
+            data: { dispatchedQty: item.requestedQty },
+          })
+        }
+
+        return tx.stockTransfer.findUnique({ where: { id }, include: { items: true } })
       })
       return NextResponse.json(updated)
     }
 
     if (action === 'acknowledge') {
       const updated = await prisma.$transaction(async (tx) => {
-        // add stock
-        for (const item of existing.items) {
-          const s = await tx.stock.findFirst({
-            where: { variantId: item.variantId, locationId: existing.toLocationId }
-          })
-          if (s) {
-            await tx.stock.update({
-              where: { id: s.id },
-              data: { quantity: { increment: item.requestedQty } }
-            })
-          } else {
-            await tx.stock.create({
-              data: {
-                variantId: item.variantId,
-                locationId: existing.toLocationId,
-                quantity: item.requestedQty
-              }
-            })
-          }
-        }
-        return tx.stockTransfer.update({
-          where: { id },
+        // Only a dispatched transfer can be received, and only once.
+        const transition = await tx.stockTransfer.updateMany({
+          where: { id, status: 'DISPATCHED' },
           data: {
             status: 'RECEIVED',
             receivedBy: session.user.id,
             receivedAt: new Date(),
           },
         })
+        if (transition.count === 0) {
+          throw new Error('TRANSFER_NOT_RECEIVABLE')
+        }
+
+        for (const item of existing.items) {
+          const qty = item.dispatchedQty ?? item.requestedQty
+          await tx.stock.upsert({
+            where: {
+              variantId_locationId: {
+                variantId: item.variantId,
+                locationId: existing.toLocationId,
+              },
+            },
+            update: { quantity: { increment: qty } },
+            create: {
+              variantId: item.variantId,
+              locationId: existing.toLocationId,
+              quantity: qty,
+            },
+          })
+          await tx.stockTransferItem.update({
+            where: { id: item.id },
+            data: { receivedQty: qty },
+          })
+        }
+
+        return tx.stockTransfer.findUnique({ where: { id }, include: { items: true } })
       })
       return NextResponse.json(updated)
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
   } catch (err: unknown) {
-    console.error('stock-out PATCH:', err)
+    const message = err instanceof Error ? err.message : ''
+    if (message.startsWith('INSUFFICIENT_STOCK:')) {
+      return NextResponse.json(
+        { error: `Insufficient stock at source location for variant ${message.split(':')[1]}` },
+        { status: 422 }
+      )
+    }
+    if (message === 'TRANSFER_NOT_DISPATCHABLE') {
+      return NextResponse.json({ error: 'Transfer must be approved before dispatch' }, { status: 409 })
+    }
+    if (message === 'TRANSFER_NOT_RECEIVABLE') {
+      return NextResponse.json({ error: 'Transfer must be dispatched before receiving' }, { status: 409 })
+    }
+    console.error('transfers PATCH:', err)
     return NextResponse.json({ error: 'Update failed' }, { status: 500 })
   }
 }

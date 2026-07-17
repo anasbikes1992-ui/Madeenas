@@ -79,25 +79,39 @@ export const customerOrderAdminUpdateSchema = z
     path: ['status'],
   })
 
+/**
+ * Sale line item. Prices and totals are ALWAYS computed server-side from the
+ * variant's salePrice; `unitPrice` is accepted only as an explicit, audited
+ * cashier override (web POS price editing). Legacy fields (`subTotal`,
+ * `saleToStockFactor`) are accepted from older clients but ignored — the
+ * unit conversion factor is resolved from the variant.
+ */
 const saleLineItemSchema = z.object({
   variantId: z.string().min(1, 'Variant is required'),
   saleQty: z.coerce.number().positive('Quantity must be positive'),
-  saleUnit: z.string().min(1, 'Sale unit is required'),
-  saleToStockFactor: z.coerce.number().positive('Factor must be positive'),
-  unitPrice: z.coerce.number().nonnegative(),
-  subTotal: z.coerce.number().nonnegative(),
+  saleUnit: z.string().min(1).optional(),
+  unitPrice: z.coerce.number().nonnegative().optional(),
+  // Legacy client fields — ignored by the server.
+  saleToStockFactor: z.coerce.number().optional(),
+  subTotal: z.coerce.number().optional(),
 })
 
 export const saleCheckoutSchema = z.object({
   locationId: z.string().optional().nullable(),
   items: z.array(saleLineItemSchema).min(1, 'At least one item is required'),
   discountAmount: z.coerce.number().nonnegative().optional().default(0),
-  grandTotal: z.coerce.number().nonnegative().optional(),
+  /** Client's displayed total; when present the server rejects on mismatch (409). */
+  expectedGrandTotal: z.coerce.number().nonnegative().optional(),
+  // Legacy client field — ignored by the server (totals are recomputed).
+  grandTotal: z.coerce.number().optional(),
   paymentMode: z.enum(['CASH', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'CREDIT']).optional().default('CASH'),
   customerName: z.string().max(200).optional().nullable(),
   customerPhone: z.string().max(32).optional().nullable(),
   isCreditEligible: z.boolean().optional(),
   note: z.string().max(2000).optional().nullable(),
+  chequeNo: z.string().max(64).optional().nullable(),
+  chequeBank: z.string().max(128).optional().nullable(),
+  chequeDate: z.coerce.date().optional().nullable(),
 })
 
 const stockInSingleSchema = z.object({

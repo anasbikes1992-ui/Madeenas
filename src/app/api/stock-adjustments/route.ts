@@ -59,10 +59,13 @@ export async function POST(request: NextRequest) {
 
   const { variantId, locationId, countedQuantity, note, reason } = parsed.data
 
-  const [variant, location, currentStock] = await Promise.all([
+  if (countedQuantity < 0) {
+    return NextResponse.json({ error: 'Counted quantity cannot be negative' }, { status: 400 })
+  }
+
+  const [variant, location] = await Promise.all([
     prisma.productVariant.findUnique({ where: { id: variantId }, include: { product: true } }),
     prisma.location.findUnique({ where: { id: locationId }, select: { id: true, name: true, isActive: true } }),
-    prisma.stock.findUnique({ where: { variantId_locationId: { variantId, locationId } } }),
   ])
 
   if (!variant || !variant.isActive || !variant.product.isActive) {
@@ -73,10 +76,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Location not found' }, { status: 404 })
   }
 
-  const previousQuantity = currentStock?.quantity ?? 0
-  const delta = countedQuantity - previousQuantity
+  // Read + write inside one transaction with a row lock, so a concurrent
+  // sale/stock-in between read and write can't be silently overwritten and
+  // the recorded previousQuantity/delta audit values are always accurate.
+  const result = await prisma.$transaction(async (tx) => {
+    const lockedRows = await tx.$queryRaw<Array<{ quantity: unknown }>>`
+      SELECT "quantity" FROM "Stock"
+      WHERE "variantId" = ${variantId} AND "locationId" = ${locationId}
+      FOR UPDATE
+    `
+    const previousQuantity = lockedRows[0] ? Number(lockedRows[0].quantity) : 0
+    const delta = countedQuantity - previousQuantity
 
-  const updated = await prisma.$transaction(async (tx) => {
     const stockRecord = await tx.stock.upsert({
       where: { variantId_locationId: { variantId, locationId } },
       update: { quantity: countedQuantity },
@@ -94,14 +105,16 @@ export async function POST(request: NextRequest) {
         previousQuantity,
         countedQuantity,
         delta,
-        reason: reason as any,
+        reason,
         note: note ?? null,
         adjustedBy: session.user.id,
       },
     })
 
-    return stockRecord
+    return { stockRecord, previousQuantity, delta }
   })
+
+  const { stockRecord: updated, previousQuantity, delta } = result
 
   const direction = delta > 0 ? 'increase' : delta < 0 ? 'decrease' : 'no change'
   const details = [

@@ -6,6 +6,7 @@ import { saleCheckoutSchema } from '@/lib/validations'
 import { captureApiError } from '@/lib/logger'
 import { hasPermission } from '@/lib/permissions'
 import { sendInvoiceWhatsAppNotification } from '@/lib/whatsapp'
+import { createSale, SaleError } from '@/services/sales.service'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -99,113 +100,27 @@ export async function POST(request: NextRequest) {
   const finalLocationId = (locationId || checkout.locationId) as string
 
   try {
-    // Perform Sale creation and Stock deduction in a transaction
-    const sale = await prisma.$transaction(async (tx) => {
-      // 1. Verify stock availability
-      for (const item of checkout.items) {
-        const stockQtyNeeded = item.saleQty * item.saleToStockFactor
-        const stock = await tx.stock.findUnique({
-          where: { variantId_locationId: { variantId: item.variantId, locationId: finalLocationId } }
-        })
-
-        if (!stock || stock.quantity < stockQtyNeeded) {
-          throw new Error(`Insufficient stock for variant ID: ${item.variantId}`)
-        }
-      }
-
-      // 2. Handle Customer & Credit Eligibility
-      let customerId = null
-      if (checkout.customerPhone) {
-        const updateData: { name?: string; isCreditEligible?: boolean } = {}
-        if (checkout.customerName) updateData.name = checkout.customerName
-        if (checkout.isCreditEligible !== undefined) updateData.isCreditEligible = checkout.isCreditEligible
-        
-        const customer = await tx.customer.upsert({
-          where: { phone: checkout.customerPhone },
-          update: Object.keys(updateData).length > 0 ? updateData : { isCreditEligible: false },
-          create: { 
-            name: checkout.customerName || 'Unknown',
-            phone: checkout.customerPhone,
-            isCreditEligible: checkout.isCreditEligible || false
-          }
-        })
-        customerId = customer.id
-        
-        if (checkout.paymentMode === 'CREDIT' && !customer.isCreditEligible) {
-          throw new Error(`Customer ${customer.name} is not eligible for credit.`)
-        }
-      } else if (checkout.paymentMode === 'CREDIT') {
-        throw new Error('Customer phone number is required for credit sales.')
-      }
-
-      // 3. Create the Sale record
-      const receiptNo = `REC-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`
-      
-      const subTotal = checkout.items.reduce((s, i) => s + i.subTotal, 0)
-      const taxRate = 18
-      const taxAmount = subTotal * (taxRate / 100)
-      const discountAmount = checkout.discountAmount || 0
-      const calculatedGrandTotal = subTotal + taxAmount - discountAmount
-
-      const newSale = await tx.sale.create({
-        data: {
-          receiptNo,
-          locationId: finalLocationId,
-          soldById: session.user.id as string,
-          customerId,
-          customerName: checkout.customerName,
-          customerPhone: checkout.customerPhone,
-          discountAmount: discountAmount,
-          subTotal: subTotal,
-          taxRate: taxRate,
-          taxAmount: taxAmount,
-          grandTotal: checkout.grandTotal || calculatedGrandTotal,
-          paymentMode: checkout.paymentMode as any,
-          note: checkout.note,
-          items: {
-            create: checkout.items.map((item) => {
-              const itemTax = item.subTotal * (taxRate / 100)
-              const stockQtyDeducted = item.saleQty * item.saleToStockFactor
-              return {
-                variantId: item.variantId,
-                saleUnit: item.saleUnit,
-                saleQty: item.saleQty,
-                saleToStockFactor: item.saleToStockFactor,
-                stockQtyDeducted: stockQtyDeducted,
-                unitPrice: item.unitPrice,
-                subTotal: item.subTotal,
-                taxRate: taxRate,
-                taxAmount: itemTax,
-                total: item.subTotal + itemTax,
-                costAtSale: 0, // Should be fetched from variant
-                profitAmount: 0 // Will be calculated after costAtSale is updated
-              }
-            })
-          }
-        },
-        include: { items: true }
-      })
-
-      // 4. Deduct stock and create audit logs
-      for (const item of checkout.items) {
-        const stockQtyDeducted = item.saleQty * item.saleToStockFactor
-        await tx.stock.update({
-          where: { variantId_locationId: { variantId: item.variantId, locationId: finalLocationId } },
-          data: { quantity: { decrement: stockQtyDeducted } }
-        })
-
-        await tx.auditLog.create({
-          data: {
-            userId: session.user.id as string,
-            action: 'SALE_DEDUCTION',
-            entity: 'Stock',
-            entityId: item.variantId,
-            details: `Sold ${item.saleQty} ${item.saleUnit} in receipt ${receiptNo}`
-          }
-        })
-      }
-
-      return newSale
+    // All pricing, tax, stock, receipt numbering, credit-ledger, and audit
+    // logic lives in the unified sale engine (services/sales.service.ts).
+    const sale = await createSale({
+      locationId: finalLocationId,
+      soldById: session.user.id as string,
+      items: checkout.items.map((item) => ({
+        variantId: item.variantId,
+        saleQty: item.saleQty,
+        saleUnit: item.saleUnit,
+        unitPriceOverride: item.unitPrice,
+      })),
+      paymentMode: checkout.paymentMode,
+      customerName: checkout.customerName,
+      customerPhone: checkout.customerPhone,
+      isCreditEligible: checkout.isCreditEligible,
+      discountAmount: checkout.discountAmount,
+      note: checkout.note,
+      expectedGrandTotal: checkout.expectedGrandTotal,
+      chequeNo: checkout.chequeNo,
+      chequeBank: checkout.chequeBank,
+      chequeDate: checkout.chequeDate,
     })
 
     const invoiceUrlBase = process.env.NEXT_PUBLIC_APP_URL
@@ -226,7 +141,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ...sale, whatsapp }, { status: 201 })
   } catch (error: unknown) {
     captureApiError(error, { route: 'POST /api/sales' })
-    const message = error instanceof Error ? error.message : 'Sale transaction failed'
-    return NextResponse.json({ error: message }, { status: 400 })
+    if (error instanceof SaleError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status })
+    }
+    return NextResponse.json({ error: 'Sale transaction failed' }, { status: 500 })
   }
 }

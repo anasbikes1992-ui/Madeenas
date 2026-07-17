@@ -1,16 +1,24 @@
 /**
- * Tax Calculation Utilities for VAT (18%)
- * 
- * All calculations use precise floating-point arithmetic.
- * Tax amounts are stored with full precision in the database.
+ * Tax calculation utilities (VAT).
+ *
+ * All arithmetic delegates to src/lib/money.ts, which uses exact decimal
+ * math — never raw floating point. This module keeps a number-based API for
+ * display/UI callers; the authoritative sale figures are computed by
+ * services/sales.service.ts.
+ *
+ * The default rate here is a fallback only: the live VAT rate comes from
+ * AppSetting via `getVatRate()` (src/lib/settings.ts).
  */
+
+import { round2, computeTax as computeTaxDecimal, mul, money } from '@/lib/money';
 
 // =============================================================================
 // TAX CONFIGURATION
 // =============================================================================
 
 export const TAX_CONFIG = {
-  DEFAULT_RATE: 18, // Default VAT rate (18%)
+  /** Fallback only — prefer `getVatRate()` from src/lib/settings.ts. */
+  DEFAULT_RATE: 18,
   ZERO_RATED_CATEGORIES: [] as string[], // Future: zero-rated product categories
   EXEMPT_CUSTOMER_IDS: [] as string[], // Future: tax-exempt customers
 } as const;
@@ -60,11 +68,8 @@ export function calculateTax(
   if (amount < 0) {
     throw new Error('Amount cannot be negative');
   }
-  if (rate < 0 || rate > 100) {
-    throw new Error('Tax rate must be between 0 and 100');
-  }
-  
-  return (amount * rate) / 100;
+
+  return computeTaxDecimal(amount, rate).toNumber();
 }
 
 /**
@@ -78,13 +83,12 @@ export function calculateGrandTotal(
   taxRate: number = TAX_CONFIG.DEFAULT_RATE
 ): TaxCalculation {
   const taxAmount = calculateTax(subTotal, taxRate);
-  const grandTotal = subTotal + taxAmount;
-  
+
   return {
     subTotal,
     taxRate,
     taxAmount,
-    grandTotal,
+    grandTotal: round2(money(subTotal).plus(taxAmount)).toNumber(),
   };
 }
 
@@ -106,18 +110,17 @@ export function calculateLineItemTax(
   if (unitPrice < 0) {
     throw new Error('Unit price cannot be negative');
   }
-  
-  const subTotal = quantity * unitPrice;
+
+  const subTotal = round2(mul(unitPrice, quantity)).toNumber();
   const taxAmount = calculateTax(subTotal, taxRate);
-  const total = subTotal + taxAmount;
-  
+
   return {
     quantity,
     unitPrice,
     subTotal,
     taxRate,
     taxAmount,
-    total,
+    total: round2(money(subTotal).plus(taxAmount)).toNumber(),
   };
 }
 
@@ -134,17 +137,21 @@ export function calculateMultipleItemsTax(
   const itemsWithTax = items.map((item) =>
     calculateLineItemTax(item.quantity, item.unitPrice, taxRate)
   );
-  
-  const subTotal = itemsWithTax.reduce((sum, item) => sum + item.subTotal, 0);
-  const taxAmount = itemsWithTax.reduce((sum, item) => sum + item.taxAmount, 0);
-  const grandTotal = subTotal + taxAmount;
-  
+
+  // Sum exactly, so the lines always add up to the totals to the cent.
+  const subTotal = round2(
+    itemsWithTax.reduce((sum, item) => sum.plus(item.subTotal), money(0))
+  ).toNumber();
+  const taxAmount = round2(
+    itemsWithTax.reduce((sum, item) => sum.plus(item.taxAmount), money(0))
+  ).toNumber();
+
   return {
     items: itemsWithTax,
     subTotal,
     taxRate,
     taxAmount,
-    grandTotal,
+    grandTotal: round2(money(subTotal).plus(taxAmount)).toNumber(),
   };
 }
 
@@ -168,9 +175,9 @@ export function extractTaxFromTotal(
   if (taxRate < 0 || taxRate > 100) {
     throw new Error('Tax rate must be between 0 and 100');
   }
-  
+
   // Formula: taxAmount = total × (rate / (100 + rate))
-  return (totalWithTax * taxRate) / (100 + taxRate);
+  return round2(mul(totalWithTax, taxRate).dividedBy(money(100).plus(taxRate))).toNumber();
 }
 
 /**
@@ -184,7 +191,7 @@ export function extractSubTotalFromTotal(
   taxRate: number = TAX_CONFIG.DEFAULT_RATE
 ): number {
   const taxAmount = extractTaxFromTotal(totalWithTax, taxRate);
-  return totalWithTax - taxAmount;
+  return round2(money(totalWithTax).minus(taxAmount)).toNumber();
 }
 
 /**
@@ -259,24 +266,21 @@ Grand Total: ${formatCurrency(calculation.grandTotal)}
  */
 export function validateTaxCalculation(calculation: TaxCalculation): boolean {
   const expectedTaxAmount = calculateTax(calculation.subTotal, calculation.taxRate);
-  const expectedGrandTotal = calculation.subTotal + expectedTaxAmount;
-  
-  // Allow for small floating-point rounding errors (1 cent)
-  const taxDiff = Math.abs(calculation.taxAmount - expectedTaxAmount);
-  const totalDiff = Math.abs(calculation.grandTotal - expectedGrandTotal);
-  
-  if (taxDiff > 0.01) {
+  const expectedGrandTotal = round2(money(calculation.subTotal).plus(expectedTaxAmount)).toNumber();
+
+  // Decimal math is exact — any mismatch is a real error, not rounding noise.
+  if (!round2(calculation.taxAmount).equals(round2(expectedTaxAmount))) {
     throw new Error(
       `Invalid tax amount: expected ${expectedTaxAmount}, got ${calculation.taxAmount}`
     );
   }
-  
-  if (totalDiff > 0.01) {
+
+  if (!round2(calculation.grandTotal).equals(round2(expectedGrandTotal))) {
     throw new Error(
       `Invalid grand total: expected ${expectedGrandTotal}, got ${calculation.grandTotal}`
     );
   }
-  
+
   return true;
 }
 
@@ -286,7 +290,7 @@ export function validateTaxCalculation(calculation: TaxCalculation): boolean {
  * @returns Rounded amount
  */
 export function roundCurrency(amount: number): number {
-  return Math.round(amount * 100) / 100;
+  return round2(amount).toNumber();
 }
 
 // =============================================================================

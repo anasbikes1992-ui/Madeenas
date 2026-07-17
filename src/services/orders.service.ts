@@ -5,6 +5,8 @@
 
 import { prisma } from '@/lib/db';
 import { prepareSaleData, validateTaxCalculation } from '@/lib/tax';
+import { createSaleInTx, SALE_TX_OPTIONS } from '@/services/sales.service';
+import { num } from '@/lib/money';
 import type { Prisma, OrderStatus } from '@prisma/client';
 import type { CreateOrder } from '@/lib/validation';
 
@@ -409,94 +411,41 @@ export async function fulfillOrder(
   if (order.status !== 'APPROVED' && order.status !== 'PROCESSING') {
     throw new Error('Order must be approved before fulfillment');
   }
-  
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-  const prefix = `RCP-${dateStr}`;
-  
-  const lastSale = await prisma.sale.findFirst({
-    where: { receiptNo: { startsWith: prefix } },
-    orderBy: { receiptNo: 'desc' },
-  });
-  
-  let sequence = 1;
-  if (lastSale) {
-    const lastSequence = parseInt(lastSale.receiptNo.split('-')[2], 10);
-    if (!isNaN(lastSequence)) {
-      sequence = lastSequence + 1;
-    }
-  }
-  
-  const receiptNo = `${prefix}-${sequence.toString().padStart(4, '0')}`;
-  
+
   return prisma.$transaction(async (tx) => {
-    const sale = await tx.sale.create({
-      data: {
-        receiptNo,
-        locationId,
-        soldById: fulfilledBy,
-        customerId: order.customerId,
-        subTotal: order.subTotal,
-        taxRate: order.taxRate,
-        taxAmount: order.taxAmount,
-        grandTotal: order.grandTotal,
-        paymentMode: 'CREDIT',
-        note: `Fulfilled from order ${order.orderNumber}`,
-        items: {
-          create: order.items.map((item) => ({
-            variantId: item.variantId,
-            saleUnit: item.saleUnit,
-            saleQty: item.quantity,
-            saleToStockFactor: 1,
-            stockQtyDeducted: item.quantity,
-            unitPrice: item.unitPrice,
-            subTotal: item.subTotal,
-            taxRate: order.taxRate,
-            taxAmount: (item.subTotal * order.taxRate) / 100,
-            total: item.total,
-          })),
-        },
-      },
-    });
-    
-    for (const item of order.items) {
-      const stock = await tx.stock.findUnique({
-        where: {
-          variantId_locationId: {
-            variantId: item.variantId,
-            locationId,
-          },
-        },
-      });
-      
-      if (!stock || stock.quantity < item.quantity) {
-        throw new Error(
-          `Insufficient stock for variant ${item.variantId}. Required: ${item.quantity}, Available: ${stock?.quantity ?? 0}`
-        );
-      }
-      
-      await tx.stock.update({
-        where: {
-          variantId_locationId: {
-            variantId: item.variantId,
-            locationId,
-          },
-        },
-        data: {
-          quantity: {
-            decrement: item.quantity,
-          },
-        },
-      });
-    }
-    
-    const updatedOrder = await tx.customerOrder.update({
-      where: { id: orderId },
+    // Guarded transition: only one fulfilment can claim the order, so stock
+    // can never be deducted twice by concurrent requests.
+    const claimed = await tx.customerOrder.updateMany({
+      where: { id: orderId, status: { in: ['APPROVED', 'PROCESSING'] } },
       data: {
         status: 'SHIPPED',
         fulfilledBy,
         fulfilledAt: new Date(),
       },
+    });
+    if (claimed.count === 0) {
+      throw new Error('Order must be approved before fulfillment');
+    }
+
+    // Pricing, stock guards, receipt numbering, profit capture, and the credit
+    // ledger all come from the single sale engine.
+    const sale = await createSaleInTx(tx, {
+      locationId,
+      soldById: fulfilledBy,
+      items: order.items.map((item) => ({
+        variantId: item.variantId,
+        saleQty: num(item.quantity),
+        saleUnit: item.saleUnit || undefined,
+        unitPriceOverride: num(item.unitPrice),
+      })),
+      paymentMode: 'CREDIT',
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      note: `Fulfilled from order ${order.orderNumber}`,
+    });
+
+    const updatedOrder = await tx.customerOrder.findUniqueOrThrow({
+      where: { id: orderId },
       include: orderInclude,
     });
     
@@ -517,7 +466,7 @@ export async function fulfillOrder(
       order: updatedOrder,
       sale,
     };
-  });
+  }, SALE_TX_OPTIONS);
 }
 
 export async function cancelOrder(orderId: string, cancelledBy: string, reason: string) {

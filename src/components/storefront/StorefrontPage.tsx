@@ -44,7 +44,8 @@ type ProductItem = {
   description?: string | null
   images: string
   lowStockAt: number
-  costPrice?: number | null
+  /** Server-computed retail price; null means the item is not priced. */
+  retailPrice?: number | null
   stocks?: Array<{ quantity: number }>
   category?: CategoryItem | null
 }
@@ -125,8 +126,8 @@ export default function StorefrontPage() {
   }
 
   function estimatedUnitPrice(product: ProductItem) {
-    const base = product.costPrice && product.costPrice > 0 ? product.costPrice * 1.25 : 0
-    return formatCurrency(base)
+    if (product.retailPrice == null) return 'Price on request'
+    return formatCurrency(product.retailPrice)
   }
 
   async function load() {

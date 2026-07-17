@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { logActivity } from '@/lib/audit'
+import { createSaleInTx, SaleError, SALE_TX_OPTIONS } from '@/services/sales.service'
 import { z } from 'zod'
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
@@ -11,11 +12,9 @@ const fulfillSchema = z.object({
   paymentMode: z.enum(['CASH', 'BANK_TRANSFER', 'CHEQUE', 'CREDIT']).optional(),
   unitPrice: z.number().positive().optional(),
   note: z.string().max(500).optional(),
+  chequeNo: z.string().max(64).optional(),
+  chequeBank: z.string().max(128).optional(),
 })
-
-async function generateReceiptNo() {
-  return `REC-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`
-}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -81,114 +80,50 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const paymentMode = parsed.data.paymentMode || 'CASH'
-  const taxRate = order.taxRate
 
   try {
+    // The sale and the order status flip share one transaction, so an order can
+    // never be marked DELIVERED without its sale (or vice versa). All pricing,
+    // stock, receipt-numbering, and credit-ledger logic lives in the sale engine.
     const result = await prisma.$transaction(async (tx) => {
-      for (const item of order.items) {
-        const stock = await tx.stock.findUnique({
-          where: {
-            variantId_locationId: {
-              variantId: item.variantId,
-              locationId,
-            },
-          },
-        })
-
-        if (!stock || stock.quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${item.variant.product.name} (${item.variant.colorName})`)
-        }
-      }
-
-      let customerId: string | null = null
-      if (order.customerPhone && order.customerPhone !== 'UNKNOWN') {
-        const customer = await tx.customer.upsert({
-          where: { phone: order.customerPhone },
-          update: {
-            name: order.customer?.name || '',
-            email: order.customer?.email,
-          },
-          create: {
-            name: order.customer?.name || '',
-            phone: order.customerPhone,
-            email: order.customer?.email,
-          },
-        })
-        customerId = customer.id
-      }
-
-      const lineItems = order.items.map((item) => {
-        const unitPrice = parsed.data.unitPrice ?? item.unitPrice ?? item.variant.costPrice ?? 0
-        if (unitPrice <= 0) {
-          throw new Error(`Missing unit price for ${item.variant.product.name}`)
-        }
-        const subTotal = unitPrice * item.quantity
-        const taxAmount = (subTotal * taxRate) / 100
-        return {
-          variantId: item.variantId,
-          saleUnit: item.saleUnit || item.variant.stockUnit,
-          saleQty: item.quantity,
-          saleToStockFactor: 1, // default
-          stockQtyDeducted: item.quantity,
-          unitPrice,
-          subTotal,
-          taxRate,
-          taxAmount,
-          total: subTotal + taxAmount,
-        }
-      })
-
-      const subTotal = lineItems.reduce((sum, item) => sum + item.subTotal, 0)
-      const taxAmount = lineItems.reduce((sum, item) => sum + item.taxAmount, 0)
-      const grandTotal = subTotal + taxAmount
-      const receiptNo = await generateReceiptNo()
-
-      const sale = await tx.sale.create({
-        data: {
-          receiptNo,
-          locationId,
-          soldById: session.user.id as string,
-          customerId,
-          customerName: order.customer?.name,
-          customerPhone: order.customerPhone,
-          grandTotal,
-          subTotal,
-          taxRate,
-          taxAmount,
-          paymentMode,
-          note: parsed.data.note || `Fulfilled from customer order ${order.id}`,
-          items: {
-            create: lineItems,
-          },
-        },
-        include: {
-          items: true,
-        },
-      })
-
-      for (const item of lineItems) {
-        await tx.stock.update({
-          where: {
-            variantId_locationId: {
-              variantId: item.variantId,
-              locationId,
-            },
-          },
-          data: {
-            quantity: { decrement: item.stockQtyDeducted },
-          },
-        })
-      }
-
-      const updatedOrder = await tx.customerOrder.update({
-        where: { id: order.id },
+      // Guarded status transition prevents a double fulfilment racing through
+      // and deducting stock twice.
+      const claimed = await tx.customerOrder.updateMany({
+        where: { id: order.id, status: { notIn: ['CANCELLED', 'DELIVERED'] } },
         data: {
           status: 'DELIVERED',
           fulfilledBy: session.user.id as string,
           fulfilledAt: new Date(),
+        },
+      })
+      if (claimed.count === 0) {
+        throw new SaleError('Order cannot be fulfilled in its current status', 'ORDER_NOT_FULFILLABLE', 409)
+      }
+
+      const sale = await createSaleInTx(tx, {
+        locationId,
+        soldById: session.user.id as string,
+        items: order.items.map((item) => ({
+          variantId: item.variantId,
+          saleQty: Number(item.quantity),
+          saleUnit: item.saleUnit || undefined,
+          unitPriceOverride: parsed.data.unitPrice ?? Number(item.unitPrice),
+        })),
+        paymentMode,
+        customerName: order.customer?.name ?? order.customerName,
+        customerPhone:
+          order.customerPhone && order.customerPhone !== 'UNKNOWN' ? order.customerPhone : null,
+        note: parsed.data.note || `Fulfilled from customer order ${order.id}`,
+        chequeNo: parsed.data.chequeNo,
+        chequeBank: parsed.data.chequeBank,
+      })
+
+      const updatedOrder = await tx.customerOrder.update({
+        where: { id: order.id },
+        data: {
           note: order.note
-            ? `${order.note}\n[Fulfilled as sale ${receiptNo}]`
-            : `[Fulfilled as sale ${receiptNo}]`,
+            ? `${order.note}\n[Fulfilled as sale ${sale.receiptNo}]`
+            : `[Fulfilled as sale ${sale.receiptNo}]`,
         },
       })
 
@@ -198,12 +133,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           action: 'FULFILL_CUSTOMER_ORDER',
           entity: 'CustomerOrder',
           entityId: order.id,
-          details: `Order fulfilled to sale ${receiptNo} at location ${locationId}`,
+          details: `Order fulfilled to sale ${sale.receiptNo} at location ${locationId}`,
         },
       })
 
       return { sale, order: updatedOrder }
-    })
+    }, SALE_TX_OPTIONS)
 
     await logActivity({
       userId: session.user.id,
@@ -215,7 +150,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json(result)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Fulfillment failed'
-    return NextResponse.json({ error: message }, { status: 400 })
+    if (error instanceof SaleError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status })
+    }
+    console.error('[customer-orders/fulfill]', error)
+    return NextResponse.json({ error: 'Fulfillment failed' }, { status: 500 })
   }
 }

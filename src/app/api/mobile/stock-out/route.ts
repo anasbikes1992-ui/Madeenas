@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { ok, fail } from '@/lib/api-response'
 import { getMobileUser } from '@/lib/get-mobile-user'
 import { logActivity } from '@/lib/audit'
+import { num } from '@/lib/money'
 import { z } from 'zod'
 
 const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORE_KEEPER', 'SHOP_STAFF'])
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
   const stock = await prisma.stock.findUnique({
     where: { variantId_locationId: { variantId, locationId: fromLocationId } },
   })
-  const available = stock?.quantity ?? 0
+  const available = num(stock?.quantity)
   if (available < quantityRequested) {
     return fail(
       `Insufficient stock. Available: ${available} ${variant.stockUnit}`,

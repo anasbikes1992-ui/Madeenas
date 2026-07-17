@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/db'
+import { num } from '@/lib/money'
 import { startOfDay, endOfDay, subDays, format } from 'date-fns'
 
 export interface DateRange {
@@ -208,8 +209,8 @@ async function calculateRevenue(startDate: Date, endDate: Date): Promise<Revenue
     },
   })
 
-  const total = sales.reduce((sum, sale) => sum + sale.grandTotal, 0)
-  const taxCollected = sales.reduce((sum, sale) => sum + sale.taxAmount, 0)
+  const total = sales.reduce((sum, sale) => sum + num(sale.grandTotal), 0)
+  const taxCollected = sales.reduce((sum, sale) => sum + num(sale.taxAmount), 0)
   const netRevenue = total - taxCollected
 
   // Previous period for growth calculation
@@ -227,13 +228,13 @@ async function calculateRevenue(startDate: Date, endDate: Date): Promise<Revenue
     select: { grandTotal: true },
   })
 
-  const previousTotal = previousSales.reduce((sum, sale) => sum + sale.grandTotal, 0)
+  const previousTotal = previousSales.reduce((sum, sale) => sum + num(sale.grandTotal), 0)
   const growthRate = previousTotal > 0 ? ((total - previousTotal) / previousTotal) * 100 : 0
 
   // By payment mode
   const byPaymentMode: Record<string, number> = {}
   sales.forEach((sale) => {
-    byPaymentMode[sale.paymentMode] = (byPaymentMode[sale.paymentMode] || 0) + sale.grandTotal
+    byPaymentMode[sale.paymentMode] = (byPaymentMode[sale.paymentMode] || 0) + num(sale.grandTotal)
   })
 
   return {
@@ -274,9 +275,9 @@ async function calculateProfit(startDate: Date, endDate: Date): Promise<ProfitMe
     },
   })
 
-  const totalRevenue = saleItems.reduce((sum, item) => sum + item.total, 0)
+  const totalRevenue = saleItems.reduce((sum, item) => sum + num(item.total), 0)
   const costOfGoodsSold = saleItems.reduce(
-    (sum, item) => sum + (item.costAtSale || item.variant?.costPrice || 0) * item.saleQty,
+    (sum, item) => sum + num(item.costAtSale ?? item.variant?.costPrice) * num(item.saleQty),
     0
   )
 
@@ -318,17 +319,17 @@ async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
   })
 
   const totalValue = variants.reduce((sum, variant) => {
-    const totalStock = variant.stocks.reduce((s, stock) => s + stock.quantity, 0)
-    return sum + totalStock * (variant.costPrice || 0)
+    const totalStock = variant.stocks.reduce((s, stock) => s + num(stock.quantity), 0)
+    return sum + totalStock * num(variant.costPrice)
   }, 0)
 
   const stockouts = variants.filter((v) =>
-    v.stocks.every((s) => s.quantity <= 0)
+    v.stocks.every((s) => num(s.quantity) <= 0)
   ).length
 
   const lowStockItems = variants.filter((v) => {
-    const totalStock = v.stocks.reduce((s, stock) => s + stock.quantity, 0)
-    return totalStock > 0 && totalStock <= (v.lowStockAt || 0)
+    const totalStock = v.stocks.reduce((s, stock) => s + num(stock.quantity), 0)
+    return totalStock > 0 && totalStock <= num(v.lowStockAt)
   }).length
 
   // Dead stock: no sales in 90 days
@@ -338,7 +339,7 @@ async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
 
   for (const variant of variants) {
     const salesLast90Days = variant.saleItems.length
-    const totalStock = variant.stocks.reduce((s, stock) => s + stock.quantity, 0)
+    const totalStock = variant.stocks.reduce((s, stock) => s + num(stock.quantity), 0)
 
     if (salesLast90Days === 0 && totalStock > 0) {
       deadStock.push({
@@ -347,7 +348,7 @@ async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
         quantity: totalStock,
         lastSoldDate: null,
         daysWithoutSale: 90,
-        estimatedValue: totalStock * (variant.costPrice || 0),
+        estimatedValue: totalStock * num(variant.costPrice),
       })
     } else if (salesLast90Days > 20) {
       fastMoving.push(variant.id)
@@ -369,7 +370,7 @@ async function calculateInventoryMetrics(): Promise<InventoryMetrics> {
     _sum: { subTotal: true },
   })
 
-  const turnoverRate = avgInventoryValue > 0 ? (cogs._sum.subTotal || 0) / avgInventoryValue : 0
+  const turnoverRate = avgInventoryValue > 0 ? num(cogs._sum.subTotal) / avgInventoryValue : 0
 
   return {
     totalValue,
@@ -424,7 +425,7 @@ async function calculateCustomerMetrics(
 
   sales.forEach((sale) => {
     if (!sale.customerId) return
-    customerSpending.set(sale.customerId, (customerSpending.get(sale.customerId) || 0) + sale.grandTotal)
+    customerSpending.set(sale.customerId, (customerSpending.get(sale.customerId) || 0) + num(sale.grandTotal))
     customerOrderCounts.set(sale.customerId, (customerOrderCounts.get(sale.customerId) || 0) + 1)
   })
 
@@ -543,8 +544,8 @@ async function getTopSellingProducts(
 
   return saleItems.map((item) => {
     const variant = variantMap.get(item.variantId)
-    const revenue = item._sum.total || 0
-    const cost = (variant?.costPrice || 0) * (item._sum.saleQty || 0)
+    const revenue = num(item._sum.total)
+    const cost = num(variant?.costPrice) * num(item._sum.saleQty)
     const profit = revenue - cost
     const profitMargin = revenue > 0 ? (profit / revenue) * 100 : 0
 
@@ -552,7 +553,7 @@ async function getTopSellingProducts(
       productId: item.variantId,
       productName: variant ? `${variant.product.name} - ${variant.colorName}` : 'Unknown',
       sku: variant?.sku || '',
-      unitsSold: item._sum.saleQty || 0,
+      unitsSold: num(item._sum.saleQty),
       revenue,
       profit,
       profitMargin,
@@ -618,7 +619,7 @@ async function getTopCustomers(
     .map((sale) => {
       if (!sale.customerId) return null
       const customer = customerMap.get(sale.customerId)
-      const totalSpent = sale._sum.grandTotal || 0
+      const totalSpent = num(sale._sum.grandTotal)
       const orderCount = sale._count.id
       const avgOrderValue = orderCount > 0 ? totalSpent / orderCount : 0
 
@@ -673,8 +674,8 @@ async function getCashFlowAnalysis(
     },
   })
 
-  const cashIn = sales.reduce((sum, sale) => sum + sale.grandTotal, 0)
-  const cashOut = stockIns.reduce((sum, si) => sum + (si.costPrice || 0) * si.quantityAddedToStock, 0)
+  const cashIn = sales.reduce((sum, sale) => sum + num(sale.grandTotal), 0)
+  const cashOut = stockIns.reduce((sum, si) => sum + num(si.costPrice) * num(si.quantityAddedToStock), 0)
 
   // Daily breakdown
   const dailyMap = new Map<string, { cashIn: number; cashOut: number }>()
@@ -682,14 +683,14 @@ async function getCashFlowAnalysis(
   sales.forEach((sale) => {
     const dateKey = format(sale.createdAt, 'yyyy-MM-dd')
     const existing = dailyMap.get(dateKey) || { cashIn: 0, cashOut: 0 }
-    existing.cashIn += sale.grandTotal
+    existing.cashIn += num(sale.grandTotal)
     dailyMap.set(dateKey, existing)
   })
 
   stockIns.forEach((si) => {
     const dateKey = format(si.createdAt, 'yyyy-MM-dd')
     const existing = dailyMap.get(dateKey) || { cashIn: 0, cashOut: 0 }
-    existing.cashOut += (si.costPrice || 0) * si.quantityAddedToStock
+    existing.cashOut += num(si.costPrice) * num(si.quantityAddedToStock)
     dailyMap.set(dateKey, existing)
   })
 
@@ -739,10 +740,10 @@ async function getPredictiveInsights(): Promise<PredictiveInsights> {
   const reorderSuggestions: ReorderSuggestion[] = []
 
   for (const variant of variants) {
-    const totalStock = variant.stocks.reduce((sum, s) => sum + s.quantity, 0)
-    const salesLast30Days = variant.saleItems.reduce((sum, item) => sum + item.saleQty, 0)
+    const totalStock = variant.stocks.reduce((sum, s) => sum + num(s.quantity), 0)
+    const salesLast30Days = variant.saleItems.reduce((sum, item) => sum + num(item.saleQty), 0)
     const avgDailyDemand = salesLast30Days / 30
-    const lowStockAt = variant.lowStockAt || 0
+    const lowStockAt = num(variant.lowStockAt)
 
     // Stock alerts
     if (totalStock <= lowStockAt && totalStock > 0) {
@@ -779,7 +780,7 @@ async function getPredictiveInsights(): Promise<PredictiveInsights> {
         lowStockAt * 2,
         avgDailyDemand * 30 // 30 days supply
       )
-      const estimatedCost = suggestedQuantity * (variant.costPrice || 0)
+      const estimatedCost = suggestedQuantity * num(variant.costPrice)
       const expectedStockoutDate =
         avgDailyDemand > 0
           ? new Date(Date.now() + (totalStock / avgDailyDemand) * 24 * 60 * 60 * 1000)

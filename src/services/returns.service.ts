@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { money, round2, mul, num } from '@/lib/money'
 import { dispatchReturnNotification } from './notification-dispatcher.service'
 
 export const createReturnSchema = z.object({
@@ -82,18 +83,38 @@ export async function createReturnRequest(
     throw new Error('Some sale items not found or do not belong to this sale')
   }
 
-  // Calculate refund amount
-  let totalRefundAmount = 0
+  // Quantities already returned against these sale items, so the same item
+  // cannot be refunded twice (the previous check only compared against the
+  // original purchased quantity).
+  const priorReturns = await prisma.returnItem.groupBy({
+    by: ['saleItemId'],
+    where: {
+      saleItemId: { in: data.items.map((i) => i.saleItemId) },
+      return: { status: { not: 'REJECTED' } },
+    },
+    _sum: { quantity: true },
+  })
+  const returnedSoFar = new Map(priorReturns.map((r) => [r.saleItemId, num(r._sum.quantity)]))
+
+  // Calculate refund amount with exact decimal math.
+  let totalRefund = money(0)
   const returnItemsData = data.items.map((item) => {
     const saleItem = saleItems.find((si) => si.id === item.saleItemId)
     if (!saleItem) throw new Error('Sale item not found')
 
-    if (item.quantity > saleItem.saleQty) {
-      throw new Error('Return quantity exceeds purchased quantity')
+    const alreadyReturned = returnedSoFar.get(item.saleItemId) ?? 0
+    const remaining = num(saleItem.saleQty) - alreadyReturned
+    if (item.quantity > remaining) {
+      throw new Error(
+        `Return quantity exceeds remaining purchased quantity (${remaining} left of ${num(saleItem.saleQty)})`
+      )
     }
 
-    const refundAmount = (saleItem.total / saleItem.saleQty) * item.quantity
-    totalRefundAmount += refundAmount
+    // Refund the line total pro-rata, so tax and discounts are refunded fairly.
+    const refundAmount = round2(
+      mul(money(saleItem.total).dividedBy(money(saleItem.saleQty)), item.quantity)
+    )
+    totalRefund = totalRefund.plus(refundAmount)
 
     return {
       saleItemId: item.saleItemId,
@@ -101,7 +122,7 @@ export async function createReturnRequest(
       quantity: item.quantity,
       unitPrice: saleItem.unitPrice,
       refundAmount,
-      reason: item.reason as any,
+      reason: item.reason,
       note: item.note || null,
       images: item.images || [],
     }
@@ -118,7 +139,7 @@ export async function createReturnRequest(
       customerId,
       status: 'PENDING',
       customerNote: data.customerNote || null,
-      totalRefundAmount,
+      totalRefundAmount: round2(totalRefund),
       items: {
         create: returnItemsData,
       },
@@ -160,7 +181,12 @@ export async function approveReturn(
     throw new Error('Return request cannot be approved in current status')
   }
 
-  const finalRefundAmount = adjustedRefundAmount || returnRequest.totalRefundAmount
+  // `??` not `||`: an intentional zero-value refund must stay zero rather than
+  // silently falling back to the full requested amount.
+  const finalRefundAmount = round2(adjustedRefundAmount ?? returnRequest.totalRefundAmount)
+  if (finalRefundAmount.greaterThan(money(returnRequest.totalRefundAmount))) {
+    throw new Error('Approved refund cannot exceed the requested refund amount')
+  }
 
   const updated = await prisma.return.update({
     where: { id: returnId },
@@ -264,11 +290,12 @@ export async function markItemsReceived(
     throw new Error('Cannot restore stock: sale location is missing')
   }
 
-  // Restore stock if condition is acceptable
-  if (condition === 'GOOD' || condition === 'ACCEPTABLE') {
-    await prisma.$transaction(
-      returnRequest.items.map((item) =>
-        prisma.stock.upsert({
+  // Stock restoration and the inspection note are written together: stock can
+  // never be restored without the return recording it, or vice versa.
+  const updated = await prisma.$transaction(async (tx) => {
+    if (condition === 'GOOD' || condition === 'ACCEPTABLE') {
+      for (const item of returnRequest.items) {
+        await tx.stock.upsert({
           where: {
             variantId_locationId: {
               variantId: item.variantId,
@@ -284,15 +311,15 @@ export async function markItemsReceived(
             quantity: { increment: item.quantity },
           },
         })
-      )
-    )
-  }
+      }
+    }
 
-  const updated = await prisma.return.update({
-    where: { id: returnId },
-    data: {
-      adminNote: inspectionNote || null,
-    },
+    return tx.return.update({
+      where: { id: returnId },
+      data: {
+        adminNote: inspectionNote || null,
+      },
+    })
   })
 
   return updated

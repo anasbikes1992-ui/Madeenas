@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { hasPermission } from '@/lib/permissions'
+import { num } from '@/lib/money'
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       }).then(items => {
         const grouped = items.reduce((acc, item) => {
           const date = item.transfer.createdAt.toISOString().split('T')[0]
-          acc[date] = (acc[date] || 0) + (item.dispatchedQty || 0)
+          acc[date] = (acc[date] || 0) + num(item.dispatchedQty)
           return acc
         }, {} as Record<string, number>)
         return Object.entries(grouped).map(([date, qty]) => ({
